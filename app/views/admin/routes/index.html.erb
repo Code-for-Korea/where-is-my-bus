@@ -1,0 +1,46 @@
+<% content_for :page_title, "노선" %>
+
+<div class="flex items-center justify-between mb-5">
+  <p class="text-sm text-gray-500">총 <%= @routes.size %>개</p>
+  <%= link_to "노선 추가", new_admin_route_path(area_id: params[:area_id]),
+        class: "inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-left">
+      <tr>
+        <th class="px-5 py-3 font-medium w-16">순서</th>
+        <th class="px-5 py-3 font-medium">운행지역</th>
+        <th class="px-5 py-3 font-medium">노선</th>
+        <th class="px-5 py-3 font-medium w-24 text-center">배차간격</th>
+        <th class="px-5 py-3 font-medium w-20 text-center">정류장</th>
+        <th class="px-5 py-3 font-medium w-20 text-center">추천</th>
+        <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      <% @routes.each do |route| %>
+        <tr class="hover:bg-gray-50">
+          <td class="px-5 py-3 text-gray-400"><%= route.position %></td>
+          <td class="px-5 py-3 text-gray-500"><%= route.area.full_name %></td>
+          <td class="px-5 py-3 font-medium">
+            <%= link_to route.name, admin_route_path(route), class: "text-indigo-600 hover:underline" %>
+          </td>
+          <td class="px-5 py-3 text-center text-gray-500"><%= route.headway_minutes ? "#{route.headway_minutes}분" : "—" %></td>
+          <td class="px-5 py-3 text-center text-gray-500"><%= route.stops_count %></td>
+          <td class="px-5 py-3 text-center text-gray-500"><%= number_with_delimiter(route.likes_count) %></td>
+          <td class="px-5 py-3 text-right space-x-3">
+            <%= link_to "수정", edit_admin_route_path(route), class: "text-gray-500 hover:text-gray-900" %>
+            <%= button_to "삭제", admin_route_path(route), method: :delete,
+                  form: { data: { turbo_confirm: "삭제하시겠습니까? 하위 정류장도 함께 삭제됩니다." }, class: "inline" },
+                  class: "text-red-500 hover:text-red-700" %>
+          </td>
+        </tr>
+      <% end %>
+      <% if @routes.empty? %>
+        <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">등록된 노선이 없습니다.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

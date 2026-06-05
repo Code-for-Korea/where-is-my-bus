@@ -1,0 +1,60 @@
+<% content_for :title, "#{@route.name} 정류장 · 내 버스는 언제 올까?" %>
+<%
+  hm = @route.headway_minutes
+  headway = if hm.nil? then "—"
+            elsif hm % 60 == 0 then "#{hm / 60}시간"
+            else "#{hm}분" end
+%>
+
+<div class="flex-1 flex flex-col bg-gray-50">
+  <h1 class="px-6 py-4 text-lg font-bold text-gray-900 shrink-0">내 버스는 언제 올까?</h1>
+
+  <div class="flex-1 bg-white rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] flex flex-col min-h-0">
+    <div class="px-6 pt-5 pb-3 shrink-0">
+      <div class="flex items-start justify-between">
+        <p class="text-xs text-gray-400"><%= @route.region.name %> <span class="text-gray-300">|</span> <%= @route.area.name %></p>
+        <%= link_to "✕", route_path(@route), class: "text-gray-400" %>
+      </div>
+      <div class="flex items-center gap-2 mt-1">
+        <span class="text-lg font-bold text-gray-900"><%= @route.name %> 버스</span>
+        <%= button_to like_route_path(@route), method: :post,
+              class: "text-sm font-semibold #{@liked ? 'text-brand-500' : 'text-gray-400'}" do %>
+          👍 <%= number_with_delimiter(@route.likes_count) %>
+        <% end %>
+      </div>
+      <p class="text-xs text-gray-400 mt-1 pb-3 border-b border-gray-100">
+        배차간격 <%= headway %> <span class="text-gray-300">|</span> 총 <%= @stops.size %>개 정류장
+      </p>
+    </div>
+
+    <!-- 정류장 목록 -->
+    <div class="flex-1 overflow-y-auto pl-3 pr-6 pb-6">
+      <% if @stops.any? %>
+        <ol>
+          <% @stops.each_with_index do |stop, i| %>
+            <% here = i == @current_index %>
+            <% last = i == @stops.size - 1 %>
+            <li class="flex items-center">
+              <div class="w-10 shrink-0 flex justify-end pr-1">
+                <% if here %>
+                  <span class="px-1.5 py-0.5 rounded-md bg-brand-500 text-white text-[11px] font-bold">여기</span>
+                <% end %>
+              </div>
+              <div class="relative w-6 shrink-0 self-stretch flex justify-center">
+                <% unless i == 0 %><span class="absolute top-0 h-1/2 w-0.5 bg-brand-400"></span><% end %>
+                <% unless last %><span class="absolute bottom-0 h-1/2 w-0.5 bg-brand-400"></span><% end %>
+                <span class="relative z-10 my-3.5 w-6 h-6 rounded-full border-2 bg-white flex items-center justify-center
+                             <%= here ? 'border-brand-500' : 'border-brand-400' %>">
+                  <% if here %><span class="text-xs leading-none">🚌</span><% end %>
+                </span>
+              </div>
+              <span class="ml-4 text-[15px] <%= here ? 'font-bold text-gray-900' : 'text-gray-700' %>"><%= stop.name %></span>
+            </li>
+          <% end %>
+        </ol>
+      <% else %>
+        <p class="py-10 text-center text-gray-400 text-sm">아직 등록된 정류장이 없습니다.</p>
+      <% end %>
+    </div>
+  </div>
+</div>

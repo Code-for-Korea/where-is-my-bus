@@ -1,0 +1,40 @@
+<% content_for :page_title, "차량" %>
+
+<div class="flex items-center justify-between mb-5">
+  <p class="text-sm text-gray-500">총 <%= @buses.size %>대</p>
+  <%= link_to "차량 추가", new_admin_bus_path(area_id: params[:area_id]),
+        class: "inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-left">
+      <tr>
+        <th class="px-5 py-3 font-medium">운행지역</th>
+        <th class="px-5 py-3 font-medium">번호판</th>
+        <th class="px-5 py-3 font-medium w-32">PIN</th>
+        <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      <% @buses.each do |bus| %>
+        <tr class="hover:bg-gray-50">
+          <td class="px-5 py-3 text-gray-500"><%= bus.area.full_name %></td>
+          <td class="px-5 py-3 font-medium">
+            <%= link_to bus.license_plate, admin_bus_path(bus), class: "text-indigo-600 hover:underline" %>
+          </td>
+          <td class="px-5 py-3 font-mono text-gray-500"><%= bus.pin %></td>
+          <td class="px-5 py-3 text-right space-x-3">
+            <%= link_to "수정", edit_admin_bus_path(bus), class: "text-gray-500 hover:text-gray-900" %>
+            <%= button_to "삭제", admin_bus_path(bus), method: :delete,
+                  form: { data: { turbo_confirm: "삭제하시겠습니까?" }, class: "inline" },
+                  class: "text-red-500 hover:text-red-700" %>
+          </td>
+        </tr>
+      <% end %>
+      <% if @buses.empty? %>
+        <tr><td colspan="4" class="px-5 py-10 text-center text-gray-400">등록된 차량이 없습니다.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,48 @@
+<%= form_with model: [:admin, stop], class: "space-y-5 max-w-lg" do |f| %>
+  <% if stop.errors.any? %>
+    <div class="rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm">
+      <p class="font-medium mb-1"><%= stop.errors.count %>개의 오류가 있습니다.</p>
+      <ul class="list-disc list-inside">
+        <% stop.errors.full_messages.each do |msg| %><li><%= msg %></li><% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= f.label :route_id, "노선", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.collection_select :route_id, Route.includes(area: :region).all, :id,
+          ->(r) { "#{r.area.full_name} · #{r.name}" }, { prompt: "노선 선택" },
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :name, "정류장명", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.text_field :name, placeholder: "예: 욕지도 정류장 4번",
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :position, "순서", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.number_field :position,
+          class: "w-32 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div class="flex gap-4">
+    <div>
+      <%= f.label :latitude, "위도", class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= f.number_field :latitude, step: "any", placeholder: "34.123456",
+            class: "w-44 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
+    <div>
+      <%= f.label :longitude, "경도", class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= f.number_field :longitude, step: "any", placeholder: "128.123456",
+            class: "w-44 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
+  </div>
+  <p class="text-xs text-gray-400 -mt-2">좌표는 비워두면 운전자 앱에서 크라우드소싱으로 등록됩니다.</p>
+
+  <div class="flex items-center gap-3 pt-2">
+    <%= f.submit class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
+    <%= link_to "취소", admin_stops_path(route_id: stop.route_id), class: "text-sm text-gray-500 hover:text-gray-900" %>
+  </div>
+<% end %>

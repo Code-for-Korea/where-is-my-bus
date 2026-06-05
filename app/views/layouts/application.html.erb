@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "내 버스는 언제 올까?" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Web">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
+    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <%# Includes all stylesheet files in app/assets/stylesheets %>
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="bg-gray-50 text-gray-900 min-h-screen">
+    <header class="bg-white border-b border-gray-200">
+      <div class="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
+        <%= link_to "🚌 내 버스는 언제 올까?", root_path, class: "font-bold text-indigo-600" %>
+        <nav class="flex items-center gap-4 text-sm">
+          <% if authenticated? %>
+            <% if Current.user.operator? %>
+              <%= link_to "관리자", admin_root_path, class: "text-gray-600 hover:text-indigo-600" %>
+              <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">운영자</span>
+            <% end %>
+            <span class="text-gray-500"><%= Current.user.email_address %></span>
+            <%= button_to "로그아웃", session_path, method: :delete,
+                  class: "text-gray-600 hover:text-red-600", form: { class: "inline" } %>
+          <% else %>
+            <%= link_to "로그인", new_session_path, class: "text-gray-600 hover:text-indigo-600" %>
+            <%= link_to "회원가입", new_registration_path,
+                  class: "px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700" %>
+          <% end %>
+        </nav>
+      </div>
+    </header>
+
+    <% if notice %>
+      <div class="max-w-3xl mx-auto px-5 mt-4">
+        <div class="rounded-lg bg-green-50 text-green-800 px-4 py-3 text-sm"><%= notice %></div>
+      </div>
+    <% end %>
+    <% if alert %>
+      <div class="max-w-3xl mx-auto px-5 mt-4">
+        <div class="rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm"><%= alert %></div>
+      </div>
+    <% end %>
+
+    <main class="max-w-3xl mx-auto px-5 py-10">
+      <%= yield %>
+    </main>
+  </body>
+</html>

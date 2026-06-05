@@ -1,0 +1,18 @@
+<% content_for :page_title, @region.name %>
+
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4">
+  <div>
+    <div class="text-xs text-gray-400">이름</div>
+    <div class="font-medium"><%= @region.name %></div>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">정렬 순서</div>
+    <div class="font-medium"><%= @region.position %></div>
+  </div>
+
+  <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
+    <%= link_to "수정", edit_admin_region_path(@region),
+          class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
+    <%= link_to "목록", admin_regions_path, class: "text-sm text-gray-500 hover:text-gray-900" %>
+  </div>
+</div>

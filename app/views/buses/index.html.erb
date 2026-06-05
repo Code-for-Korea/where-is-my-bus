@@ -1,0 +1,19 @@
+<% content_for :title, "내 버스는 언제 올까?" %>
+
+<div class="flex-1 flex flex-col px-6">
+  <div class="flex-1 flex flex-col justify-center">
+    <%= render "shared/bus_art" %>
+
+    <h1 class="mt-12 text-2xl font-bold text-gray-900">내 버스는 언제올까?</h1>
+    <p class="mt-3 text-sm text-gray-400 leading-relaxed">
+      버스가 언제 올지... 막연히 기다려야하는<br>
+      시골버스의 불편함을 해결하고 싶었습니다.
+      <%= link_to "자세히 &gt;&gt;".html_safe, service_about_path, class: "text-gray-500 underline ml-1" %>
+    </p>
+
+    <%= link_to "버스는 지금 어디?", service_select_path,
+          class: "mt-8 block text-center rounded-2xl bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 shadow-lg shadow-brand-500/30" %>
+  </div>
+
+  <%= render "shared/footer_orgs" %>
+</div>

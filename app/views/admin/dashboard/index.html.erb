@@ -1,0 +1,17 @@
+<% content_for :page_title, "대시보드" %>
+
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+  <% cards = [
+       ["시·도", "관리되는 광역 행정구역"],
+       ["운행지역", "버스를 운행하는 지역 (예: 통영시 욕지도)"],
+       ["노선", "지역별 버스 노선"],
+       ["정류장", "노선별 정류장과 좌표"],
+       ["차량", "번호판과 운전자 인증 PIN"],
+     ] %>
+  <% cards.each do |title, desc| %>
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="font-semibold text-gray-900"><%= title %></div>
+      <div class="mt-1 text-sm text-gray-500"><%= desc %></div>
+    </div>
+  <% end %>
+</div>

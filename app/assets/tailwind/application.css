@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  /* 시민용(사용자) 보라 테마 */
+  --color-brand-50: #f0eefe;
+  --color-brand-100: #e3e0fd;
+  --color-brand-500: #6c5ce7;
+  --color-brand-600: #5a4bd6;
+  --color-brand-700: #4a3cc0;
+
+  /* 실시간 위치 강조 블루 */
+  --color-live-500: #1f6fff;
+  --color-live-600: #1560f0;
+
+  /* 운전자용 마젠타 테마 (iOS 앱 대응) */
+  --color-driver-500: #e84393;
+  --color-driver-600: #d62f80;
+}

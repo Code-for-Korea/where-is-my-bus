@@ -1,0 +1,29 @@
+<% content_for :title, "로그인" %>
+
+<div class="max-w-sm mx-auto">
+  <h1 class="text-2xl font-bold mb-1">로그인</h1>
+  <p class="text-sm text-gray-500 mb-6">
+    계정이 없으신가요? <%= link_to "회원가입", new_registration_path, class: "text-indigo-600 hover:underline" %>
+  </p>
+
+  <%= form_with url: session_url, class: "space-y-4" do |form| %>
+    <div>
+      <%= form.label :email_address, "이메일", class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username",
+            value: params[:email_address],
+            class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
+
+    <div>
+      <div class="flex items-center justify-between mb-1">
+        <%= form.label :password, "비밀번호", class: "block text-sm font-medium text-gray-700" %>
+        <%= link_to "비밀번호 찾기", new_password_path, class: "text-xs text-gray-400 hover:text-gray-600" %>
+      </div>
+      <%= form.password_field :password, required: true, autocomplete: "current-password", maxlength: 72,
+            class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
+
+    <%= form.submit "로그인",
+          class: "w-full rounded-lg px-4 py-2.5 bg-indigo-600 text-white font-medium hover:bg-indigo-700 cursor-pointer" %>
+  <% end %>
+</div>

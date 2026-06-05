@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <title><%= content_for(:title) || "관리자 · 내 버스는 언제 올까?" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield :head %>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="bg-gray-50 text-gray-900 min-h-screen">
+    <div class="flex min-h-screen">
+      <aside class="w-60 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+        <div class="px-5 py-5 border-b border-gray-200">
+          <%= link_to admin_root_path, class: "block" do %>
+            <div class="text-xs text-gray-400">관리자</div>
+            <div class="font-bold text-indigo-600">내 버스는 언제 올까?</div>
+          <% end %>
+        </div>
+        <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+          <% nav = [
+               ["대시보드", admin_root_path],
+               ["시·도", admin_regions_path],
+               ["운행지역", admin_areas_path],
+               ["노선", admin_routes_path],
+               ["정류장", admin_stops_path],
+               ["차량", admin_buses_path],
+             ] %>
+          <% nav.each do |label, path| %>
+            <%= link_to label, path,
+                  class: "block px-3 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition" %>
+          <% end %>
+        </nav>
+      </aside>
+
+      <div class="flex-1 flex flex-col min-w-0">
+        <header class="h-14 bg-white border-b border-gray-200 flex items-center px-6">
+          <h1 class="font-semibold"><%= content_for(:page_title) || "관리자" %></h1>
+        </header>
+
+        <main class="flex-1 p-6">
+          <% if notice %>
+            <div class="mb-4 rounded-lg bg-green-50 text-green-800 px-4 py-3 text-sm"><%= notice %></div>
+          <% end %>
+          <% if alert %>
+            <div class="mb-4 rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm"><%= alert %></div>
+          <% end %>
+          <%= yield %>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

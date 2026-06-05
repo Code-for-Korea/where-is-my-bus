@@ -1,0 +1,39 @@
+<%= form_with model: [:admin, route], class: "space-y-5 max-w-lg" do |f| %>
+  <% if route.errors.any? %>
+    <div class="rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm">
+      <p class="font-medium mb-1"><%= route.errors.count %>개의 오류가 있습니다.</p>
+      <ul class="list-disc list-inside">
+        <% route.errors.full_messages.each do |msg| %><li><%= msg %></li><% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= f.label :area_id, "운행지역", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.collection_select :area_id, Area.includes(:region).all, :id, :full_name, { prompt: "운행지역 선택" },
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :name, "노선명", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.text_field :name, placeholder: "예: 35번",
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :headway_minutes, "배차간격 (분)", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.number_field :headway_minutes, placeholder: "예: 60",
+          class: "w-40 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :position, "정렬 순서", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.number_field :position,
+          class: "w-32 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div class="flex items-center gap-3 pt-2">
+    <%= f.submit class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
+    <%= link_to "취소", admin_routes_path, class: "text-sm text-gray-500 hover:text-gray-900" %>
+  </div>
+<% end %>

@@ -1,0 +1,52 @@
+<% content_for :page_title, "정류장" %>
+<% @route = Route.find_by(id: params[:route_id]) %>
+
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <% if @route %>
+      <p class="text-sm text-gray-500"><%= @route.area.full_name %> · <span class="font-medium text-gray-700"><%= @route.name %></span></p>
+    <% end %>
+    <p class="text-sm text-gray-500">총 <%= @stops.size %>개</p>
+  </div>
+  <%= link_to "정류장 추가", new_admin_stop_path(route_id: params[:route_id]),
+        class: "inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-left">
+      <tr>
+        <th class="px-5 py-3 font-medium w-16">순서</th>
+        <% unless @route %><th class="px-5 py-3 font-medium">노선</th><% end %>
+        <th class="px-5 py-3 font-medium">정류장명</th>
+        <th class="px-5 py-3 font-medium w-56">좌표</th>
+        <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      <% @stops.each do |stop| %>
+        <tr class="hover:bg-gray-50">
+          <td class="px-5 py-3 text-gray-400"><%= stop.position %></td>
+          <% unless @route %><td class="px-5 py-3 text-gray-500"><%= stop.route.name %></td><% end %>
+          <td class="px-5 py-3 font-medium"><%= stop.name %></td>
+          <td class="px-5 py-3 text-gray-500">
+            <% if stop.coordinates? %>
+              <span class="font-mono text-xs"><%= stop.latitude %>, <%= stop.longitude %></span>
+            <% else %>
+              <span class="text-xs text-amber-600">미등록</span>
+            <% end %>
+          </td>
+          <td class="px-5 py-3 text-right space-x-3">
+            <%= link_to "수정", edit_admin_stop_path(stop), class: "text-gray-500 hover:text-gray-900" %>
+            <%= button_to "삭제", admin_stop_path(stop), method: :delete,
+                  form: { data: { turbo_confirm: "삭제하시겠습니까?" }, class: "inline" },
+                  class: "text-red-500 hover:text-red-700" %>
+          </td>
+        </tr>
+      <% end %>
+      <% if @stops.empty? %>
+        <tr><td colspan="<%= @route ? 4 : 5 %>" class="px-5 py-10 text-center text-gray-400">등록된 정류장이 없습니다.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

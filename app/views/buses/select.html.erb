@@ -1,0 +1,65 @@
+<% content_for :title, "버스 정보 확인" %>
+<%
+  areas_json  = @areas.map { |a| { id: a.id, name: a.name, region_id: a.region_id } }.to_json
+  routes_json = @routes.map { |r| { id: r.id, name: r.name, area_id: r.area_id } }.to_json
+  select_cls  = "w-full appearance-none rounded-xl bg-gray-50 border border-gray-200 px-3 py-3 text-sm text-gray-700 disabled:opacity-50"
+%>
+
+<div class="flex-1 relative flex flex-col">
+  <!-- 뒤 배경 -->
+  <div class="flex-1 px-6 pt-2 opacity-30 pointer-events-none">
+    <h1 class="text-xl font-bold text-gray-900">내 버스는 언제올까? 🚌</h1>
+    <div class="mt-5"><%= render "shared/bus_art" %></div>
+  </div>
+  <div class="absolute inset-0 bg-black/20"></div>
+
+  <!-- 바텀시트 -->
+  <div class="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl px-6 pt-5 pb-8"
+       data-controller="route-select"
+       data-route-select-areas-value="<%= areas_json %>"
+       data-route-select-routes-value="<%= routes_json %>">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-lg font-bold text-gray-900">버스 정보 확인</h2>
+      <%= link_to "✕", service_path, class: "text-gray-400 text-lg" %>
+    </div>
+    <p class="text-brand-600 text-sm font-bold mb-1">
+      현재 <%= @region_count %>개 지역의 <%= @route_count %>개 노선 정보를 제공합니다.
+    </p>
+    <p class="text-gray-400 text-xs mb-5">지역과 버스 번호를 선택해주세요.</p>
+
+    <%= form_with url: service_go_path, method: :get, class: "space-y-3" do |f| %>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="relative">
+          <select class="<%= select_cls %>" data-route-select-target="region"
+                  data-action="route-select#regionChanged">
+            <option value="">시·도 선택</option>
+            <% @regions.each do |r| %><option value="<%= r.id %>"><%= r.name %></option><% end %>
+          </select>
+          <span class="absolute right-3 top-3.5 text-gray-300 text-xs pointer-events-none">▾</span>
+        </div>
+        <div class="relative">
+          <select class="<%= select_cls %>" data-route-select-target="area"
+                  data-action="route-select#areaChanged">
+            <option value="">운행지역 선택</option>
+            <% @areas.each do |a| %><option value="<%= a.id %>"><%= a.name %></option><% end %>
+          </select>
+          <span class="absolute right-3 top-3.5 text-gray-300 text-xs pointer-events-none">▾</span>
+        </div>
+      </div>
+
+      <div class="relative">
+        <select name="route_id" class="<%= select_cls %>" data-route-select-target="route"
+                data-action="route-select#routeChanged">
+          <option value="">노선 선택</option>
+          <% @routes.each do |rt| %>
+            <option value="<%= rt.id %>"><%= rt.area.name %> · <%= rt.name %></option>
+          <% end %>
+        </select>
+        <span class="absolute right-3 top-3.5 text-gray-300 text-xs pointer-events-none">▾</span>
+      </div>
+
+      <%= f.submit "버스 노선 확인", data: { "route-select-target": "submit" },
+            class: "mt-3 w-full rounded-2xl bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 shadow-lg shadow-brand-500/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed" %>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,42 @@
+<% content_for :page_title, "운행지역" %>
+
+<div class="flex items-center justify-between mb-5">
+  <p class="text-sm text-gray-500">총 <%= @areas.size %>개</p>
+  <%= link_to "운행지역 추가", new_admin_area_path,
+        class: "inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-left">
+      <tr>
+        <th class="px-5 py-3 font-medium w-16">순서</th>
+        <th class="px-5 py-3 font-medium">시·도</th>
+        <th class="px-5 py-3 font-medium">운행지역</th>
+        <th class="px-5 py-3 font-medium w-20 text-center">노선</th>
+        <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      <% @areas.each do |area| %>
+        <tr class="hover:bg-gray-50">
+          <td class="px-5 py-3 text-gray-400"><%= area.position %></td>
+          <td class="px-5 py-3 text-gray-500"><%= area.region.name %></td>
+          <td class="px-5 py-3 font-medium">
+            <%= link_to area.name, admin_area_path(area), class: "text-indigo-600 hover:underline" %>
+          </td>
+          <td class="px-5 py-3 text-center text-gray-500"><%= area.routes_count %></td>
+          <td class="px-5 py-3 text-right space-x-3">
+            <%= link_to "수정", edit_admin_area_path(area), class: "text-gray-500 hover:text-gray-900" %>
+            <%= button_to "삭제", admin_area_path(area), method: :delete,
+                  form: { data: { turbo_confirm: "삭제하시겠습니까? 하위 노선·정류장도 함께 삭제됩니다." }, class: "inline" },
+                  class: "text-red-500 hover:text-red-700" %>
+          </td>
+        </tr>
+      <% end %>
+      <% if @areas.empty? %>
+        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">등록된 운행지역이 없습니다.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
