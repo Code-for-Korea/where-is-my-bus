@@ -1,0 +1,84 @@
+<div class="flex flex-col min-h-screen px-6 pt-16 pb-8">
+
+  <%# 언어 전환 버튼 %>
+  <div class="absolute top-5 right-5">
+    <%= render "shared/locale_switcher" %>
+  </div>
+
+  <%# 버스 이미지 %>
+  <div class="-mx-6 mb-6 bg-white" style="mix-blend-mode: multiply;">
+    <img src="/bus_hero.png?v=2" alt="<%= t('pages.index.hero_alt') %>"
+         class="w-full block"
+         style="filter: brightness(1.1);">
+  </div>
+
+  <%# 헤드카피 %>
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-3"><%= t("pages.index.headline") %></h1>
+    <p class="text-base font-semibold text-gray-700 leading-snug mb-3">
+      <%= t("pages.index.subheadline").html_safe %>
+    </p>
+    <a href="<%= about_path %>"
+       class="inline-block text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+      <%= t("pages.index.learn_more").html_safe %>
+    </a>
+  </div>
+
+  <%# CTA 버튼 — 첫 번째 지역·정류장으로 이동 %>
+  <% if @region && @first_stop %>
+    <%= link_to stop_arrival_path(region_slug: @region.slug.presence || @region.id, stop_id: @first_stop.id),
+          class: "block w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
+                  text-white text-xl font-bold py-5 rounded-2xl transition-colors text-center" do %>
+      <%= t("pages.index.cta_button") %>
+    <% end %>
+  <% else %>
+    <button disabled
+            class="block w-full bg-gray-300 text-white text-xl font-bold py-5 rounded-2xl cursor-not-allowed">
+      <%= t("pages.index.service_preparing") %>
+    </button>
+  <% end %>
+
+  <%# 파트너 로고 %>
+  <div class="mt-auto pt-12">
+    <p class="text-center text-xs text-gray-400 mb-4"><%= t("pages.index.powered_by") %></p>
+    <div class="flex justify-center mb-6">
+      <img src="/codeforkorea.webp" alt="CODE FOR KOREA" class="h-8 w-auto opacity-80">
+    </div>
+    <div class="border-t border-gray-100 pt-4">
+      <p class="text-center text-xs text-gray-400 mb-3"><%= t("pages.index.partners_together") %></p>
+      <div class="flex justify-center items-center gap-6">
+        <div class="text-center">
+          <p class="text-xs font-bold text-gray-600"><%= t("pages.index.nia_name") %></p>
+          <p class="text-xs text-gray-400"><%= t("pages.index.nia_full") %></p>
+        </div>
+        <div class="text-center">
+          <p class="text-xs font-bold text-gray-600"><%= t("pages.index.molit") %></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<%# P5 — 노선 선택 바텀시트 %>
+<div id="busSelector"
+     class="fixed inset-0 z-50 hidden"
+     data-controller="bus-selector"
+     data-bus-selector-auto-open-value="<%= params[:open] == '1' %>"
+     data-bus-selector-select-error-message-value="<%= t('shared.bus_selector_sheet.select_error') %>">
+
+  <%# 배경 오버레이 %>
+  <div class="absolute inset-0 bg-black/40"
+       data-action="click->bus-selector#close"></div>
+
+  <%# 시트 본체 %>
+  <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm
+              bg-white rounded-t-3xl px-6 pt-6 pb-10 shadow-xl">
+
+    <%= render "shared/bus_selector_sheet",
+               regions: @selector_regions,
+               current_region_slug: nil,
+               current_stop_id: nil,
+               close_action: "click->bus-selector#close" %>
+  </div>
+</div>

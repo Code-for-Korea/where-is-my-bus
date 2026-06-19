@@ -21,6 +21,13 @@
   </div>
 
   <div>
+    <%= f.label :bus_id, "담당 차량 (GPS 추적용)", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.collection_select :bus_id, Bus.all, :id, :license_plate, { include_blank: "차량 미지정" },
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    <p class="text-xs text-gray-400 mt-1">버스 위치 추적에 사용됩니다. 미지정 시 실시간 정보 미제공.</p>
+  </div>
+
+  <div>
     <%= f.label :headway_minutes, "배차간격 (분)", class: "block text-sm font-medium text-gray-700 mb-1" %>
     <%= f.number_field :headway_minutes, placeholder: "예: 60",
           class: "w-40 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>

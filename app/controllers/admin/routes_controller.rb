@@ -46,7 +46,7 @@ module Admin
     end
 
     def route_params
-      params.require(:route).permit(:area_id, :name, :headway_minutes, :position)
+      params.require(:route).permit(:area_id, :bus_id, :name, :headway_minutes, :position)
     end
   end
 end

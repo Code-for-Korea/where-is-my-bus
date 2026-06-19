@@ -60,7 +60,7 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 
 접속:
 
-- 시민 서비스: <http://localhost:3000/service>
+- 시민 서비스: <http://localhost:3000/>
 - 회원가입: <http://localhost:3000/registration/new> — **첫 가입자가 운영자**가 됩니다
 - 관리자: <http://localhost:3000/admin> (운영자 로그인 필요)
 
@@ -82,7 +82,8 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 
 ## 현재 상태 / 다음 단계
 
-- ✅ 도메인 모델, 관리자 CRUD, 인증·권한, 시민 서비스 화면, 좋아요(추천)
+- ✅ 도메인 모델, 관리자 CRUD, 인증·권한, 
++ ✅ xeno_ 버스 승객서비스 웹화면(mvp 기준 완료), 좋아요(추천)
 - ⬜ 운전자 iOS 앱용 API
 - ⬜ 실시간 버스 위치(운전자 GPS → Solid Cable 브로드캐스트)
 - ⬜ 비밀번호 재설정 메일 발송 설정(SMTP / 개발용 letter_opener)

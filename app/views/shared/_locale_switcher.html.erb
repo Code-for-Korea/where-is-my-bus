@@ -1,0 +1,7 @@
+<% locale_prefix = /\A\/(#{I18n.available_locales.map { |l| Regexp.escape(l.to_s) }.join("|")})/ %>
+<% base_path = request.path.sub(locale_prefix, '').presence || '/' %>
+<div class="ml-auto flex items-center gap-1 text-xs font-medium flex-shrink-0">
+  <a href="<%= base_path %>" class="px-2 py-1 rounded <%= I18n.locale == :ko ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-600' %>">KO</a>
+  <span class="text-gray-300">|</span>
+  <a href="/en<%= base_path == '/' ? '' : base_path %>" class="px-2 py-1 rounded <%= I18n.locale == :en ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-600' %>">EN</a>
+</div>

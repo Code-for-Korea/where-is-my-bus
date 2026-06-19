@@ -47,7 +47,7 @@ module Admin
     end
 
     def stop_params
-      params.require(:stop).permit(:route_id, :name, :position, :latitude, :longitude)
+      params.require(:stop).permit(:route_id, :name, :sequence, :lat, :lng, :avg_travel_seconds, :name_en)
     end
   end
 end

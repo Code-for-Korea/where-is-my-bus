@@ -36,3 +36,9 @@
 
 /app/assets/builds/*
 !/app/assets/builds/.keep
+
+# Claude Code — local dev config (not for version control)
+/.claude/
+/CLAUDE.md
+/CLAUDE.local.md
+/.mcp.json

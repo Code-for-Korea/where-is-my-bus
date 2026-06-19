@@ -1,0 +1,110 @@
+<%#
+  바텀시트 내부 콘텐츠 partial
+  locals:
+    - regions:             Region 컬렉션 (includes buses: { routes: :stops } 적용된 것 권장)
+    - current_region_slug: 현재 선택된 region slug (String|nil)
+    - current_stop_id:     현재 선택된 stop id (Integer|String|nil)
+    - close_action:        닫기 버튼의 data-action 값 (String, e.g. "click->bus-selector#close")
+%>
+
+<div class="flex justify-between items-center mb-4">
+  <h2 class="text-lg font-bold text-gray-900"><%= t("shared.bus_selector_sheet.title") %></h2>
+  <% if local_assigns[:close_action] %>
+    <button data-action="<%= close_action %>"
+            class="text-gray-400 text-2xl leading-none">&times;</button>
+  <% end %>
+</div>
+
+<% total_regions = regions.size %>
+<% total_routes  = regions.sum { |r| r.buses.select(&:active?).sum { |b| b.routes.size } } %>
+<p class="text-sm text-indigo-600 font-medium mb-1">
+  <%= t("shared.bus_selector_sheet.coverage_html", regions_count: total_regions, routes_count: total_routes) %>
+</p>
+<p class="text-xs text-gray-400 mb-6"><%= t("shared.bus_selector_sheet.select_prompt") %></p>
+
+<div class="grid grid-cols-2 gap-3 mb-3">
+  <%# 지역 선택 %>
+  <div class="relative flex items-center border border-gray-200 rounded-xl bg-white">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+         class="w-4 h-4 text-indigo-500 absolute left-3 pointer-events-none flex-shrink-0">
+      <path fill-rule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clip-rule="evenodd" />
+    </svg>
+    <select data-bus-selector-target="region"
+            data-action="change->bus-selector#onRegionChange"
+            class="w-full appearance-none pl-8 pr-7 py-3 text-sm font-medium bg-transparent">
+      <option value=""><%= t("shared.bus_selector_sheet.region_placeholder") %></option>
+      <% regions.each do |region| %>
+        <option value="<%= region.slug %>"
+                <%= 'selected' if region.slug == current_region_slug.to_s %>>
+          <%= region.display_name %>
+        </option>
+      <% end %>
+    </select>
+    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+  </div>
+
+  <%# 노선 선택 %>
+  <div class="relative flex items-center border border-gray-200 rounded-xl bg-white">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+         class="w-4 h-4 text-indigo-500 absolute left-3 pointer-events-none flex-shrink-0">
+      <path fill-rule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clip-rule="evenodd" />
+    </svg>
+    <select data-bus-selector-target="route"
+            data-action="change->bus-selector#onRouteChange"
+            class="w-full appearance-none pl-8 pr-7 py-3 text-sm font-medium bg-transparent">
+      <option value=""><%= t("shared.bus_selector_sheet.route_placeholder") %></option>
+      <% regions.each do |region| %>
+        <% region.buses.select(&:active?).each do |bus| %>
+          <% bus.routes.each do |route| %>
+            <option value="<%= route.id %>"
+                    data-region="<%= region.slug %>"
+                    <%= 'selected' if current_stop_id && route.stops.any? { |s| s.id.to_s == current_stop_id.to_s } %>>
+              <%= route.name %>
+            </option>
+          <% end %>
+        <% end %>
+      <% end %>
+    </select>
+    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+  </div>
+</div>
+
+<%# 정류장 선택 %>
+<div class="relative flex items-center border border-gray-200 rounded-xl bg-white mb-6">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+       class="w-4 h-4 text-indigo-500 absolute left-3 pointer-events-none flex-shrink-0">
+    <path fill-rule="evenodd" d="m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clip-rule="evenodd" />
+  </svg>
+  <select data-bus-selector-target="stop"
+          class="w-full appearance-none pl-8 pr-7 py-3 text-sm font-medium bg-transparent">
+    <option value=""><%= t("shared.bus_selector_sheet.stop_placeholder") %></option>
+    <% regions.each do |region| %>
+      <% region.buses.select(&:active?).each do |bus| %>
+        <% bus.routes.each do |route| %>
+          <% route.stops.each do |stop| %>
+            <option value="<%= stop.id %>"
+                    data-region="<%= region.slug %>"
+                    data-route="<%= route.id %>"
+                    <%= 'selected' if stop.id.to_s == current_stop_id.to_s %>>
+              <%= stop.display_name %>
+            </option>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% end %>
+  </select>
+  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+</div>
+
+<%# 에러 토스트 %>
+<div data-error-toast
+     class="opacity-0 translate-y-2 transition-all duration-200
+            flex items-center gap-2 bg-red-50 border border-red-200
+            text-red-600 text-sm font-medium px-4 py-3 rounded-xl mb-3">
+</div>
+
+<button data-action="click->bus-selector#confirm"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white
+               font-bold text-lg py-4 rounded-2xl transition-colors">
+  <%= t("shared.bus_selector_sheet.confirm_button") %>
+</button>

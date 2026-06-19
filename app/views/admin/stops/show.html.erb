@@ -12,13 +12,13 @@
   <div class="flex gap-8">
     <div>
       <div class="text-xs text-gray-400">순서</div>
-      <div class="font-medium"><%= @stop.position %></div>
+      <div class="font-medium"><%= @stop.sequence %></div>
     </div>
     <div>
       <div class="text-xs text-gray-400">좌표</div>
       <div class="font-medium">
         <% if @stop.coordinates? %>
-          <span class="font-mono text-sm"><%= @stop.latitude %>, <%= @stop.longitude %></span>
+          <span class="font-mono text-sm"><%= @stop.lat %>, <%= @stop.lng %></span>
         <% else %>
           <span class="text-amber-600 text-sm">미등록</span>
         <% end %>

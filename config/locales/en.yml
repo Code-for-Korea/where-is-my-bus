@@ -1,31 +1,90 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
 en:
-  hello: "Hello world"
+  layout:
+    title: "When's my bus? | LocalBus"
+
+  pages:
+    index:
+      hero_alt: "LocalBus"
+      headline: "When's my bus coming?"
+      subheadline: "We wanted to solve the frustration of waiting<br>aimlessly for rural buses with no schedule info."
+      learn_more: "Learn more &gt;&gt;"
+      cta_button: "Where's the bus now?"
+      service_preparing: "Service coming soon"
+      powered_by: "powered by"
+      partners_together: "Our partners."
+      nia_name: "NIA"
+      nia_full: "한국지능정보사회진흥원"
+      molit: "🏛 국토교통부"
+
+    about:
+      title: "When's my bus coming?"
+      hero_alt: "LocalBus"
+      mission: "We wanted to use technology to solve the frustration of waiting aimlessly for rural buses with no arrival time information."
+      quote_text: "\"Bus arrival time? We have no idea… we just come out early and wait around until it shows up.\""
+      quote_source: "We came across a news story about elderly residents waiting indefinitely for their buses."
+      problem_stat: "Of South Korea's 229 basic local governments, <strong class=\"text-gray-800\">138 (60.2%) are classified as extinction-risk areas</strong> (Statistics Korea resident registration analysis, Feb 2026), and a significant number have no Bus Information System (BIS). Even a joint BIS across 10 counties in South Gyeongsang Province would cost 3.3 billion won to build, with annual maintenance exceeding 100 million won (2020 figures) — well beyond the reach of small towns and townships with only a few thousand residents."
+      problem_cycle: "Without information, people stop riding buses. When ridership drops, routes get cut. When routes get cut, it becomes even more inconvenient — a vicious cycle. Tourists who arrive and feel lost at the bus stop simply don't come back."
+      tech_intro: "<strong class=\"font-bold text-indigo-800\">LocalBus Notifier</strong> requires no special terminals or multi-million-dollar infrastructure."
+      tech_box_title: "Bus information delivered via smartphone and QR stickers"
+      tech_step1: "Manage routes<br>with open-source CMS"
+      tech_step2: "Send location<br>via driver app"
+      tech_step3: "Passengers check<br>via QR web"
+      tech_detail: "Scan the QR code on a bus stop sign to instantly see \"Next bus in 18 minutes.\" No app install, no sign-up required."
+      tech_outro: "<strong class=\"font-bold text-indigo-800\">LocalBus Notifier</strong> can be quickly adopted in any rural town without bus information. The code is open-source and designed to be reused by other local governments as-is."
+      coverage_title_html: "We cover <span class=\"text-indigo-600\">%{regions_count} regions</span> and <span class=\"text-indigo-600\">%{routes_count} routes</span> nationwide."
+      region_route_suffix: "routes"
+      check_routes_button: "View Bus Routes"
+      caution_title: "(Note)"
+      caution_body: "This service provides bus information for areas not registered in the local government's Bus Information System (BIS)."
+      partners_together: "Our partners."
+      nia_name: "NIA"
+      nia_full: "한국지능정보사회진흥원"
+      molit: "🏛 국토교통부"
+      footer_makers: "The Team"
+      footer_driver: "I'm a driver!"
+      footer_terms: "Terms of Use"
+
+  stops:
+    show:
+      title: "When's my bus coming?"
+      here_region: "You're in %{region_name}"
+      bus_number_label: "Bus %{bus_number}"
+      bus_location_label: "Where is Bus %{bus_number} right now?"
+      stops_away_html: "%{count} stop(s) away<span class=\"text-blue-200\">.</span>"
+      no_data_line1: "No service"
+      no_data_line2: "information available."
+      arrived_line1: "The bus has"
+      arrived_line2: "arrived at this stop."
+
+      see_detail: "View Details"
+      debug_title: "Bus Location Debug"
+      debug_current_seq: "Based on current stop (seq %{seq})"
+      debug_bus_location: "Bus location"
+      debug_coordinates: "Coordinates"
+      debug_target: "Target"
+      debug_via: "Via"
+      debug_eta: "ETA"
+      debug_bar: "Progress bar"
+      debug_none: "none"
+      stops_away_suffix: " stop(s) away."
+      eta_prefix: "Arriving in approx. "
+      eta_suffix_before: "min"
+      eta_suffix_after: "away."
+      unit_min: " min"
+      unit_stops: " stop(s)"
+
+    detail:
+      interval_unknown: "Interval TBD"
+      stops_count: "%{count} stops total"
+      here_badge: "Here"
+
+  shared:
+    bus_selector_sheet:
+      title: "Bus Information"
+      coverage_html: "We currently serve <strong>%{regions_count} regions</strong> and <strong>%{routes_count} routes</strong>."
+      select_prompt: "Select a region and bus number."
+      region_placeholder: "Select region"
+      route_placeholder: "Select route"
+      stop_placeholder: "Select stop"
+      confirm_button: "View Bus Route"
+      select_error: "Please select a region and stop."

@@ -1,0 +1,107 @@
+<turbo-frame id="detail-modal">
+<div data-controller="bus-selector">
+
+  <%# 전체화면 어두운 오버레이 %>
+  <div class="fixed inset-0 z-40">
+
+    <%# 어두운 배경 — 탭하면 뒤로 %>
+    <button onclick="document.getElementById('detail-modal').innerHTML=''" class="absolute inset-0 bg-black/40 w-full cursor-default"></button>
+
+    <%# 흰 콘텐츠 시트 — 버스 정보 확인 팝업과 동일한 위치/폭 %>
+    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm
+                bg-white rounded-t-3xl flex flex-col overflow-hidden shadow-xl" style="max-height: 90vh;">
+
+      <%# 노선 정보 헤더 (회색 패널) %>
+      <div class="bg-gray-50 px-6 pt-5 pb-5 flex-shrink-0 rounded-t-3xl">
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <p class="text-xs text-gray-400 mb-1"><%= [@region&.display_name, @area&.name].compact.join(" ") %></p>
+            <div class="flex items-center gap-2">
+              <span class="text-lg font-bold text-gray-900"><%= t("stops.show.bus_number_label", bus_number: @bus&.display_number) %></span>
+              <span class="flex items-center gap-1 text-indigo-500 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>
+                  <path d="M7 10v12"/>
+                </svg>
+                <span class="font-medium"><%= @likes_count %></span>
+              </span>
+            </div>
+          </div>
+          <button onclick="document.getElementById('detail-modal').innerHTML=''" class="text-gray-400 text-2xl leading-none">&times;</button>
+        </div>
+        <p class="text-xs text-gray-400 mb-3"><%= t("stops.detail.interval_unknown") %> | <%= t("stops.detail.stops_count", count: @route_stops&.size) %></p>
+        <div class="border-t border-gray-200"></div>
+      </div>
+
+      <%# 정류장 타임라인 (스크롤 영역) %>
+      <div class="flex-1 bg-white px-6 pt-6 pb-10 overflow-y-auto">
+
+        <% stops_list = @route_stops || [] %>
+
+        <div class="relative">
+          <div class="absolute left-[3.125rem] top-3 bottom-3 w-0.5 bg-indigo-500"></div>
+
+          <div class="space-y-0">
+            <% stops_list.each do |stop| %>
+              <div class="relative flex items-center min-h-[3.5rem]">
+
+                <%# 왼쪽 컬럼 — 여기 뱃지 + 버스 아이콘 %>
+                <div class="w-10 flex-shrink-0 flex flex-col items-end pr-1">
+                  <% if stop[:current_bus] %>
+                    <span class="bg-indigo-600 text-white text-xs font-bold px-1.5 py-0.5 rounded mb-0.5 whitespace-nowrap"><%= t("stops.detail.here_badge") %></span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600">
+                      <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
+                      <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+                      <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
+                    </svg>
+                  <% end %>
+                </div>
+
+                <%# 원형 마커 %>
+                <div class="relative z-10 flex-shrink-0">
+                  <div class="w-5 h-5 rounded-full border-2
+                              <%= stop[:here] ? 'border-indigo-600 bg-white' : 'border-indigo-400 bg-white' %>
+                              flex items-center justify-center">
+                    <% if stop[:here] %>
+                      <div class="w-2 h-2 rounded-full bg-indigo-600"></div>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%# 정류장명 %>
+                <div class="ml-4">
+                  <span class="text-base <%= stop[:here] ? 'font-bold text-gray-900' : 'text-gray-600' %>">
+                    <%= stop[:name] %>
+                  </span>
+                </div>
+
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <%# 버스 선택 바텀시트 오버레이 (z-50) %>
+  <div data-bus-selector-target="overlay"
+       class="fixed inset-0 z-50 hidden">
+
+    <div class="absolute inset-0 bg-black/40"
+         data-action="click->bus-selector#close"></div>
+
+    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm
+                bg-white rounded-t-3xl px-6 pt-6 pb-10 shadow-xl">
+
+      <%= render "shared/bus_selector_sheet",
+                 regions: @selector_regions,
+                 current_region_slug: params[:region_slug],
+                 current_stop_id: params[:stop_id],
+                 close_action: "click->bus-selector#close" %>
+    </div>
+  </div>
+
+</div>
+</turbo-frame>

@@ -1,13 +1,12 @@
 Rails.application.routes.draw do
-  resource :session
-  resource :registration, only: %i[new create]
+  # 인증
+  resource  :session
+  resource  :registration, only: %i[new create]
   resources :passwords, param: :token
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
-  # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
-  # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # 관리자
   namespace :admin do
     root "dashboard#index"
 
@@ -18,23 +17,18 @@ Rails.application.routes.draw do
     resources :buses
   end
 
-  # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
-  # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
-  # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
+  # 승객 웹 (i18n 지원)
+  scope "(:locale)", locale: /ko|en/ do
+    root "pages#index"
+    get "/about", to: "pages#about"
 
-  # 시민용 서비스 (공개)
-  get "service",        to: "buses#index",  as: :service
-  get "service/about",  to: "buses#about",  as: :service_about
-  get "service/select", to: "buses#select", as: :service_select
-  get "service/go",     to: "buses#go",     as: :service_go
+    get "/r/:region_slug/:stop_id",         to: "stops#show",    as: :stop_arrival
+    get "/r/:region_slug/:stop_id/detail",  to: "stops#detail",  as: :stop_detail
+    get "/r/:region_slug/:stop_id/arrival", to: "stops#arrival", as: :stop_arrival_json
+    post "/r/:region_slug/:stop_id/like",   to: "stops#like",    as: :stop_like
 
-  resources :routes, only: :show do
-    member do
-      get  :stops
-      post :like
+    if Rails.env.development?
+      post "/r/:region_slug/:stop_id/debug_bus", to: "stops#debug_bus", as: :stop_debug_bus
     end
   end
-
-  # Defines the root path route ("/")
-  root "home#index"
 end
