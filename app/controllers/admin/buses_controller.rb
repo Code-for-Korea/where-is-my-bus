@@ -46,7 +46,7 @@ module Admin
     end
 
     def bus_params
-      params.require(:bus).permit(:area_id, :license_plate, :pin)
+      params.require(:bus).permit(:area_id, :license_plate, :bus_number, :pin, :status)
     end
   end
 end

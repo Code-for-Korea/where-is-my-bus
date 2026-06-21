@@ -45,7 +45,7 @@ module Admin
     end
 
     def region_params
-      params.require(:region).permit(:name, :position)
+      params.require(:region).permit(:name, :name_en, :slug, :position)
     end
   end
 end

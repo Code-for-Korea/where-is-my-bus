@@ -34,8 +34,9 @@
             class="w-full appearance-none pl-8 pr-7 py-3 text-sm font-medium bg-transparent">
       <option value=""><%= t("shared.bus_selector_sheet.region_placeholder") %></option>
       <% regions.each do |region| %>
-        <option value="<%= region.slug %>"
-                <%= 'selected' if region.slug == current_region_slug.to_s %>>
+        <% region_key = region.slug.presence || region.id %>
+        <option value="<%= region_key %>"
+                <%= 'selected' if region_key.to_s == current_region_slug.to_s %>>
           <%= region.display_name %>
         </option>
       <% end %>
@@ -54,10 +55,11 @@
             class="w-full appearance-none pl-8 pr-7 py-3 text-sm font-medium bg-transparent">
       <option value=""><%= t("shared.bus_selector_sheet.route_placeholder") %></option>
       <% regions.each do |region| %>
+        <% region_key = region.slug.presence || region.id %>
         <% region.buses.select(&:active?).each do |bus| %>
           <% bus.routes.each do |route| %>
             <option value="<%= route.id %>"
-                    data-region="<%= region.slug %>"
+                    data-region="<%= region_key %>"
                     <%= 'selected' if current_stop_id && route.stops.any? { |s| s.id.to_s == current_stop_id.to_s } %>>
               <%= route.name %>
             </option>
@@ -79,11 +81,12 @@
           class="w-full appearance-none pl-8 pr-7 py-3 text-sm font-medium bg-transparent">
     <option value=""><%= t("shared.bus_selector_sheet.stop_placeholder") %></option>
     <% regions.each do |region| %>
+      <% region_key = region.slug.presence || region.id %>
       <% region.buses.select(&:active?).each do |bus| %>
         <% bus.routes.each do |route| %>
           <% route.stops.each do |stop| %>
             <option value="<%= stop.id %>"
-                    data-region="<%= region.slug %>"
+                    data-region="<%= region_key %>"
                     data-route="<%= route.id %>"
                     <%= 'selected' if stop.id.to_s == current_stop_id.to_s %>>
               <%= stop.display_name %>

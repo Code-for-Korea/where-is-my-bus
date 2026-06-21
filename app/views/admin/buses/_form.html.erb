@@ -21,6 +21,21 @@
   </div>
 
   <div>
+    <%= f.label :bus_number, "버스 번호 (노선번호)", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.text_field :bus_number, placeholder: "예: 35번",
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    <p class="mt-1 text-xs text-gray-400">서비스 화면에 "○○번 버스"로 표시됩니다.</p>
+  </div>
+
+  <div>
+    <%= f.label :status, "운행 상태", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.select :status,
+          [["운행중 (active)", "active"], ["중지 (inactive)", "inactive"], ["삭제됨 (deleted)", "deleted"]],
+          {}, class: "w-56 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    <p class="mt-1 text-xs text-gray-400">"운행중"인 차량만 서비스 노선 선택에 노출됩니다.</p>
+  </div>
+
+  <div>
     <%= f.label :pin, "PIN (4~6자리 숫자)", class: "block text-sm font-medium text-gray-700 mb-1" %>
     <%= f.text_field :pin, inputmode: "numeric", placeholder: "예: 1234",
           class: "w-40 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>

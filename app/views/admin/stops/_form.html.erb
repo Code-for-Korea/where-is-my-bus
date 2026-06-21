@@ -22,6 +22,12 @@
   </div>
 
   <div>
+    <%= f.label :name_en, "영문 정류장명 (선택)", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.text_field :name_en, placeholder: "예: Yokjido Stop 4",
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
     <%= f.label :sequence, "순서", class: "block text-sm font-medium text-gray-700 mb-1" %>
     <%= f.number_field :sequence,
           class: "w-32 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
@@ -40,6 +46,13 @@
     </div>
   </div>
   <p class="text-xs text-gray-400 -mt-2">좌표는 비워두면 운전자 앱에서 크라우드소싱으로 등록됩니다.</p>
+
+  <div>
+    <%= f.label :avg_travel_seconds, "이전 정류장→이 정류장 평균 소요(초)", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.number_field :avg_travel_seconds, placeholder: "예: 180",
+          class: "w-56 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    <p class="mt-1 text-xs text-gray-400">도착예정(ETA) 계산에 사용됩니다. 첫 정류장은 비워두세요.</p>
+  </div>
 
   <div class="flex items-center gap-3 pt-2">
     <%= f.submit class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
