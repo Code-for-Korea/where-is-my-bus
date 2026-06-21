@@ -13,8 +13,9 @@ class Region < ApplicationRecord
   end
 
   def first_active_stop
-    buses.where(status: "active").order(:id).each do |bus|
-      stop = bus.routes.order(:id).first&.stops&.first
+    # routes/stops 를 eager-load 해 버스별 N+1 쿼리를 제거. (min_by/first 는 로드된 컬렉션에서 동작)
+    buses.where(status: "active").includes(routes: :stops).order(:id).each do |bus|
+      stop = bus.routes.min_by(&:id)&.stops&.first
       return stop if stop
     end
     nil

@@ -11,7 +11,7 @@ class StopsController < ApplicationController
     @likes_count      = @stop ? StopLike.where(stop_id: @stop.id).count : 0
     @already_liked    = @stop ? StopLike.where(stop_id: @stop.id, session_token: token)
                                         .where("created_at > ?", 1.hour.ago).exists? : false
-    @selector_regions = Region.includes(buses: { routes: :stops }).all
+    load_selector_regions
   end
 
   def detail
@@ -23,8 +23,8 @@ class StopsController < ApplicationController
     @area   = @bus&.area
     return render json: { error: "data error" }, status: :unprocessable_entity if @bus.nil? || @region.nil?
 
-    @likes_count      = StopLike.where(stop_id: @stop.id).count
-    @selector_regions = Region.includes(buses: { routes: :stops }).all
+    @likes_count = StopLike.where(stop_id: @stop.id).count
+    load_selector_regions
 
     all_stops = @stop.route.stops.order(:sequence).to_a
 

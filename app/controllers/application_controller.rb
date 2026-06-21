@@ -14,6 +14,11 @@ class ApplicationController < ActionController::Base
     response.set_header("Turbo-Cache-Control", "no-cache")
   end
 
+  # 버스 선택 시트(_bus_selector_sheet)용 지역 트리. 여러 화면에서 공통 사용.
+  def load_selector_regions
+    @selector_regions = Region.includes(buses: { routes: :stops }).all
+  end
+
   def set_locale
     requested = params[:locale]&.to_sym
     I18n.locale = I18n.available_locales.include?(requested) ? requested : I18n.default_locale
