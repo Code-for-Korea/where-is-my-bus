@@ -6,6 +6,11 @@ Rails.application.routes.draw do
 
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Traccar 위치 포워딩 수신 (머신 간)
+  namespace :integrations do
+    post "traccar/positions", to: "traccar#positions"
+  end
+
   # 관리자
   namespace :admin do
     root "dashboard#index"

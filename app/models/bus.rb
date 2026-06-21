@@ -8,6 +8,7 @@ class Bus < ApplicationRecord
 
   validates :license_plate, presence: true, uniqueness: { scope: :area_id }
   validates :pin,           presence: true, format: { with: /\A\d{4,6}\z/, message: "은 4~6자리 숫자여야 합니다" }
+  validates :traccar_unique_id, uniqueness: true, allow_nil: true
 
   default_scope { order(:license_plate) }
 

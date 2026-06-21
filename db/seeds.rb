@@ -12,10 +12,11 @@ area = Area.find_or_create_by!(region: region, name: "고성군") { |a| a.positi
 
 puts "Seeding buses..."
 bus = Bus.find_or_create_by!(license_plate: "경남 70 가 1234") do |b|
-  b.area       = area
-  b.pin        = "1234"
-  b.bus_number = "1번"
-  b.status     = "active"
+  b.area              = area
+  b.pin               = "1234"
+  b.bus_number        = "1번"
+  b.status            = "active"
+  b.traccar_unique_id = "goseong-1-demo"   # Traccar Client 앱에 입력하는 단말 식별자(데모)
 end
 
 puts "Seeding pin codes..."

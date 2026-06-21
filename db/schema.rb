@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_19_000008) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -29,9 +29,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_19_000008) do
     t.string "license_plate", null: false
     t.string "pin", null: false
     t.string "status", default: "active", null: false
+    t.integer "traccar_device_id"
+    t.string "traccar_unique_id"
     t.datetime "updated_at", null: false
     t.index ["area_id", "license_plate"], name: "index_buses_on_area_id_and_license_plate", unique: true
     t.index ["area_id"], name: "index_buses_on_area_id"
+    t.index ["traccar_unique_id"], name: "index_buses_on_traccar_unique_id", unique: true
   end
 
   create_table "gps_logs", force: :cascade do |t|
