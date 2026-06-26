@@ -1,4 +1,12 @@
+<% content_for :title,         "#{@stop&.display_name} | #{@bus&.display_number}번 버스" %>
+<% content_for :description,   "#{[@region&.display_name, @area&.name].compact.join(' ')} #{@stop&.display_name} 정류장의 #{@bus&.display_number}번 버스 실시간 도착 정보를 확인하세요." %>
+<% content_for :ga4_page_path, "/#{@region&.display_name}/#{@bus&.display_number}/#{@stop&.display_name}" %>
+
 <div data-controller="bus-selector arrival-polling"
+     data-bus-selector-stop-name-value="<%= @stop&.display_name %>"
+     data-bus-selector-bus-number-value="<%= @bus&.display_number %>"
+     data-arrival-polling-stop-name-value="<%= @stop&.display_name %>"
+     data-arrival-polling-bus-number-value="<%= @bus&.display_number %>"
      data-arrival-polling-url-value="<%= stop_arrival_json_path(region_slug: params[:region_slug], stop_id: params[:stop_id]) %>"
      data-arrival-polling-no-data-line1-value="<%= j t('stops.show.no_data_line1') %>"
      data-arrival-polling-no-data-line2-value="<%= j t('stops.show.no_data_line2') %>"
@@ -48,7 +56,9 @@
 
     <div data-controller="like-button"
          data-like-button-url-value="<%= stop_like_path(region_slug: params[:region_slug], stop_id: params[:stop_id]) %>"
-         data-like-button-liked-value="<%= @already_liked %>">
+         data-like-button-liked-value="<%= @already_liked %>"
+         data-like-button-stop-name-value="<%= @stop&.display_name %>"
+         data-like-button-bus-number-value="<%= @bus&.display_number %>">
       <button data-action="click->like-button#like"
               data-like-button-target="button"
               class="flex items-center gap-1.5 text-indigo-500 transition-opacity <%= 'opacity-40 cursor-not-allowed' if @already_liked %>">
@@ -114,7 +124,7 @@
     <%# 자세히보기 — Turbo Frame으로 P2 위에 오버레이 %>
     <div class="flex justify-end mb-5">
       <%= link_to stop_detail_path(region_slug: params[:region_slug], stop_id: params[:stop_id]),
-            data: { turbo_frame: "detail-modal" },
+            data: { turbo_frame: "detail-modal", action: "click->bus-selector#trackViewDetail" },
             class: "bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors" do %>
         <%= t("stops.show.see_detail") %>
       <% end %>

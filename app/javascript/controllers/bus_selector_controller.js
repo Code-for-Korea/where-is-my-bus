@@ -1,8 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
+import { ga4Event } from "../ga4"
 
 export default class extends Controller {
   static targets = ["region", "route", "stop", "overlay"]
-  static values  = { autoOpen: Boolean, selectErrorMessage: String }
+  static values  = { autoOpen: Boolean, selectErrorMessage: String, stopName: String, busNumber: String }
 
   connect() {
     if (this.autoOpenValue) this.open()
@@ -43,9 +44,18 @@ export default class extends Controller {
     }
 
     this.hideError()
+    ga4Event("select_bus", {
+      region:     this.hasRegionTarget ? this.regionTarget.options[this.regionTarget.selectedIndex]?.text : region,
+      bus_number: this.hasRouteTarget  ? this.routeTarget.options[this.routeTarget.selectedIndex]?.text  : "",
+      stop_name:  this.hasStopTarget   ? this.stopTarget.options[this.stopTarget.selectedIndex]?.text    : ""
+    })
     const locale = document.documentElement.lang
     const prefix = locale && locale !== "ko" ? `/${locale}` : ""
     window.location.href = `${prefix}/r/${region}/${stopId}`
+  }
+
+  trackViewDetail() {
+    ga4Event("view_detail", { stop_name: this.stopNameValue, bus_number: this.busNumberValue })
   }
 
   showError(message) {

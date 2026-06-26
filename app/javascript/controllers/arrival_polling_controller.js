@@ -1,9 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
+import { ga4Event } from "../ga4"
 
 export default class extends Controller {
   static targets = ["eta", "stopsAway", "busMarker"]
   static values  = {
     url: String,
+    stopName: String,
+    busNumber: String,
     noDataLine1: String,
     noDataLine2: String,
     arrivedLine1: String,
@@ -15,6 +18,7 @@ export default class extends Controller {
   }
 
   connect() {
+    this._statusFired = false
     this.poll()
     this.timer = setInterval(() => {
       if (!document.hidden) this.poll()
@@ -42,9 +46,18 @@ export default class extends Controller {
       const data = await res.json()
 
       if (data.status === "no_data" || data.status === "no_trip") {
+        if (!this._statusFired) {
+          ga4Event("arrival_status", { status: data.status, stop_name: this.stopNameValue, bus_number: this.busNumberValue })
+          this._statusFired = true
+        }
         if (this.hasStopsAwayTarget) this.stopsAwayTarget.innerHTML = ""
         if (this.hasEtaTarget)       this.etaTarget.innerHTML = `${this.noDataLine1Value}<br>${this.noDataLine2Value}`
         return
+      }
+
+      if (!this._statusFired) {
+        ga4Event("arrival_status", { status: "running", stop_name: this.stopNameValue, bus_number: this.busNumberValue })
+        this._statusFired = true
       }
 
       if (data.stops_away === 0) {

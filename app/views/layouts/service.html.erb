@@ -1,7 +1,17 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<%= I18n.locale %>">
   <head>
-    <title><%= content_for(:title) || "내 버스는 언제 올까?" %></title>
+    <% _title       = content_for?(:title)       ? "#{yield(:title)} | 로컬버스" : "내 버스는 언제올까? | 로컬버스" %>
+    <% _description = content_for?(:description) ? yield(:description)           : "지방 소도시 버스 도착 정보를 실시간으로 확인하세요. 스마트폰 QR로 이용하는 무료 버스 알리미." %>
+    <title><%= _title %></title>
+    <meta name="description" content="<%= _description %>">
+    <meta property="og:type"        content="website">
+    <meta property="og:title"       content="<%= _title %>">
+    <meta property="og:description" content="<%= _description %>">
+    <% if (site_url = Rails.application.credentials.site_url).present? %>
+      <meta property="og:url"   content="<%= "#{site_url}#{request.path}" %>">
+      <meta property="og:image" content="<%= "#{site_url}/bus_hero.png" %>">
+    <% end %>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -9,6 +19,15 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
+    <% if Rails.env.production? %>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-V5FQ7DHE99"></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-V5FQ7DHE99'<% if content_for?(:ga4_page_path) %>, { page_path: '<%= j yield(:ga4_page_path) %>' }<% end %>);
+      </script>
+    <% end %>
   </head>
 
   <body class="bg-gray-100 min-h-screen sm:py-8">

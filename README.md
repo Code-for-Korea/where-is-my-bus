@@ -92,6 +92,49 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 
 ---
 
+## Google Analytics 4 (by xeno)
+
+**Measurement ID**: `G-V5FQ7DHE99`
+production 환경에서만 로드 (`Rails.env.production?` 조건).
+
+### 페이지 경로 정의
+GA4 "페이지 및 화면" 리포트에는 실제 URL 대신 의미있는 가상 경로로 기록됩니다.
+
+| 페이지 | 실제 URL | GA4 page_path |
+|--------|----------|---------------|
+| 홈 | `/` | `/` |
+| 소개 | `/about` | `/about` |
+| 정류장 도착 | `/r/:region_slug/:stop_id` | `/:지역명/:버스번호/:정류장명` |
+
+예) `/r/goseong/3` → `/경남고성/1번/거류면사무소`
+
+### 이벤트 정의
+
+| 이벤트 | 발생 시점 | 파라미터 |
+|--------|-----------|---------|
+| `arrival_status` | 정류장 페이지 첫 폴링 응답 | `status`, `stop_name`, `bus_number` |
+| `like_stop` | 좋아요 버튼 클릭 | `stop_name`, `bus_number` |
+| `select_bus` | 바텀시트에서 버스 선택 확인 | `region`, `bus_number`, `stop_name` |
+| `view_detail` | 자세히보기 클릭 | `stop_name`, `bus_number` |
+
+**`arrival_status` status 값 설명**
+
+| status | 의미 | 분석 활용 |
+|--------|------|-----------|
+| `running` | 버스 운행 중 + GPS 수신 정상 → 사용자가 실제 도착 정보를 받은 상태 | 서비스 유효 이용률 |
+| `no_trip` | 현재 운행 중인 버스 없음 (운행 시간 외 접속) | QR 스티커 위치·운행시간 안내 필요 여부 판단 |
+| `no_data` | 버스 운행 중이나 GPS 미수신 | 드라이버 앱 작동 이상 감지 |
+
+### QR vs 직접 접속 구분
+
+QR 스티커 URL에 UTM 파라미터를 추가하면 GA4 트래픽 소스에서 자동 분리됩니다.
+
+```
+/r/goseong/3?utm_source=qr&utm_medium=qr_code&utm_campaign=stop_sticker
+```
+
+---
+
 ## 개발 메모
 
 - 테스트는 `--skip-test`로 생략된 상태(추후 RSpec 등 선택 도입 가능)
