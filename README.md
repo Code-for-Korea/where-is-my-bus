@@ -133,6 +133,11 @@ QR 스티커 URL에 UTM 파라미터를 추가하면 GA4 트래픽 소스에서 
 /r/goseong/3?utm_source=qr&utm_medium=qr_code&utm_campaign=stop_sticker
 ```
 
+## License & Open Source Acknowledgments
+
+- This project is licensed under the **Apache License 2.0** - see the [LICENSE.txt](LICENSE.txt) file for details.
+- This project utilizes **Traccar**, which is also licensed under the **Apache License 2.0**. For more information, please visit [Traccar Official Website](https://www.traccar.org/).
+
 ---
 
 ## 개발 메모
