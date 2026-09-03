@@ -46,6 +46,9 @@
 # Ignore development files
 /.devcontainer
 
+# Ignore Flutter driver app (built and deployed separately, not part of the Rails image)
+/driver_app/
+
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*

@@ -2,8 +2,10 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore: [ "driver_app/**" ]
   push:
     branches: [ main ]
+    paths-ignore: [ "driver_app/**" ]
 
 jobs:
   scan_ruby:

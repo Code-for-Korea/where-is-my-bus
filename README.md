@@ -5,7 +5,7 @@ BIS(버스정보시스템)에 등록되지 않은 시골·도서 지역의 노�
 
 > Code for Korea 프로젝트
 
-이 저장소는 **웹 애플리케이션(Rails)** 입니다. 버스 운전자용 **iOS 앱**은 별도 저장소로 구성됩니다.
+이 저장소는 모노레포입니다. 루트는 **웹 애플리케이션(Rails)**, `driver_app/`은 버스 운전자용 **Flutter 앱**입니다.
 
 ---
 
@@ -15,7 +15,7 @@ BIS(버스정보시스템)에 등록되지 않은 시골·도서 지역의 노�
 |---|---|---|
 | 시민 | `/service` | 지역·노선 선택 후 버스 실시간 위치·도착예정·정류장 확인 |
 | 운영자 | `/admin` | 지역/노선/정류장/차량(번호판·PIN) 관리 |
-| 운전자 | iOS 앱(별도) | GPS 위치 송신, 정류장 크라우드소싱 등록 |
+| 운전자 | `driver_app/` (Flutter) | GPS 위치 송신, 정류장 크라우드소싱 등록 |
 
 ---
 
@@ -52,11 +52,12 @@ User (member / operator)  — 첫 가입자는 자동으로 operator
 사전 준비: [asdf](https://asdf-vm.com/)로 Ruby 4.0.2 설치(`.tool-versions` 참고)
 
 ```bash
-cd web
 bundle install
 bin/rails db:prepare   # 스키마 생성 + 시드(통영시 욕지도 35번 등)
 bin/dev                # 서버 + Tailwind watch 동시 실행
 ```
+
+운전자 앱(`driver_app/`): [Flutter SDK](https://docs.flutter.dev/get-started/install) 설치 후 `cd driver_app && flutter pub get && flutter run`. 번들 ID `kr.codefor.whereismybusapp`.
 
 접속:
 
@@ -84,7 +85,7 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 
 - ✅ 도메인 모델, 관리자 CRUD, 인증·권한, 
 + ✅ xeno_ 버스 승객서비스 웹화면(mvp 기준 완료), 좋아요(추천)
-- ⬜ 운전자 iOS 앱용 API
+- ⬜ 운전자 앱용 API (`driver_app/` Flutter, 스캐폴드만 생성됨)
 - ⬜ 실시간 버스 위치(운전자 GPS → Solid Cable 브로드캐스트)
 - ⬜ 비밀번호 재설정 메일 발송 설정(SMTP / 개발용 letter_opener)
 
