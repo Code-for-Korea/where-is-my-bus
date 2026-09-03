@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { ga4Event } from "../ga4"
+import { ga4Event } from "ga4"
 
 export default class extends Controller {
   static targets = ["region", "route", "stop", "overlay"]
