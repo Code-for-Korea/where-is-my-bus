@@ -1,23 +1,41 @@
-// 스모크 테스트: 앱이 뜨고, 시스템 언어 감지에 따라 홈 화면 문구가 표시되는지만 확인.
+// 스모크 테스트: 스플래시 → (미등록)온보딩 / (등록됨)메인 → 설정 화면 진입까지 확인.
+// 스플래시 스피너가 무한 애니메이션이라 pumpAndSettle 대신 명시적 pump(duration)으로 진행시킨다.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:whereismybusapp/main.dart';
 import 'package:whereismybusapp/l10n/app_strings.dart';
 
-void main() {
-  testWidgets('홈 화면이 뜨고 AppBar에 앱 이름이 표시된다', (WidgetTester tester) async {
-    await tester.pumpWidget(const DriverApp());
-    await tester.pumpAndSettle();
+const _splashDelay = Duration(seconds: 3, milliseconds: 50);
+const _routeTransition = Duration(milliseconds: 350);
 
-    expect(find.text(AppStrings.appName), findsOneWidget);
-    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+void main() {
+  testWidgets('미등록 상태면 스플래시 후 온보딩 화면으로 이동한다', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(const DriverApp());
+    expect(find.textContaining(AppStrings.appName), findsOneWidget);
+
+    await tester.pump(_splashDelay);
+    await tester.pump(_routeTransition);
+
+    expect(find.text(AppStrings.registerButton), findsOneWidget);
   });
 
-  testWidgets('설정 화면 진입 시 언어 선택 항목이 보인다', (WidgetTester tester) async {
+  testWidgets('등록된 상태면 메인 화면에서 설정 화면으로 이동한다', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({
+      'admin_url': 'busadmin.gimhae.go.kr',
+      'device_id': 'gimhae-13-a8f3c2',
+      'bus_number': '13',
+    });
+
     await tester.pumpWidget(const DriverApp());
-    await tester.pumpAndSettle();
+    await tester.pump(_splashDelay);
+    await tester.pump(_routeTransition);
+
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();

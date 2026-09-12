@@ -16,6 +16,7 @@ class AppStrings {
   static String get poweredBy => _t((ko: 'powered by', en: 'powered by'));
 
   // ---- 0. 스플래시 ----
+  static String get splashSubtitle => _t((ko: '운전자용', en: 'Driver'));
   static String get splashLoading => _t((ko: '불러오는 중…', en: 'Loading…'));
 
   // ---- 1. 온보딩 ----
@@ -35,9 +36,11 @@ class AppStrings {
   static String get trackingActiveAction => _t((ko: '탭하면 운행정지', en: 'Tap to stop'));
   static String get trackingIdleState => _t((ko: '정지됨', en: 'Stopped'));
   static String get trackingIdleAction => _t((ko: '탭하면 운행시작', en: 'Tap to start'));
-  static String get keepTrackingLabel => _t((ko: '지속 추적', en: 'Keep tracking'));
-  static String get keepTrackingSub =>
-      _t((ko: '앱에서 나가도 백그라운드에서 계속 전송', en: 'Keeps sending in the background even if you leave the app'));
+  // 메인화면 안내문 — 지속추적 토글 자체는 설정화면으로 옮기고, 메인엔 동작 설명 + 운영 팁만 노출.
+  static String get mainTrackingNotice => _t((
+        ko: '앱을 나가도 위치 전송이 지속됩니다. 단, 원활한 버스위치 정보 전송을 위해서는 기기를 전원에 연결하고, 운행중에는 앱 화면을 켜두시길 권장합니다.',
+        en: 'Location keeps sending even after you leave the app. For reliable transmission, keep the device connected to power and the screen on while driving.',
+      ));
   /// 차량 번호가 들어가는 캡션 — 한/영 어순이 달라 템플릿을 분리한다.
   static String vehicleCaption(String busNumber) =>
       _t((ko: '$busNumber번 차량', en: 'Bus No. $busNumber'));
@@ -52,18 +55,22 @@ class AppStrings {
   static String get deviceIdLabel => _t((ko: '기기 식별자', en: 'Device ID'));
   static String get serverUrlLabel => _t((ko: '서버 주소', en: 'Server address'));
   static String get reregisterLabel => _t((ko: 'PIN으로 재등록', en: 'Re-register with PIN'));
-  static String get statusGroup => _t((ko: '상태', en: 'Status'));
   static String get statusViewLabel => _t((ko: '상태보기 (로그)', en: 'Status (logs)'));
   static String get displayGroup => _t((ko: '표시', en: 'Display'));
   static String get languageLabel => _t((ko: '언어', en: 'Language'));
-  static String get languageSystemOption => _t((ko: '시스템 기본값', en: 'System default'));
   static String get languageKoOption => _t((ko: '한국어', en: 'Korean'));
   static String get languageEnOption => _t((ko: 'English', en: 'English'));
   static String get themeLabel => _t((ko: '테마', en: 'Theme'));
   static String get themeCycleHint =>
       _t((ko: '테마 전환 (시스템/라이트/다크 순환)', en: 'Switch theme (cycles system/light/dark)'));
   static String get infoButtonHint => _t((ko: '이 프로젝트에 대해', en: 'About this project'));
-  static String get locationValuesGroup => _t((ko: '위치 추적 값', en: 'Location tracking'));
+  static String get keepTrackingLabel => _t((ko: '지속 추적', en: 'Keep tracking'));
+  // "계속 전송"은 보장이 아니라 최선노력(best-effort) — 기기가 강제 종료하면 중단될 수 있어
+  // 단정적 문구 대신 힌트를 남긴다. docs/issue.md "지속추적 문구" 참고.
+  static String get keepTrackingSub => _t((
+        ko: '앱을 나가도 전송을 이어가요 · 기기가 종료하면 중단될 수 있어요',
+        en: 'Keeps sending after you leave the app — may stop if the OS closes it',
+      ));
   static String get locationValuesLabel => _t((ko: '정확도 / 거리 필터 / 주기', en: 'Accuracy / distance filter / interval'));
   static String get fixedValuePill => _t((ko: '고정값', en: 'Fixed'));
 
@@ -74,8 +81,6 @@ class AppStrings {
         en: "We wanted technology to fix the frustration of waiting for a rural bus with no idea when it'll show up. This app is that open-source project's driver-side location tool.",
       ));
   static String get infoModalLinkLabel => _t((ko: '자세히 보기', en: 'Learn more'));
-  static String get infoModalHint =>
-      _t((ko: '실제 앱에서는 등록된 서버의 /about 페이지가 외부 브라우저로 열립니다.', en: "The real app opens the registered server's /about page in an external browser."));
 
   // ---- 4. 상태보기 ----
   static String get statusTitle => _t((ko: '상태보기', en: 'Status'));
@@ -86,4 +91,9 @@ class AppStrings {
   static String get onValue => _t((ko: '켜짐', en: 'On'));
   static String get offValue => _t((ko: '꺼짐', en: 'Off'));
   static String get logsGroup => _t((ko: '로그', en: 'Logs'));
+  static String get logTrackingStarted => _t((ko: '추적 시작', en: 'Tracking started'));
+  static String get logTrackingStopped => _t((ko: '추적 정지', en: 'Tracking stopped'));
+  static String get noLogsYet => _t((ko: '아직 기록이 없습니다', en: 'No logs yet'));
+  static String lastSentSecondsAgo(int seconds) => _t((ko: '$seconds초 전', en: '${seconds}s ago'));
+  static String get lastSentNever => _t((ko: '—', en: '—'));
 }

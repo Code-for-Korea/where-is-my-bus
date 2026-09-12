@@ -38,6 +38,20 @@ dependencies:
   # 언어 설정(ko/en) 영속화 — lib/l10n/language_settings.dart
   shared_preferences: ^2.5.5
 
+  # locale이 en이 아닐 때(예: ko) MaterialLocalizations(텍스트 선택 툴바 등)를 채워줌.
+  # pub.dev 패키지가 아니라 Flutter SDK 번들 — 버전 핀 불필요.
+  flutter_localizations:
+    sdk: flutter
+
+  # 목업의 버스 로고 SVG(lucide "bus")를 픽셀 그대로 렌더링 — lib/widgets/bus_icon.dart
+  flutter_svg: ^2.3.0
+
+  # 위치 추적 SDK — 초기화/시작/정지 UI 연결은 아직 미구현(README 제작 체크리스트 참고).
+  traccar_client_sdk: ^1.0.11
+
+  # 설정화면 하단 앱 버전 표시 — lib/screens/settings_screen.dart
+  package_info_plus: ^10.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

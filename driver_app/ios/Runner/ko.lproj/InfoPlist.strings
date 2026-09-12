@@ -1,0 +1,4 @@
+/* Localized versions of Info.plist keys — see docs/issue.md "iOS 위치 권한 팝업 로컬라이제이션". */
+
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "로컬버스 알리미는 운행 중 승객에게 실시간 버스 위치를 전달하기 위해 백그라운드를 포함한 위치 정보가 필요합니다.";
+"NSLocationWhenInUseUsageDescription" = "로컬버스 알리미는 운행 중 승객에게 실시간 버스 위치를 전달하기 위해 위치 정보가 필요합니다.";
