@@ -19,7 +19,7 @@ https://claude.ai/code/artifact/cd691e97-db15-4998-8b02-6f44744d37bd?via=auto_pr
 
 - SDK: [`traccar_client_sdk`](https://pub.dev/packages/traccar_client_sdk) (pub.dev, Apache-2.0) — [traccar.org/traccar-client-sdk](https://www.traccar.org/traccar-client-sdk/) · [Flutter 문서](https://www.traccar.org/traccar-client-sdk-flutter/)
 - 역할: 백그라운드 위치 수집 + 권한 요청(위치·배터리 최적화 예외) + OsmAnd 프로토콜(`:5055`)로 서버 전송까지 전부 처리. 앱은 UI(로그인/상태표시/시작·정지)만 구현.
-- 초기화: `Config(serverUrl: <Traccar 서버>, deviceId: <buses.traccar_unique_id>, location: LocationConfig(stopDetection: false))` → `tracker.start()`. `stopDetection`은 반드시 `false` — 켜면 iOS 모션 권한이 딸려온다(`docs/issue.md` 참고).
+- 초기화: `Config(serverUrl: <Traccar 서버>, deviceId: <buses.traccar_unique_id>, location: LocationConfig(stopDetection: false))` → `tracker.start()`. `stopDetection`은 반드시 `false` — 켜면 iOS 모션 권한이 딸려온다(`ISSUE.md` 참고).
 - SDK 범위 밖(직접 구현 필요): 정류장 크라우드소싱 등록 화면, iOS `Info.plist` 위치 권한 문구(`NSLocationAlwaysAndWhenInUseUsageDescription`).
 
 ## 다국어 (한국어/English)
@@ -34,13 +34,13 @@ https://claude.ai/code/artifact/cd691e97-db15-4998-8b02-6f44744d37bd?via=auto_pr
 ### 제작 체크리스트
 
 - [x] 패키지 ID를 `com.tenminutestudio.whereismybusdriver.*`로 변경 (Android `applicationId`/`namespace`, iOS bundle ID)
-- [x] UI 목업 확정 — 스플래시/온보딩/메인/설정/상태보기 5화면 (`docs/mvp-spec.md`, Artifact 목업)
+- [x] UI 목업 확정 — 스플래시/온보딩/메인/설정/상태보기 5화면 (`mvp-spec.md`, Artifact 목업)
 - [x] 다국어(한국어/English) 인프라 구성 — `lib/l10n/app_strings.dart`·`language_settings.dart`, 설정화면 언어 전환 스텁까지 (`flutter analyze`/`flutter test` 통과)
 - [x] 서비스 화면 flutter 생성/정리
 - [x] `pubspec.yaml`에 `traccar_client_sdk` 의존성 추가 (`flutter pub add traccar_client_sdk`)
-- [x] iOS `Info.plist`에 위치 권한 문구 추가(모션 권한은 불필요 — `stopDetection: false`로 끄기로 결정, `docs/issue.md` 참고) + `CFBundleLocalizations`(`ko`/`en`) 등록 + 언어별 `InfoPlist.strings`, Background Modes(Location updates) 활성화 — 순서·근거는 [`docs/issue.md`](docs/issue.md#ios-위치-권한-팝업-로컬라이제이션-infopliststrings) (macOS/Xcode가 없는 환경에서 작업해 `project.pbxproj` 등록까지는 했으나 실제 빌드로 검증은 못함 — Mac에서 한 번 열어 Copy Bundle Resources에 `InfoPlist.strings`가 보이는지 확인 필요)
-- [ ] 온보딩 화면 실제 구현: adminUrl+PIN 입력 → `POST /integrations/traccar/register` 호출 (서버 엔드포인트 자체도 미구현, `docs/issue.md` 참고)
-- [ ] `tracker.init(Config(location: LocationConfig(stopDetection: false), serverUrl, deviceId))` → `start()` / `stop()` 연결, 상태 표시(`isTracking()`). **`init()`은 스플래시/온보딩이 아니라 최초 "운행 시작" 탭 때 지연 호출** — SDK가 `init()` 시점부터 GPS 센서 구독을 시작해서, 미리 부르면 운전자가 버튼을 누르기 전부터 센서가 켜짐(`docs/issue.md` 참고). `stopDetection`은 반드시 `false`로 넘길 것(기본값 `true`면 iOS 모션 권한이 딸려옴, `docs/issue.md` 참고). mvp-spec 고정값의 `heartbeatIntervalSeconds: 30`을 쓰려면 iOS `UIBackgroundModes`에 `fetch` 추가 + `BGTaskSchedulerPermittedIdentifiers`에 `org.traccar.client.heartbeat` 등록도 같이 필요 ([traccar-client-sdk-flutter 문서](https://www.traccar.org/traccar-client-sdk-flutter/) 참고)
+- [x] iOS `Info.plist`에 위치 권한 문구 추가(모션 권한은 불필요 — `stopDetection: false`로 끄기로 결정, `ISSUE.md` 참고) + `CFBundleLocalizations`(`ko`/`en`) 등록 + 언어별 `InfoPlist.strings`, Background Modes(Location updates) 활성화 (macOS/Xcode가 없는 환경에서 작업해 `project.pbxproj` 등록까지는 했으나 실제 빌드로 검증은 못함 — Mac에서 한 번 열어 Copy Bundle Resources에 `InfoPlist.strings`가 보이는지 확인 필요)
+- [ ] 온보딩 화면 실제 구현: adminUrl+PIN 입력 → `POST /integrations/traccar/register` 호출 (서버 엔드포인트 자체도 미구현, `ISSUE.md` 참고)
+- [ ] `tracker.init(Config(location: LocationConfig(stopDetection: false), serverUrl, deviceId))` → `start()` / `stop()` 연결, 상태 표시(`isTracking()`). **`init()`은 스플래시/온보딩이 아니라 최초 "운행 시작" 탭 때 지연 호출** — SDK가 `init()` 시점부터 GPS 센서 구독을 시작해서, 미리 부르면 운전자가 버튼을 누르기 전부터 센서가 켜짐(`ISSUE.md` 참고). `stopDetection`은 반드시 `false`로 넘길 것(기본값 `true`면 iOS 모션 권한이 딸려옴, `ISSUE.md` 참고). mvp-spec 고정값의 `heartbeatIntervalSeconds: 30`을 쓰려면 iOS `UIBackgroundModes`에 `fetch` 추가 + `BGTaskSchedulerPermittedIdentifiers`에 `org.traccar.client.heartbeat` 등록도 같이 필요 ([traccar-client-sdk-flutter 문서](https://www.traccar.org/traccar-client-sdk-flutter/) 참고)
 - [ ] Android 최초 실행 시 SDK가 띄우는 배터리 최적화 예외 팝업 동작 확인
 - [ ] 실기기로 Traccar 서버(개발용 인스턴스 또는 `demo.traccar.org`)에 위치 도달 확인
 - [ ] 정류장 크라우드소싱 등록 화면(SDK 범위 밖, 별도 구현)
@@ -50,9 +50,11 @@ https://claude.ai/code/artifact/cd691e97-db15-4998-8b02-6f44744d37bd?via=auto_pr
 
 ### 백엔드(Rails) 개발 리스트
 
-driver_app 코드만으로는 못 끝나는, 서버 쪽에서 먼저(또는 같이) 해야 하는 작업. 상세 근거는 [`docs/issue.md`](docs/issue.md#미구현-기각-아님-구현-필요).
+driver_app 코드만으로는 못 끝나는, 서버 쪽에서 먼저(또는 같이) 해야 하는 작업. 상세 근거는 [`ISSUE.md`](ISSUE.md#미구현-구현-필요).
 
-- [ ] `POST /integrations/traccar/register` — PIN → `{ traccarServerUrl, deviceId }` 교환. 시도 횟수 제한(rate limit/lockout) 필수
+- [ ] `POST /integrations/traccar/register` — PIN(`Bus.pin` 사용, `PinCode` 모델은 미사용) → `{ traccarServerUrl, deviceId }` 교환. 시도 횟수 제한(rate limit/lockout) 필수
+- [ ] 배포별 `traccarServerUrl` 설정값 추가 — register 응답에 내려줄 값, credentials/ENV로 배포마다 다르게 주입(지역/국가별 인스턴스 대응)
+- [ ] `deviceId`로 내려줄 `Bus.traccar_unique_id`가 버스 생성 시 채워지는지 확인 — 비어있으면 어드민 버스 등록 폼에 필드 추가 필요
 - [ ] Admin: 버스별 QR 코드 생성 화면(`{ adminUrl, pin }` 인코딩) — `rqrcode` 등, 후순위(온보딩은 수동입력으로도 동작)
 - [ ] `GET /integrations/traccar/routes`(가칭) — `deviceId`로 Bus 조회 → 활성 Route의 Stop 목록(이름/lat·lng/`avg_travel_seconds`) JSON 응답. "다음 정류장" 표시용, 후순위
 - [ ] `traccar-integration.md` 로드맵 2단계: 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API)

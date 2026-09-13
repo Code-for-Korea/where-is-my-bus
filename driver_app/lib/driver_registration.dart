@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 온보딩에서 받은 단말 등록 정보(adminUrl/deviceId/busNumber).
 ///
-/// `POST /integrations/traccar/register` 서버 엔드포인트가 아직 없다(driver_app/docs/issue.md
+/// `POST /integrations/traccar/register` 서버 엔드포인트가 아직 없다(driver_app/ISSUE.md
 /// #미구현 참고) — register()는 그 자리에 들어갈 더미: 입력값 검증 없이 항상 성공 처리하고
 /// 목업과 같은 형태의 deviceId를 만들어낸다. 서버 붙으면 이 메서드 본문만
 /// HTTP 호출 + 응답 파싱(+ 실패 케이스)으로 교체하면 된다.

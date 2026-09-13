@@ -16,3 +16,10 @@
   --color-driver-500: #e84393;
   --color-driver-600: #d62f80;
 }
+
+@media (prefers-color-scheme: dark) {
+  /* codeforkorea.webp는 텍스트가 검정으로 그려진 래스터 이미지라 다크모드에서 반전 처리 */
+  .codeforkorea-logo {
+    filter: invert(1);
+  }
+}

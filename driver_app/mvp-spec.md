@@ -1,8 +1,10 @@
 # 드라이버 앱 MVP 스펙
 
+> 이 문서는 MVP 최초 정의 시점의 기준선(freeze)이다. 이후 확정/변경되는 내용은 이 문서가 아니라 [`README.md`](README.md)(이력/체크리스트)·[`ISSUE.md`](ISSUE.md)(설정값/근거)에 반영한다.
+
 서비스명: **로컬버스 알리미 (Where is My BUS)**
 
-위치 추적 로직은 [`traccar_client_sdk`](../README.md#위치-송신-traccar-client-sdk)가 전부 처리하므로, 이 앱이 만드는 건 그 위에 얹는 UI뿐이다.
+위치 추적 로직은 [`traccar_client_sdk`](README.md#위치-송신-traccar-client-sdk)가 전부 처리하므로, 이 앱이 만드는 건 그 위에 얹는 UI뿐이다.
 
 ## 오픈소스 멀티테넌트 전제
 
@@ -11,18 +13,18 @@
 ## 화면 구성
 
 ### 0. 스플래시
-- 앱 로고/서비스명 표시. 3초 노출 후 저장된 온보딩 결과가 있으면 메인화면, 없으면 온보딩 화면으로. `tracker.init()`은 여기서 부르지 않음 — [issue.md](issue.md#trackerinit-호출-시점--지연-초기화최초-운행-시작-탭-때) 참고.
+- 앱 로고/서비스명 표시. 3초 노출 후 저장된 온보딩 결과가 있으면 메인화면, 없으면 온보딩 화면으로. `tracker.init()`은 여기서 부르지 않음 — [ISSUE.md](ISSUE.md#trackerinit-호출-시점--지연-초기화최초-운행-시작-탭-때) 참고.
 - 다른 화면과 동일하게 앱 전역 테마(시스템/라이트/다크 설정)를 따른다. 최초 실행 안내 팝업(프로젝트 소개 모달)도 마찬가지.
 
 ### 1. 온보딩(최초 실행 시 1회)
 - **MVP는 수동 입력 한 화면**: `adminUrl`, `pin` 텍스트 필드 두 개를 **같은 화면에서 함께** 입력받는다. PIN만 먼저 받고 서버주소를 나중에(설정에서) 받는 2단계 흐름은 쓰지 않는다 — PIN 검증 자체가 서버주소 없이는 불가능하기 때문.
-- "등록" 탭 → 앱이 그 `adminUrl`로 `POST /integrations/traccar/register`에 `pin` 전송 → 서버가 PIN으로 `Bus`를 조회해 `{ traccarServerUrl, deviceId }` 응답 (엔드포인트 미구현 — [issue.md](issue.md#미구현-기각-아님-구현-필요) 참고). 실패 시 같은 화면에서 에러 표시 후 재입력.
-- 응답값(`traccarServerUrl`, `deviceId`)을 로컬에 저장. `tracker.init(Config(...))` 호출은 여기서 하지 않고 메인화면의 최초 "운행 시작" 탭까지 미룸(아래 2번, [issue.md](issue.md#trackerinit-호출-시점--지연-초기화최초-운행-시작-탭-때) 참고).
-- **QR 스캔은 후순위**(admin의 QR 생성 화면이 먼저 있어야 함, [issue.md](issue.md#미구현-기각-아님-구현-필요) 참고) — 나오면 이 화면에 스캔 버튼만 추가, 스캔 결과로 같은 두 필드를 채워주는 방식.
+- "등록" 탭 → 앱이 그 `adminUrl`로 `POST /integrations/traccar/register`에 `pin` 전송 → 서버가 PIN으로 `Bus`를 조회해 `{ traccarServerUrl, deviceId }` 응답 (엔드포인트 미구현 — [ISSUE.md](ISSUE.md#미구현-구현-필요) 참고). 실패 시 같은 화면에서 에러 표시 후 재입력.
+- 응답값(`traccarServerUrl`, `deviceId`)을 로컬에 저장. `tracker.init(Config(...))` 호출은 여기서 하지 않고 메인화면의 최초 "운행 시작" 탭까지 미룸(아래 2번, [ISSUE.md](ISSUE.md#trackerinit-호출-시점--지연-초기화최초-운행-시작-탭-때) 참고).
+- **QR 스캔은 후순위**(admin의 QR 생성 화면이 먼저 있어야 함, [ISSUE.md](ISSUE.md#미구현-구현-필요) 참고) — 나오면 이 화면에 스캔 버튼만 추가, 스캔 결과로 같은 두 필드를 채워주는 방식.
 
 ### 2. 메인화면
-- **위치전송 버튼** (화면 중앙, 크게) — 탭하면 `tracker.start()` / `tracker.stop()` 토글. 전송 중/중지 상태를 색상·아이콘으로 즉시 구분. **최초 탭에 한해** `tracker.init(Config(serverUrl, deviceId))`를 먼저 호출한 뒤 `start()` — GPS 센서 구독이 `init()` 시점부터 시작되는 SDK 특성상, 운전자가 버튼을 누르기 전까지 센서가 켜지지 않게 하려는 의도([issue.md](issue.md#trackerinit-호출-시점--지연-초기화최초-운행-시작-탭-때) 참고). 두 번째 탭부터는 이미 만들어진 인스턴스로 `start()`/`stop()`만.
-- **지속추적 안내문** (하단, 고정 문구) — "앱을 나가도 위치 전송이 지속됩니다. 단, 원활한 버스위치 정보 전송을 위해서는 기기를 전원에 연결하고, 운행중에는 앱 화면을 켜두시길 권장합니다." 지속추적 자체는 세션마다 결정할 값이 아니라(꺼지면 곧 서비스 목적이 무력화됨) 토글은 설정화면으로 옮기고, 메인엔 동작 설명 + 운영 팁만 노출. **단, 보장이 아니라 최선노력** — OS가 강제 종료하면 중단될 수 있음. [issue.md](issue.md#지속추적-문구--최선노력이지-보장이-아님) 참고.
+- **위치전송 버튼** (화면 중앙, 크게) — 탭하면 `tracker.start()` / `tracker.stop()` 토글. 전송 중/중지 상태를 색상·아이콘으로 즉시 구분. **최초 탭에 한해** `tracker.init(Config(serverUrl, deviceId))`를 먼저 호출한 뒤 `start()` — GPS 센서 구독이 `init()` 시점부터 시작되는 SDK 특성상, 운전자가 버튼을 누르기 전까지 센서가 켜지지 않게 하려는 의도([ISSUE.md](ISSUE.md#trackerinit-호출-시점--지연-초기화최초-운행-시작-탭-때) 참고). 두 번째 탭부터는 이미 만들어진 인스턴스로 `start()`/`stop()`만.
+- **지속추적 안내문** (하단, 고정 문구) — "앱을 나가도 위치 전송이 지속됩니다. 단, 원활한 버스위치 정보 전송을 위해서는 기기를 전원에 연결하고, 운행중에는 앱 화면을 켜두시길 권장합니다." 지속추적 자체는 세션마다 결정할 값이 아니라(꺼지면 곧 서비스 목적이 무력화됨) 토글은 설정화면으로 옮기고, 메인엔 동작 설명 + 운영 팁만 노출. **단, 보장이 아니라 최선노력** — OS가 강제 종료하면 중단될 수 있음. [ISSUE.md](ISSUE.md#지속추적-문구--최선노력이지-보장이-아님) 참고.
 - **설정 버튼** (우측 상단) — 설정화면으로 이동.
 
 ### 3. 설정화면
@@ -31,7 +33,7 @@
 - **상태보기(로그)** — `tracker.getLogs()` 결과를 타임스탬프순 리스트로 표시. 마지막 전송 시각, 전송 성공/실패 이력 확인용.
 - **'지속추적' 토글** — 꺼짐: 앱이 포그라운드일 때만 전송. 켜짐(**기본값**): 백그라운드에서도 전송 시도(Android 포그라운드 서비스 알림 상주, iOS 백그라운드 모드). 세션마다 결정할 값이 아니라 메인이 아닌 여기 상주 — 끄면 위치 전송 자체가 앱을 나가는 순간 끊기므로 기본은 켜짐, 상시 화면 고정 등 특수 운용에서만 끔.
 - **언어** — 한국어/English 전환. 기본은 시스템 언어 자동 감지(`PlatformDispatcher.instance.locale`), 지원 목록 밖 언어는 English로 폴백. 명시적으로 고르면 그 값을 재실행 후에도 유지.
-- 위치 정확도/거리는 서버(Traccar)가 아니라 SDK 로컬 설정이라 운전자가 조정할 대상이 아님 → UI 없이 [고정값](#위치-추적-고정값)으로 박는다. Advanced settings, 로컬 비밀번호 잠금도 MVP에 없음 — 사유는 [issue.md](issue.md) 참고.
+- 위치 정확도/거리는 서버(Traccar)가 아니라 SDK 로컬 설정이라 운전자가 조정할 대상이 아님 → UI 없이 [고정값](#위치-추적-고정값)으로 박는다. Advanced settings, 로컬 비밀번호 잠금도 MVP에 없음 — 사유는 [ISSUE.md](ISSUE.md) 참고.
 
 ### 4. 상태보기 화면
 - 설정화면의 "상태보기" 진입점으로 여는 별도 화면(또는 하단 시트).
@@ -48,13 +50,13 @@ Traccar 서버엔 표시/설정되지 않는 SDK 로컬 파라미터라 UI로 �
 | `intervalSeconds` (정지 시 heartbeat) | 300 | **30** | 정류장/터미널 정차 중에도 5분 방치되면 화면이 멈춰 보임. 정지 중엔 GPS 픽스 자체가 적어 배터리 부담 적음 |
 | `heartbeatIntervalSeconds` | 0 | **30** | 위와 동일한 이유로 백그라운드 heartbeat도 맞춤 |
 | `angleDegrees` | 0 | **0(비활성 유지)** | 버스 추적엔 방향 변화 트리거 불필요 |
-| `stopDetection` | true | **false(끔)** | 켜면 iOS에서 모션(피트니스) 권한이 추가로 필요해짐 — 위치 앱이 피트니스 데이터를 요구하는 데서 오는 불신 리스크가, 장시간 정차 시 GPS 배터리 절약보다 크다고 판단. [issue.md](issue.md#설정--advanced-settings-공식-앱-기준-5개-bufferwakelockstopdetectionpreferplatformproviderspassword) 참고 |
+| `stopDetection` | true | **false(끔)** | 켜면 iOS에서 모션(피트니스) 권한이 추가로 필요해짐 — 위치 앱이 피트니스 데이터를 요구하는 데서 오는 불신 리스크가, 장시간 정차 시 GPS 배터리 절약보다 크다고 판단. [ISSUE.md](ISSUE.md#설정--advanced-settings-공식-앱-기준-5개-bufferwakelockstopdetectionpreferplatformproviderspassword) 참고 |
 
 ## 검토했지만 채택 안 한 내용
 
-Advanced settings 노출 범위, 푸시, 커스텀 동의 팝업, 로컬 PIN 잠금, "번호+PIN만으로 서버 자동 감지" 등 논의·기각 사유는 [`issue.md`](issue.md)에 정리했다.
+Advanced settings 노출 범위, 푸시, 커스텀 동의 팝업, 로컬 PIN 잠금, "번호+PIN만으로 서버 자동 감지" 등 검토 결과는 [`ISSUE.md`](ISSUE.md)에, 논의 배경은 비공개 내부 문서에 정리했다.
 
 ## 관련 문서
-- [`issue.md`](issue.md) — 논의/보류/기각 로그, 미구현 서버 API 목록
-- [`../README.md`](../README.md) — SDK 연동 개요, 제작 체크리스트, 패키지 ID
+- [`ISSUE.md`](ISSUE.md) — 확정 설정값/근거, 미구현 서버 API 목록
+- [`README.md`](README.md) — SDK 연동 개요, 제작 체크리스트, 패키지 ID
 - [`../../docs/traccar-integration.md`](../../docs/traccar-integration.md) — 서버 측 연동 설계(데이터 흐름, 보안, 로드맵)

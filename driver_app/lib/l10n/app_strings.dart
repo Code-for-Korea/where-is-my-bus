@@ -66,7 +66,7 @@ class AppStrings {
   static String get infoButtonHint => _t((ko: '이 프로젝트에 대해', en: 'About this project'));
   static String get keepTrackingLabel => _t((ko: '지속 추적', en: 'Keep tracking'));
   // "계속 전송"은 보장이 아니라 최선노력(best-effort) — 기기가 강제 종료하면 중단될 수 있어
-  // 단정적 문구 대신 힌트를 남긴다. docs/issue.md "지속추적 문구" 참고.
+  // 단정적 문구 대신 힌트를 남긴다. ISSUE.md "지속추적 문구" 참고.
   static String get keepTrackingSub => _t((
         ko: '앱을 나가도 전송을 이어가요 · 기기가 종료하면 중단될 수 있어요',
         en: 'Keeps sending after you leave the app — may stop if the OS closes it',
