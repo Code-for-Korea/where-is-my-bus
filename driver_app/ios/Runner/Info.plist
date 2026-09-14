@@ -31,6 +31,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- ponytail: 임시 테스트 Traccar 서버(http, TLS 없음)용 ATS 예외. 실제 배포 서버가 https로
+	     정해지면 이 블록 제거할 것. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>yehyunserver.iptime.org</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Where is My BUS needs your location, including in the background, to broadcast your bus's live position to passengers while you're on duty.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -38,6 +51,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>fetch</string>
+	</array>
+	<!-- mvp-spec.md 고정값 heartbeatIntervalSeconds: 30 사용에 필요 (traccar-client-sdk-flutter 문서 참고) -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>org.traccar.client.heartbeat</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

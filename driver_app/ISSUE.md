@@ -29,6 +29,8 @@
 ### `stopDetection: false`
 `stopDetection: true`일 때만 iOS `MotionActivityDetector`가 생성돼 모션 권한(`NSMotionUsageDescription`)이 필요해짐 → 끔, `Info.plist`에 `NSMotionUsageDescription` 불필요.
 
+Android는 다름 — 네이티브 라이브러리(`org.traccar:traccar-client-sdk-android` AAR)가 `stopDetection` 설정값과 무관하게 `ACTIVITY_RECOGNITION`(신체 활동 정보) 권한을 매니페스트에 항상 선언해 실기기에서 동의 팝업이 뜸. `AndroidManifest.xml`에 `tools:node="remove"`로 명시 제거해서 iOS와 동일하게 요청 자체가 안 뜨도록 맞춤.
+
 ### interval / angle / heartbeat
 UI 비노출, MVP 고정값 사용(`intervalSeconds`/`heartbeatIntervalSeconds` 30초, `angleDegrees` 0). 값 표는 `mvp-spec.md`의 "위치 추적 고정값" 참고. 재검토 조건: 배터리·정확도 이슈 시 `intervalSeconds`부터.
 
@@ -42,6 +44,9 @@ UI 비노출, MVP 고정값 사용(`intervalSeconds`/`heartbeatIntervalSeconds` 
 
 ### 지속추적 토글 — 설정화면 이동 + 기본값 `true`
 메인화면 토글 제거, 설정화면 "위치 추적" 그룹으로 이동. 기본값 `false`→`true` — 꺼지면 서비스 목적이 무력화되는데 비숙련 운전자가 별도로 켜야 한다는 걸 놓칠 수 있는 실패 케이스 제거.
+
+### 지속추적 꺼짐 — 앱 생명주기로 직접 구현
+SDK `Config`엔 "포그라운드일 때만 전송"에 대응하는 옵션이 없음(`start()`하면 무조건 백그라운드까지 전송하는 구조). `TrackingController`가 `WidgetsBindingObserver`로 앱 포그라운드/백그라운드 전환을 직접 감지해서, `keepTracking == false`이고 운행 중일 때만 백그라운드 진입 시 `stop()`, 포그라운드 복귀 시 `start()`를 호출해 흉내냄. `keepTracking == true`(기본값)면 이 로직 자체가 개입하지 않고 SDK 기본 백그라운드 동작에 맡김.
 
 ## 미구현 (구현 필요)
 

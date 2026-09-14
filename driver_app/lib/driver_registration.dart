@@ -32,7 +32,7 @@ class DriverRegistration {
     final host = cleanUrl.replaceAll(RegExp(r'^https?://'), '');
     adminUrl = cleanUrl;
     busNumber = '13'; // ponytail: 서버 응답 전까지 목업 고정값, register API 붙으면 응답값으로 교체
-    deviceId = '$host-13-a8f3c2';
+    deviceId = '$host-1a2b3c';
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAdminUrl, adminUrl!);

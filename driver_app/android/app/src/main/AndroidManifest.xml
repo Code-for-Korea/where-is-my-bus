@@ -1,8 +1,14 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- traccar_client_sdk 네이티브 라이브러리가 stopDetection 설정과 무관하게 매니페스트에
+         무조건 선언해두는 권한 — stopDetection: false로 그 기능 자체를 안 쓰기로 했으니 제거.
+         iOS의 NSMotionUsageDescription 미등록과 같은 목적(ISSUE.md 참고). -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
     <application
         android:label="whereismybusapp"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"
