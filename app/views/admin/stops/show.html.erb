@@ -24,6 +24,10 @@
         <% end %>
       </div>
     </div>
+    <div>
+      <div class="text-xs text-gray-400">최종수정일자</div>
+      <div class="font-medium"><%= @stop.updated_at.strftime("%Y-%m-%d %H:%M") %></div>
+    </div>
   </div>
 
   <div class="flex items-center gap-3 pt-2 border-t border-gray-100">

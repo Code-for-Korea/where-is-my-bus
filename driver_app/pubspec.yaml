@@ -46,11 +46,17 @@ dependencies:
   # 목업의 버스 로고 SVG(lucide "bus")를 픽셀 그대로 렌더링 — lib/widgets/bus_icon.dart
   flutter_svg: ^2.3.0
 
-  # 위치 추적 SDK — 초기화/시작/정지 UI 연결은 아직 미구현(README 제작 체크리스트 참고).
+  # 위치 추적 SDK — 초기화/시작/정지는 lib/tracking_controller.dart에서 연결 완료.
   traccar_client_sdk: ^1.0.11
+
+  # register/routes API 호출용 — traccar_client_sdk가 이미 transitive로 물고 있던 걸 direct로 승격.
+  http: ^1.6.0
 
   # 설정화면 하단 앱 버전 표시 — lib/screens/settings_screen.dart
   package_info_plus: ^10.2.1
+
+  # 소개 모달 CTA에서 서버의 /about 페이지를 외부 브라우저로 열기 — lib/widgets/info_modal.dart
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

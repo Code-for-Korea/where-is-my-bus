@@ -16,6 +16,7 @@
         <th class="px-5 py-3 font-medium w-24 text-center">배차간격</th>
         <th class="px-5 py-3 font-medium w-20 text-center">정류장</th>
         <th class="px-5 py-3 font-medium w-20 text-center">추천</th>
+        <th class="px-5 py-3 font-medium w-36">최종수정일자</th>
         <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
       </tr>
     </thead>
@@ -30,6 +31,7 @@
           <td class="px-5 py-3 text-center text-gray-500"><%= route.headway_minutes ? "#{route.headway_minutes}분" : "—" %></td>
           <td class="px-5 py-3 text-center text-gray-500"><%= route.stops_count %></td>
           <td class="px-5 py-3 text-center text-gray-500"><%= number_with_delimiter(route.likes_count) %></td>
+          <td class="px-5 py-3 text-gray-500"><%= route.updated_at.strftime("%Y-%m-%d %H:%M") %></td>
           <td class="px-5 py-3 text-right space-x-3">
             <%= link_to "수정", edit_admin_route_path(route), class: "text-gray-500 hover:text-gray-900" %>
             <%= button_to "삭제", admin_route_path(route), method: :delete,
@@ -39,7 +41,7 @@
         </tr>
       <% end %>
       <% if @routes.empty? %>
-        <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">등록된 노선이 없습니다.</td></tr>
+        <tr><td colspan="8" class="px-5 py-10 text-center text-gray-400">등록된 노선이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

@@ -1,0 +1,41 @@
+<% content_for :page_title, "신규등록 운영자 지침" %>
+
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl space-y-6 text-sm leading-relaxed">
+  <p class="text-gray-500">
+    신규 차량 등록 시 아래 절차를 따라주세요.
+  </p>
+
+  <ol class="list-decimal list-inside space-y-4">
+    <li>
+      <strong>Rails에서 버스 등록</strong>
+      <p class="mt-1 text-gray-600">
+        <%= link_to "차량 추가", new_admin_bus_path, class: "text-indigo-600 underline" %> 시 단말 식별자(<code>traccar_unique_id</code>)는 자동 생성됩니다(직접 입력하지 않음).
+        버스 상세화면에 표시된 이 값을 복사하세요.
+      </p>
+    </li>
+    <li>
+      <strong>Traccar 서버에 디바이스 등록</strong>
+      <p class="mt-1 text-gray-600">
+        Traccar 서버 관리화면(<code>/settings/devices</code> 등)에 접속해 새 디바이스를 추가하고, Identifier에 1번에서 복사한 값을 그대로 붙여넣으세요.
+        두 값이 하나라도 다르면 위치가 도착해도 조용히 무시됩니다(에러 없이 누락) — 트래킹이 안 되면 이 값 일치부터 확인하세요.
+      </p>
+    </li>
+    <li>
+      <strong>adminUrl과 PIN코드 전달</strong>
+      <p class="mt-1 text-gray-600">
+        이 Rails 서버의 접속 주소(adminUrl)와 이 버스의 PIN(차량 상세화면에 표시됨)을 운전자에게 함께 전달하세요.
+        운전자는 driver_app 최초 실행 시 이 두 값(adminUrl + PIN)을 입력해 등록합니다.
+      </p>
+    </li>
+    <li>
+      <strong>동작 확인</strong>
+      <p class="mt-1 text-gray-600">
+        운전자가 앱에서 "운행 시작"을 누른 후, 해당 버스의 운행/위치 기록이 쌓이는지 확인하세요.
+      </p>
+    </li>
+  </ol>
+
+  <div class="pt-2 border-t border-gray-100">
+    <%= link_to "차량 목록으로", admin_buses_path, class: "text-sm text-gray-500 hover:text-gray-900" %>
+  </div>
+</div>

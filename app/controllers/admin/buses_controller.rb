@@ -1,6 +1,6 @@
 module Admin
   class BusesController < BaseController
-    before_action :set_bus, only: %i[show edit update destroy]
+    before_action :set_bus, only: %i[show edit update destroy regenerate_pin]
 
     def index
       @buses = Bus.includes(area: :region).all
@@ -39,6 +39,12 @@ module Admin
       redirect_to admin_buses_path, notice: "차량이 삭제되었습니다.", status: :see_other
     end
 
+    # PIN 유출 등으로 운영자가 즉시 무효화하고 싶을 때 — 재발급하면 옛 PIN으로는 register API가 더 이상 안 먹힘.
+    def regenerate_pin
+      @bus.regenerate_pin!
+      redirect_to admin_bus_path(@bus), notice: "PIN이 재발급되었습니다. 운전자에게 새 PIN을 전달해주세요."
+    end
+
     private
 
     def set_bus
@@ -46,7 +52,7 @@ module Admin
     end
 
     def bus_params
-      params.require(:bus).permit(:area_id, :license_plate, :bus_number, :pin, :status)
+      params.require(:bus).permit(:area_id, :license_plate, :bus_number, :status)
     end
   end
 end

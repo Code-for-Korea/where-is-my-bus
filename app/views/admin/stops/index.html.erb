@@ -20,6 +20,7 @@
         <% unless @route %><th class="px-5 py-3 font-medium">노선</th><% end %>
         <th class="px-5 py-3 font-medium">정류장명</th>
         <th class="px-5 py-3 font-medium w-56">좌표</th>
+        <th class="px-5 py-3 font-medium w-36">최종수정일자</th>
         <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
       </tr>
     </thead>
@@ -36,6 +37,7 @@
               <span class="text-xs text-amber-600">미등록</span>
             <% end %>
           </td>
+          <td class="px-5 py-3 text-gray-500"><%= stop.updated_at.strftime("%Y-%m-%d %H:%M") %></td>
           <td class="px-5 py-3 text-right space-x-3">
             <%= link_to "수정", edit_admin_stop_path(stop), class: "text-gray-500 hover:text-gray-900" %>
             <%= button_to "삭제", admin_stop_path(stop), method: :delete,
@@ -45,7 +47,7 @@
         </tr>
       <% end %>
       <% if @stops.empty? %>
-        <tr><td colspan="<%= @route ? 4 : 5 %>" class="px-5 py-10 text-center text-gray-400">등록된 정류장이 없습니다.</td></tr>
+        <tr><td colspan="<%= @route ? 5 : 6 %>" class="px-5 py-10 text-center text-gray-400">등록된 정류장이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

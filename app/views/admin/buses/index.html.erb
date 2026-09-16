@@ -12,7 +12,7 @@
       <tr>
         <th class="px-5 py-3 font-medium">운행지역</th>
         <th class="px-5 py-3 font-medium">번호판</th>
-        <th class="px-5 py-3 font-medium w-32">PIN</th>
+        <th class="px-5 py-3 font-medium w-36">최종수정일자</th>
         <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
       </tr>
     </thead>
@@ -23,7 +23,7 @@
           <td class="px-5 py-3 font-medium">
             <%= link_to bus.license_plate, admin_bus_path(bus), class: "text-indigo-600 hover:underline" %>
           </td>
-          <td class="px-5 py-3 font-mono text-gray-500"><%= bus.pin %></td>
+          <td class="px-5 py-3 text-gray-500"><%= bus.updated_at.strftime("%Y-%m-%d %H:%M") %></td>
           <td class="px-5 py-3 text-right space-x-3">
             <%= link_to "수정", edit_admin_bus_path(bus), class: "text-gray-500 hover:text-gray-900" %>
             <%= button_to "삭제", admin_bus_path(bus), method: :delete,

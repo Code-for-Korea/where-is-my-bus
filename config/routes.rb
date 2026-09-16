@@ -8,7 +8,9 @@ Rails.application.routes.draw do
 
   # Traccar 위치 포워딩 수신 (머신 간)
   namespace :integrations do
+    post "traccar/register",  to: "traccar#register"
     post "traccar/positions", to: "traccar#positions"
+    get  "traccar/routes",    to: "traccar#routes"
   end
 
   # 관리자
@@ -19,7 +21,10 @@ Rails.application.routes.draw do
     resources :areas
     resources :routes
     resources :stops
-    resources :buses
+    resources :buses do
+      member { post :regenerate_pin }
+    end
+    get "guides/bus_registration", to: "guides#bus_registration", as: :bus_registration_guide
   end
 
   # 승객 웹 (i18n 지원)

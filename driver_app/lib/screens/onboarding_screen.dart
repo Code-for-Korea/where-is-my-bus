@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../api_client.dart';
 import '../app_colors.dart';
 import '../driver_registration.dart';
 import '../l10n/app_strings.dart';
@@ -26,12 +27,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  // register API가 없어 항상 성공하는 더미 — 입력 검증 없이 누르면 바로 메인으로 이동한다.
   Future<void> _submit() async {
     setState(() => _submitting = true);
-    await DriverRegistration.register(url: _urlController.text, pin: _pinController.text);
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+    try {
+      await DriverRegistration.register(url: _urlController.text, pin: _pinController.text);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override

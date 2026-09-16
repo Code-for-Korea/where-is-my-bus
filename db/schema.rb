@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_103953) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -34,6 +34,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_21_035326) do
     t.datetime "updated_at", null: false
     t.index ["area_id", "license_plate"], name: "index_buses_on_area_id_and_license_plate", unique: true
     t.index ["area_id"], name: "index_buses_on_area_id"
+    t.index ["pin"], name: "index_buses_on_pin", unique: true
     t.index ["traccar_unique_id"], name: "index_buses_on_traccar_unique_id", unique: true
   end
 

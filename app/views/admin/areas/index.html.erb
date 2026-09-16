@@ -14,6 +14,7 @@
         <th class="px-5 py-3 font-medium">시·도</th>
         <th class="px-5 py-3 font-medium">운행지역</th>
         <th class="px-5 py-3 font-medium w-20 text-center">노선</th>
+        <th class="px-5 py-3 font-medium w-36">최종수정일자</th>
         <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
       </tr>
     </thead>
@@ -26,6 +27,7 @@
             <%= link_to area.name, admin_area_path(area), class: "text-indigo-600 hover:underline" %>
           </td>
           <td class="px-5 py-3 text-center text-gray-500"><%= area.routes_count %></td>
+          <td class="px-5 py-3 text-gray-500"><%= area.updated_at.strftime("%Y-%m-%d %H:%M") %></td>
           <td class="px-5 py-3 text-right space-x-3">
             <%= link_to "수정", edit_admin_area_path(area), class: "text-gray-500 hover:text-gray-900" %>
             <%= button_to "삭제", admin_area_path(area), method: :delete,
@@ -35,7 +37,7 @@
         </tr>
       <% end %>
       <% if @areas.empty? %>
-        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">등록된 운행지역이 없습니다.</td></tr>
+        <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">등록된 운행지역이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

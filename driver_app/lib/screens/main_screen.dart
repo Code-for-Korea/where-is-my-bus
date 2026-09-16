@@ -23,6 +23,19 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     TrackingController.load();
+    TrackingController.lastError.addListener(_showErrorIfAny);
+  }
+
+  @override
+  void dispose() {
+    TrackingController.lastError.removeListener(_showErrorIfAny);
+    super.dispose();
+  }
+
+  void _showErrorIfAny() {
+    final message = TrackingController.lastError.value;
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -83,47 +96,58 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      AnimatedOpacity(
-                        opacity: tracking ? 1 : 0,
-                        duration: motionDuration(context, const Duration(milliseconds: 220)),
-                        curve: motionCurve,
-                        child: IgnorePointer(
-                          ignoring: !tracking,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                            constraints: const BoxConstraints(maxWidth: 300),
-                            decoration: BoxDecoration(color: p.trackingSoft, borderRadius: BorderRadius.circular(99)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.location_on_outlined, size: 18, color: p.tracking),
-                                const SizedBox(width: 7),
-                                Flexible(
-                                  child: Text.rich(
-                                    TextSpan(
-                                      children: [
+                      AnimatedBuilder(
+                        animation: Listenable.merge(
+                            [ TrackingController.nextStopName, TrackingController.nextStopEtaMinutes ]),
+                        builder: (context, _) {
+                          final name = TrackingController.nextStopName.value;
+                          final eta = TrackingController.nextStopEtaMinutes.value;
+                          final hasData = tracking && name != null && eta != null;
+                          return AnimatedOpacity(
+                            opacity: hasData ? 1 : 0,
+                            duration: motionDuration(context, const Duration(milliseconds: 220)),
+                            curve: motionCurve,
+                            child: IgnorePointer(
+                              ignoring: !hasData,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                                constraints: const BoxConstraints(maxWidth: 300),
+                                decoration:
+                                    BoxDecoration(color: p.trackingSoft, borderRadius: BorderRadius.circular(99)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.location_on_outlined, size: 18, color: p.tracking),
+                                    const SizedBox(width: 7),
+                                    Flexible(
+                                      child: Text.rich(
                                         TextSpan(
-                                          text: '${AppStrings.nextStopLabel} · ',
-                                          style: TextStyle(fontWeight: FontWeight.w600, color: p.inkFaint, fontSize: 15),
+                                          children: [
+                                            TextSpan(
+                                              text: '${AppStrings.nextStopLabel} · ',
+                                              style:
+                                                  TextStyle(fontWeight: FontWeight.w600, color: p.inkFaint, fontSize: 15),
+                                            ),
+                                            TextSpan(
+                                              text: name ?? '',
+                                              style: TextStyle(fontWeight: FontWeight.bold, color: p.ink, fontSize: 15),
+                                            ),
+                                            TextSpan(
+                                              text: ' · ${eta ?? ''}${AppStrings.etaMinutesUnit}',
+                                              style: TextStyle(fontWeight: FontWeight.w700, color: p.tracking, fontSize: 15),
+                                            ),
+                                          ],
                                         ),
-                                        TextSpan(
-                                          text: TrackingController.nextStopName,
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: p.ink, fontSize: 15),
-                                        ),
-                                        TextSpan(
-                                          text: ' · ${TrackingController.nextStopEtaMinutes}${AppStrings.etaMinutesUnit}',
-                                          style: TextStyle(fontWeight: FontWeight.w700, color: p.tracking, fontSize: 15),
-                                        ),
-                                      ],
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ],
                   ),

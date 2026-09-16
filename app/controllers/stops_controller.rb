@@ -45,67 +45,18 @@ class StopsController < ApplicationController
     bus = target_stop.route&.bus
     return render json: { status: "no_data", eta_minutes: nil, stops_away: nil } unless bus
 
-    trip, latest_gps = active_trip_with_gps(bus)
-    return render json: { eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number, status: "no_trip" } unless trip
-    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless latest_gps
-
-    all_stops = target_stop.route.stops.order(:sequence).to_a
-    bus_stop  = nearest_stop(all_stops, latest_gps)
-    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless bus_stop
-
-    if bus_stop.sequence >= target_stop.sequence
-      # 마지막 구간(-1 → 현재) 진행률 계산
-      prev_stop = all_stops.find { |s| s.sequence == target_stop.sequence - 1 }
-      seg_seconds = target_stop.avg_travel_seconds.to_i
-
-      progress = if prev_stop
-        seg_len = Math.sqrt(
-          (target_stop.lat.to_f - prev_stop.lat.to_f)**2 +
-          (target_stop.lng.to_f - prev_stop.lng.to_f)**2
-        )
-        bus_dist = Math.sqrt(
-          (latest_gps.lat.to_f - prev_stop.lat.to_f)**2 +
-          (latest_gps.lng.to_f - prev_stop.lng.to_f)**2
-        )
-        seg_len > 0 ? [ bus_dist / seg_len, 1.0 ].min : 1.0
-      else
-        1.0
-      end
-
-      # progress < 1.0: 마지막 구간 진입 중 → stops_away: 1 유지
-      if progress < 1.0
-        remaining = seg_seconds > 0 ? (seg_seconds * (1.0 - progress)).ceil : 0
-        return render json: {
-          eta_minutes: (remaining / 60.0).ceil,
-          stops_away:  1,
-          bus_number:  bus.bus_number,
-          bar_pct:     [ (30 + (90 - 30) * progress).round, 89 ].min
-        }
-      end
-
-      # progress >= 1.0: 실제 도착
-      return render json: {
-        eta_minutes: 0,
-        stops_away:  0,
-        bus_number:  bus.bus_number,
-        bar_pct:     90
-      }
+    progress = RouteProgress.new(bus)
+    case progress.status
+    when :no_trip
+      return render json: { eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number, status: "no_trip" }
+    when :no_gps
+      return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number }
     end
 
-    ahead = all_stops.select { |s| s.sequence > bus_stop.sequence && s.sequence <= target_stop.sequence }
-    total_seconds = ahead.sum { |s| s.avg_travel_seconds.to_i }
-    bar_pct = case ahead.size
-    when 1 then 30
-    when 2 then 15
-    else        3
-    end
+    result = progress.eta_to(target_stop)
+    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless result
 
-    render json: {
-      eta_minutes: (total_seconds / 60.0).ceil,
-      stops_away:  ahead.size,
-      bus_number:  bus.bus_number,
-      bar_pct:     bar_pct
-    }
+    render json: result.merge(bus_number: bus.bus_number)
   end
 
   def debug_bus

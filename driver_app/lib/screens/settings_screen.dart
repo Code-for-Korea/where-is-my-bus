@@ -111,10 +111,16 @@ class SettingsScreen extends StatelessWidget {
             label: AppStrings.reregisterLabel,
             labelColor: p.accent,
             trailing: Icon(Icons.chevron_right, size: 16, color: p.inkFaint),
-            onTap: () => Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-              (route) => false,
-            ),
+            onTap: () async {
+              // 운행 중에 재등록하면 옛 deviceId로 계속 전송될 수 있어 먼저 정지 → 등록정보 삭제.
+              await TrackingController.forceStop();
+              await DriverRegistration.clear();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                (route) => false,
+              );
+            },
           ),
           const _AppVersionFooter(),
         ],

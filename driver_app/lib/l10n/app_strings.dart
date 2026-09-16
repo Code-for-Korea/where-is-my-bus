@@ -12,7 +12,7 @@ class AppStrings {
       LanguageSettings.current == AppLanguage.ko ? pair.ko : pair.en;
 
   // ---- 공통 ----
-  static String get appName => _t((ko: '로컬버스 알리미', en: 'Where is My BUS'));
+  static String get appName => _t((ko: '내 버스는 언제 올까?', en: 'Where is My BUS'));
   static String get poweredBy => _t((ko: 'powered by', en: 'powered by'));
 
   // ---- 0. 스플래시 ----
@@ -75,7 +75,7 @@ class AppStrings {
   static String get fixedValuePill => _t((ko: '고정값', en: 'Fixed'));
 
   // ---- 프로젝트 소개 모달 ----
-  static String get infoModalTitle => _t((ko: '로컬버스 알리미란?', en: 'What is Where is My BUS?'));
+  static String get infoModalTitle => _t((ko: '내 버스는 언제 올까?', en: 'What is Where is My BUS?'));
   static String get infoModalBody => _t((
         ko: '우리는 버스가 언제 올지... 막연히 기다려야하는 시골버스의 불편함을 기술로 해결하고 싶었습니다. 이 앱은 그 오픈소스 프로젝트의 운전자용 위치 전송 도구입니다.',
         en: "We wanted technology to fix the frustration of waiting for a rural bus with no idea when it'll show up. This app is that open-source project's driver-side location tool.",
