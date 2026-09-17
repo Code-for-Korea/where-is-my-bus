@@ -9,8 +9,8 @@ class TraccarGroupSyncTest < ActiveSupport::TestCase
 
   test "creates a group when route has no traccar_group_id" do
     stub_request(:post, "http://traccar.test/api/groups")
-      .with(body: { name: "route-#{@route.id}" }.to_json)
-      .to_return(status: 200, body: { id: 42, name: "route-#{@route.id}" }.to_json, headers: { "Content-Type" => "application/json" })
+      .with(body: { name: "#{@route.area.name} #{@route.name}" }.to_json)
+      .to_return(status: 200, body: { id: 42, name: "#{@route.area.name} #{@route.name}" }.to_json, headers: { "Content-Type" => "application/json" })
 
     result = TraccarGroupSync.call(@route)
 
@@ -21,7 +21,7 @@ class TraccarGroupSyncTest < ActiveSupport::TestCase
   test "updates the group when route already has a traccar_group_id" do
     @route.update!(traccar_group_id: 42)
     stub_request(:put, "http://traccar.test/api/groups/42")
-      .with(body: { id: 42, name: "route-#{@route.id}" }.to_json)
+      .with(body: { id: 42, name: "#{@route.area.name} #{@route.name}" }.to_json)
       .to_return(status: 200, body: "", headers: {})
 
     result = TraccarGroupSync.call(@route)

@@ -35,7 +35,7 @@ class TraccarGroupSync
     private
 
     def group_name(route)
-      "route-#{route.id}"
+      "#{route.area.name} #{route.name}"
     end
 
     def create_group(name)
