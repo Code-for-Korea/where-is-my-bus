@@ -4,19 +4,46 @@
 
 ## 결정 사항 (MVP)
 
-1. **운전자 단말**: 공식 **Traccar Client 앱**을 그대로 사용 — 커스텀 iOS 앱 미개발.
+1. **운전자 단말**: ~~공식 Traccar Client 앱~~ → **커스텀 앱 `driver_app`(Flutter)** 으로 대체.
+   `driver_app`은 UI(온보딩/운행 시작·정지/상태표시)만 구현하고, 위치 수집·전송은
+   [`traccar_client_sdk`](https://www.traccar.org/traccar-client-sdk-flutter/)에 그대로 위임한다.
 2. **실시간 방식**: 기존 **폴링 유지**(`arrival_polling_controller.js`, 5초). Solid Cable 도입은 보류.
 3. **지도**: 시민 화면은 **진행바만 유지**. 별도 지도 없음.
 
 ## 데이터 흐름
 
 ```
-운전자 폰 (Traccar Client, OsmAnd :5055)
+운전자 폰 (driver_app → traccar_client_sdk, OsmAnd :5055)
    └─ GPS(id·lat·lon) ─▶ Traccar 서버 (Docker, API :8082)
                               └─ 위치 포워딩(JSON POST) ─▶ Rails  POST /integrations/traccar/positions
                                                               └─ Bus 매핑 → Trip → GpsLog 적재
                                                                     └─ 기존 stops#arrival(폴링)이 읽어 시민 웹에 표시
 ```
+
+## 운전자 온보딩 (driver_app, 구현 완료 — e2e 검증됨)
+
+Admin에서 차량을 등록하면 Rails가 `traccar_unique_id`(추측 불가능한 식별자)와 `pin`(6자리)을
+자동 생성하고, 같은 시점에 [Admin geofence/group 자동화](#admin-geofencegroup-자동화-구현-완료--노선-배차-연동)
+절에서 다루는 `TraccarDeviceSync`가 이 식별자로 Traccar 서버에 device를 자동 생성한다.
+운영자는 이 PIN과 Rails 서버 주소(adminUrl)만 운전자에게 전달하면 된다.
+
+```
+운전자: driver_app 최초 실행 → adminUrl + PIN 입력 → "Register and start"
+   └─ POST {adminUrl}/integrations/traccar/register { pin }
+        └─ Rails: Bus.find_by(pin:) → 200 { traccarServerUrl, deviceId: bus.traccar_unique_id }
+             └─ driver_app: 응답값을 로컬(SharedPreferences)에 저장, 메인 화면으로 전환
+                  └─ "운행 시작" 탭 → traccar_client_sdk.start(serverUrl, deviceId)로 GPS 전송 개시
+```
+
+운전자는 `traccar_unique_id` 자체를 직접 입력하지 않는다 — Admin이 먼저 발급해둔 값을
+PIN 인증으로 대신 받아오는 구조다. `deviceId`는 Traccar 쪽에서 새로 발급되는 게 아니라
+**Rails가 Bus 생성 시 이미 만들어 둔 값**을 그대로 내려주는 것뿐이라, 이 시점에 Traccar
+서버로의 쓰기(device 생성)는 일어나지 않는다 — 그건 이미 Admin 등록 시점에 끝나 있다.
+
+- 인증 실패(PIN 오류 401, 시도 초과 429, 서버 무응답)는 각각 사람이 읽을 메시지로 변환되어
+  `SnackBar`로 노출된다(`driver_app/lib/api_client.dart`).
+- `PinCode` 모델(`app/models/pin_code.rb`)이 별도로 존재하지만 **어디에서도 참조되지 않는
+  미사용 코드**다 — 실제 PIN 인증은 `Bus.pin` 컬럼으로 이뤄진다. 혼동 방지용으로 남겨둠.
 
 ## Rails 수신 측 (구현 완료 — Phase 1)
 
@@ -70,11 +97,13 @@ Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 �
 해당 CRUD를 전혀 수행할 수 없다는 트레이드오프를 가진다. 화면에는 실패 사유(예: Traccar
 서버와 통신할 수 없음)를 명확히 표시한다.
 
-## 운영 측 (운영자가 수행 — 미구현/수동)
+## 운영 측 (운영자가 수행)
 
 - **Traccar 서버**: Docker(`traccar/traccar`)로 기동, 데이터 볼륨 + `traccar.xml` 영속화. 포트 8082(API/WS), 5055(OsmAnd 수신).
-- **차량 ↔ 단말 등록**: 각 버스에 추측 불가능한 `traccar_unique_id` 발급(예: `goseong-1-a8f3c2`). Admin에서 차량 등록 시 `TraccarDeviceSync`가 이 값으로 Traccar 서버에 디바이스를 자동 생성해 `bus.traccar_device_id`에 저장(수동 등록 불필요). 운전자는 Traccar Client에 서버 주소 + 이 식별자 입력 후 "시작".
-- **PIN 흐름**: 기존 `PinCode`는 운영자가 운전자에게 단말 식별자를 발급/승인하는 본인확인 용도로 유지.
+- **차량 ↔ 단말 등록**: Admin에서 차량을 등록하면 `traccar_unique_id`가 자동 발급되고
+  `TraccarDeviceSync`가 같은 값으로 Traccar 서버에 device를 자동 생성해 `bus.traccar_device_id`에
+  저장한다(수동 등록 불필요, [운전자 온보딩](#운전자-온보딩-driver_app-구현-완료--e2e-검증됨) 참고).
+  운영자는 이 서버 주소와 PIN만 운전자에게 전달하면 된다.
 
 ## 보안
 
@@ -86,10 +115,11 @@ Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 �
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| 0 | Traccar Docker 기동 + Traccar Client로 위치 수신 확인 | 운영 수동 |
+| 0 | Traccar Docker 기동 + 위치 수신 확인 | 운영 수동 |
 | 1 | Rails 수신 엔드포인트 + 모델 컬럼 + 포워딩 → GpsLog 적재 | **완료** |
 | 1.5 | Admin 정류장 등록 시 geofence 자동 생성 + 노선 단위 group 자동 연결(배차 시 device 자동 추가) | **완료** |
 | 2 | 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API) + admin 단말 상태 표시 | **완료** |
+| 2.5 | driver_app 온보딩(PIN → register API → deviceId 수신 → traccar_client_sdk 시작) 실제 서버 e2e 검증 | **완료** |
 | 3 | Trip 자동 종료(오프라인/타임아웃, Solid Queue) | 예정 |
 
 > 폴링 유지·지도 미도입 결정에 따라, 실시간 Cable·지도 단계는 로드맵에서 제외.

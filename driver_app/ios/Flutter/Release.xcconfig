@@ -1,1 +1,6 @@
 #include "Generated.xcconfig"
+
+// traccar_client_sdk(SPM binaryTarget)가 내부적으로 sqlite3 C API를 쓰지만
+// 자체 Package.swift에 linkedLibrary 선언이 없어 링크 에러(Undefined symbol: _sqlite3_*)가 남.
+// 앱 타겟에서 시스템 sqlite3를 직접 링크해 우회.
+OTHER_LDFLAGS = $(inherited) -lsqlite3
