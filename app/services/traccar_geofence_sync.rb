@@ -36,7 +36,7 @@ class TraccarGeofenceSync
       end
 
       wkt = rectangle_wkt(lat: stop.lat.to_f, lng: stop.lng.to_f)
-      name = "stop-#{stop.id}"
+      name = stop.name
 
       if stop.traccar_geofence_id.present?
         update_geofence(stop.traccar_geofence_id, name, wkt)

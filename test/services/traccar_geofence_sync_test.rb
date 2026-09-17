@@ -48,7 +48,7 @@ class TraccarGeofenceSyncTest < ActiveSupport::TestCase
 
   test "creates a new geofence when stop has no traccar_geofence_id, then links it to the group" do
     stub_request(:post, "http://traccar.test/api/geofences")
-      .with(body: hash_including(name: "stop-#{@stop.id}"))
+      .with(body: hash_including(name: @stop.name))
       .to_return(status: 200, body: { id: 21 }.to_json, headers: { "Content-Type" => "application/json" })
     stub_request(:post, "http://traccar.test/api/permissions")
       .with(body: { groupId: 7, geofenceId: 21 }.to_json)
@@ -63,7 +63,7 @@ class TraccarGeofenceSyncTest < ActiveSupport::TestCase
   test "updates an existing geofence when stop already has a traccar_geofence_id" do
     @stop.update!(traccar_geofence_id: 21)
     stub_request(:put, "http://traccar.test/api/geofences/21")
-      .with(body: hash_including(id: 21, name: "stop-#{@stop.id}"))
+      .with(body: hash_including(id: 21, name: @stop.name))
       .to_return(status: 200, body: "", headers: {})
     stub_request(:post, "http://traccar.test/api/permissions")
       .with(body: { groupId: 7, geofenceId: 21 }.to_json)
