@@ -19,8 +19,13 @@ Rails.application.routes.draw do
 
     resources :regions
     resources :areas
-    resources :routes
-    resources :stops
+    resources :routes do
+      member { post :sync_group }
+      resources :route_buses, only: %i[create destroy], controller: "route_buses"
+    end
+    resources :stops do
+      member { post :sync_geofence }
+    end
     resources :buses do
       member { post :regenerate_pin }
     end
