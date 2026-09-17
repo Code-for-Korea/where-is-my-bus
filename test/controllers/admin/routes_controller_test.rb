@@ -22,17 +22,15 @@ module Admin
       assert_nil flash[:alert]
     end
 
-    test "create saves the route and sets a flash alert when the group API fails" do
+    test "create rolls back and does not save the route when the group API fails" do
       stub_request(:post, "http://traccar.test/api/groups").to_return(status: 500, body: "boom")
 
-      assert_difference "Route.count", 1 do
+      assert_no_difference "Route.count" do
         post admin_routes_path, params: { route: { area_id: @area.id, name: "새 노선" } }
       end
 
-      route = Route.order(:id).last
-      assert_redirected_to admin_route_path(route)
-      assert_nil route.reload.traccar_group_id
-      assert_match(/group 동기화 실패/, flash[:alert])
+      assert_response :unprocessable_entity
+      assert_match(/Traccar 연동 실패/, response.body)
     end
 
     test "destroy calls the group deletion API" do
@@ -48,16 +46,17 @@ module Admin
       assert_requested :delete, "http://traccar.test/api/groups/42"
     end
 
-    test "destroy still deletes the route when the group deletion API fails" do
+    test "destroy keeps the route when the group deletion API fails" do
       route = routes(:one)
       route.update!(traccar_group_id: 42)
       stub_request(:delete, "http://traccar.test/api/groups/42").to_return(status: 500, body: "boom")
 
-      assert_difference "Route.count", -1 do
+      assert_no_difference "Route.count" do
         delete admin_route_path(route)
       end
 
-      assert_redirected_to admin_routes_path
+      assert_redirected_to admin_route_path(route)
+      assert_match(/삭제할 수 없습니다/, flash[:alert])
     end
 
     test "sync_group succeeds and shows a notice" do

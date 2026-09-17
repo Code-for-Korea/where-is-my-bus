@@ -17,10 +17,24 @@ module Admin
 
     def create
       @route = Route.new(route_params)
-      if @route.save
-        attempt_group_sync
+      success = false
+
+      ActiveRecord::Base.transaction do
+        raise ActiveRecord::Rollback unless @route.save
+
+        result = TraccarGroupSync.call(@route)
+        if result.failure?
+          @traccar_error = result.error
+          raise ActiveRecord::Rollback
+        end
+
+        success = true
+      end
+
+      if success
         redirect_to admin_route_path(@route), notice: "노선이 등록되었습니다."
       else
+        @route.errors.add(:base, "Traccar 연동 실패: #{@traccar_error}") if @traccar_error
         render :new, status: :unprocessable_entity
       end
     end
@@ -37,14 +51,20 @@ module Admin
     end
 
     def destroy
-      # Traccar group 삭제가 실패해도 로깅만 하고 Route 삭제는 계속 진행한다.
-      # group이 고아로 남는 것보다 관리자의 삭제 의도를 막지 않는 게 우선.
+      # 정합성 정책: Traccar group 삭제가 성공해야만 Route를 삭제한다.
       result = TraccarGroupSync.destroy(@route)
-      Rails.logger.error("[Admin::RoutesController] group 삭제 실패, route=#{@route.id}: #{result.error}") if result.failure?
+      if result.failure?
+        redirect_to admin_route_path(@route), alert: "Traccar 연동 실패로 삭제할 수 없습니다: #{result.error}"
+        return
+      end
+
       @route.destroy
       redirect_to admin_routes_path, notice: "노선이 삭제되었습니다.", status: :see_other
     end
 
+    # 완전 롤백 정책 하에서는 동기화 실패한 채로 저장된 Route가 생기지 않으므로, 이 액션은
+    # "실패 재시도"가 아니라 Traccar 콘솔에서 수동으로 group을 지우는 등의 드리프트가 생겼을 때
+    # 다시 맞추는 "재동기화" 용도로 남겨둔다.
     def sync_group
       result = TraccarGroupSync.call(@route)
       if result.failure?
@@ -63,11 +83,6 @@ module Admin
 
     def route_params
       params.require(:route).permit(:area_id, :name, :headway_minutes, :position)
-    end
-
-    def attempt_group_sync
-      result = TraccarGroupSync.call(@route)
-      flash[:alert] = result.error if result.failure?
     end
   end
 end

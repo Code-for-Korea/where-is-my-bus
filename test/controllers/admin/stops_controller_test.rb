@@ -24,17 +24,15 @@ module Admin
       assert_nil flash[:alert]
     end
 
-    test "create saves the stop and sets a flash alert when the geofence API fails" do
+    test "create rolls back and does not save the stop when the geofence API fails" do
       stub_request(:post, "http://traccar.test/api/geofences").to_return(status: 500, body: "boom")
 
-      assert_difference "Stop.count", 1 do
+      assert_no_difference "Stop.count" do
         post admin_stops_path, params: { stop: { route_id: @route.id, name: "새 정류장", sequence: 1, lat: 35.1, lng: 128.1 } }
       end
 
-      stop = Stop.order(:id).last
-      assert_redirected_to admin_stops_path(route_id: @route.id)
-      assert_nil stop.reload.traccar_geofence_id
-      assert_match(/geofence 동기화 실패/, flash[:alert])
+      assert_response :unprocessable_entity
+      assert_match(/Traccar 연동 실패/, response.body)
     end
 
     test "update succeeds and calls the geofence update API" do
@@ -46,18 +44,19 @@ module Admin
 
       assert_redirected_to admin_stops_path(route_id: @route.id)
       assert_requested :put, "http://traccar.test/api/geofences/7"
+      assert_equal "정류장 수정", stop.reload.name
       assert_nil flash[:alert]
     end
 
-    test "update saves the stop and sets a flash alert when the geofence API fails" do
+    test "update rolls back to the previous state when the geofence API fails" do
       stop = Stop.create!(route: @route, name: "정류장", sequence: 1, lat: 35.1, lng: 128.1, traccar_geofence_id: 7)
       stub_request(:put, "http://traccar.test/api/geofences/7").to_return(status: 500, body: "boom")
 
       patch admin_stop_path(stop), params: { stop: { name: "정류장 수정" } }
 
-      assert_redirected_to admin_stops_path(route_id: @route.id)
-      assert_equal "정류장 수정", stop.reload.name
-      assert_match(/geofence 동기화 실패/, flash[:alert])
+      assert_response :unprocessable_entity
+      assert_equal "정류장", stop.reload.name
+      assert_match(/Traccar 연동 실패/, response.body)
     end
 
     test "destroy calls the geofence deletion API" do
@@ -72,15 +71,16 @@ module Admin
       assert_requested :delete, "http://traccar.test/api/geofences/7"
     end
 
-    test "destroy still deletes the stop when the geofence deletion API fails" do
+    test "destroy keeps the stop when the geofence deletion API fails" do
       stop = Stop.create!(route: @route, name: "정류장", sequence: 1, lat: 35.1, lng: 128.1, traccar_geofence_id: 7)
       stub_request(:delete, "http://traccar.test/api/geofences/7").to_return(status: 500, body: "boom")
 
-      assert_difference "Stop.count", -1 do
+      assert_no_difference "Stop.count" do
         delete admin_stop_path(stop)
       end
 
-      assert_redirected_to admin_stops_path(route_id: @route.id)
+      assert_redirected_to admin_stop_path(stop)
+      assert_match(/삭제할 수 없습니다/, flash[:alert])
     end
 
     test "sync_geofence succeeds and shows a notice" do

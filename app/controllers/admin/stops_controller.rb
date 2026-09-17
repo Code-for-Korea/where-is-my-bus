@@ -16,10 +16,24 @@ module Admin
 
     def create
       @stop = Stop.new(stop_params)
-      if @stop.save
-        attempt_geofence_sync
+      success = false
+
+      ActiveRecord::Base.transaction do
+        raise ActiveRecord::Rollback unless @stop.save
+
+        result = TraccarGeofenceSync.call(@stop)
+        if result.failure?
+          @traccar_error = result.error
+          raise ActiveRecord::Rollback
+        end
+
+        success = true
+      end
+
+      if success
         redirect_to admin_stops_path(route_id: @stop.route_id), notice: "정류장이 등록되었습니다."
       else
+        @stop.errors.add(:base, "Traccar 연동 실패: #{@traccar_error}") if @traccar_error
         render :new, status: :unprocessable_entity
       end
     end
@@ -28,23 +42,43 @@ module Admin
     end
 
     def update
-      if @stop.update(stop_params)
-        attempt_geofence_sync
+      success = false
+
+      ActiveRecord::Base.transaction do
+        raise ActiveRecord::Rollback unless @stop.update(stop_params)
+
+        result = TraccarGeofenceSync.call(@stop)
+        if result.failure?
+          @traccar_error = result.error
+          raise ActiveRecord::Rollback
+        end
+
+        success = true
+      end
+
+      if success
         redirect_to admin_stops_path(route_id: @stop.route_id), notice: "정류장이 수정되었습니다."
       else
+        @stop.errors.add(:base, "Traccar 연동 실패: #{@traccar_error}") if @traccar_error
         render :edit, status: :unprocessable_entity
       end
     end
 
     def destroy
       route_id = @stop.route_id
-      # Traccar geofence 삭제가 실패해도 로깅만 하고 Stop 삭제는 계속 진행한다.
+      # 정합성 정책: Traccar geofence 삭제가 성공해야만 Stop을 삭제한다.
       result = TraccarGeofenceSync.destroy(@stop)
-      Rails.logger.error("[Admin::StopsController] geofence 삭제 실패, stop=#{@stop.id}: #{result.error}") if result.failure?
+      if result.failure?
+        redirect_to admin_stop_path(@stop), alert: "Traccar 연동 실패로 삭제할 수 없습니다: #{result.error}"
+        return
+      end
+
       @stop.destroy
       redirect_to admin_stops_path(route_id: route_id), notice: "정류장이 삭제되었습니다.", status: :see_other
     end
 
+    # 완전 롤백 정책 하에서는 동기화 실패한 채로 저장된 Stop이 생기지 않으므로, 이 액션은
+    # "실패 재시도"가 아니라 드리프트가 생겼을 때 다시 맞추는 "재동기화" 용도로 남겨둔다.
     def sync_geofence
       result = TraccarGeofenceSync.call(@stop)
       if result.failure?
@@ -63,11 +97,6 @@ module Admin
 
     def stop_params
       params.require(:stop).permit(:route_id, :name, :sequence, :lat, :lng, :avg_travel_seconds, :name_en)
-    end
-
-    def attempt_geofence_sync
-      result = TraccarGeofenceSync.call(@stop)
-      flash[:alert] = result.error if result.failure?
     end
   end
 end
