@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_17_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_17_000004) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -123,6 +123,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_000003) do
     t.string "name_en"
     t.integer "route_id", null: false
     t.integer "sequence", default: 0, null: false
+    t.integer "traccar_geofence_id"
     t.datetime "updated_at", null: false
     t.index ["route_id", "sequence"], name: "index_stops_on_route_id_and_sequence"
     t.index ["route_id"], name: "index_stops_on_route_id"
