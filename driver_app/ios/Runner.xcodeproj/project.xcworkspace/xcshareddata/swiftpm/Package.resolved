@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "traccar-client-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/traccar/traccar-client-sdk.git",
+      "state" : {
+        "revision" : "d8d67db5cb00aa1a7048bc0d8ae08fa63a83221c",
+        "version" : "1.0.11"
+      }
+    }
+  ],
+  "version" : 2
+}

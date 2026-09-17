@@ -9,15 +9,10 @@
     <li>
       <strong>Rails에서 버스 등록</strong>
       <p class="mt-1 text-gray-600">
-        <%= link_to "차량 추가", new_admin_bus_path, class: "text-indigo-600 underline" %> 시 단말 식별자(<code>traccar_unique_id</code>)는 자동 생성됩니다(직접 입력하지 않음).
-        버스 상세화면에 표시된 이 값을 복사하세요.
-      </p>
-    </li>
-    <li>
-      <strong>Traccar 서버에 디바이스 등록</strong>
-      <p class="mt-1 text-gray-600">
-        Traccar 서버 관리화면(<code>/settings/devices</code> 등)에 접속해 새 디바이스를 추가하고, Identifier에 1번에서 복사한 값을 그대로 붙여넣으세요.
-        두 값이 하나라도 다르면 위치가 도착해도 조용히 무시됩니다(에러 없이 누락) — 트래킹이 안 되면 이 값 일치부터 확인하세요.
+        <%= link_to "차량 추가", new_admin_bus_path, class: "text-indigo-600 underline" %> 시 단말 식별자(<code>traccar_unique_id</code>)가 자동 생성되고,
+        Traccar 서버에도 같은 식별자로 디바이스가 자동 등록됩니다(수동으로 Traccar 관리화면에 등록할 필요 없음).
+        차량 상세화면의 "Traccar 연동 상태"가 "연동됨"으로 표시되는지 확인하세요.
+        연동에 실패하면 등록 자체가 거부되며(완전 롤백 정책), 화면에 실패 사유가 표시됩니다 — Traccar 서버 상태를 확인한 뒤 다시 시도하세요.
       </p>
     </li>
     <li>
