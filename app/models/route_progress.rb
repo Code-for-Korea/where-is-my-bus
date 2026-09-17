@@ -51,6 +51,13 @@ class RouteProgress
     { eta_minutes: (total_seconds / 60.0).ceil, stops_away: ahead.size, bar_pct: bar_pct }
   end
 
+  # GPS와 가장 가까운 정류장(버스의 현재 위치로 간주). trip/gps가 없으면 nil.
+  def current_stop(route)
+    return nil unless status == :ok
+
+    nearest_stop(route.stops.order(:sequence).to_a)
+  end
+
   # 현재 위치 기준 "다음 정류장"(가장 가까운 지난 정류장의 다음)까지의 ETA. 마지막 정류장이면 nil.
   def next_stop_eta(route)
     return nil unless status == :ok
