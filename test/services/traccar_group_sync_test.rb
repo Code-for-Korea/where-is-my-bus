@@ -62,4 +62,15 @@ class TraccarGroupSyncTest < ActiveSupport::TestCase
 
     assert result.failure?
   end
+
+  test "returns a failure result without raising when credentials are not configured" do
+    TraccarGroupSync.stub_credentials(base_url: nil, email: nil, password: nil)
+
+    result = TraccarGroupSync.call(@route)
+
+    assert result.failure?
+    assert_nil @route.reload.traccar_group_id
+  ensure
+    TraccarGroupSync.stub_credentials(base_url: "http://traccar.test", email: "admin@test.com", password: "secret")
+  end
 end

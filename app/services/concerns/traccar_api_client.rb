@@ -18,6 +18,8 @@ module TraccarApiClient
     ActiveRecord::RecordInvalid
   ].freeze
 
+  class CredentialsMissing < RuntimeError; end
+
   included do
     # 각 서비스 클래스에서 Result를 그대로 참조할 수 있도록 상수를 노출 (예: TraccarGroupSync::Result)
     const_set(:Result, TraccarApiClient::Result) unless const_defined?(:Result, false)
@@ -37,6 +39,8 @@ module TraccarApiClient
         email: Rails.application.credentials.dig(:traccar, :api_email),
         password: Rails.application.credentials.dig(:traccar, :api_password)
       }
+
+      raise CredentialsMissing, "Traccar API credentials가 설정되지 않았습니다" if creds[:base_url].blank?
 
       uri = URI.join(creds[:base_url], path)
       klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put, delete: Net::HTTP::Delete }.fetch(method)
