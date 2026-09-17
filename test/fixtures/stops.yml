@@ -1,0 +1,23 @@
+one:
+  route: one
+  name: 정류장1
+  sequence: 1
+  lat: 35.100000
+  lng: 128.100000
+  avg_travel_seconds: 120
+
+two:
+  route: one
+  name: 정류장2
+  sequence: 2
+  lat: 35.101000
+  lng: 128.101000
+  avg_travel_seconds: 120
+
+three:
+  route: one
+  name: 정류장3
+  sequence: 3
+  lat: 35.102000
+  lng: 128.102000
+  avg_travel_seconds: 120

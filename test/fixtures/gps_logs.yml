@@ -1,0 +1,11 @@
+one:
+  trip: one_active
+  lat: 35.100000
+  lng: 128.100000
+  recorded_at: <%= 1.minute.ago %>
+
+two:
+  trip: two_active
+  lat: 35.101000
+  lng: 128.101000
+  recorded_at: <%= 1.minute.ago %>

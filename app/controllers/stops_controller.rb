@@ -4,7 +4,7 @@ class StopsController < ApplicationController
 
   def show
     @stop   = Stop.find_by(id: params[:stop_id])
-    @bus    = @stop&.route&.bus
+    @bus    = @stop&.route&.buses&.first
     @region = @bus&.region
     @area   = @bus&.area
     token = session[:like_token] ||= SecureRandom.hex(16)
@@ -18,7 +18,7 @@ class StopsController < ApplicationController
     @stop = Stop.find_by(id: params[:stop_id])
     return head :not_found unless @stop
 
-    @bus    = @stop.route&.bus
+    @bus    = @stop.route&.buses&.first
     @region = @bus&.region
     @area   = @bus&.area
     return render json: { error: "data error" }, status: :unprocessable_entity if @bus.nil? || @region.nil?
@@ -28,8 +28,8 @@ class StopsController < ApplicationController
 
     all_stops = @stop.route.stops.order(:sequence).to_a
 
-    trip, latest_gps = active_trip_with_gps(@bus)
-    bus_stop = nearest_stop(all_stops, latest_gps)
+    selection = RouteBusSelector.call(@stop.route, @stop)
+    bus_stop  = selection.status == :ok ? selection.progress.current_stop(@stop.route) : nil
 
     @route_stops = all_stops.map do |s|
       { seq: s.sequence, name: s.display_name,
@@ -42,21 +42,21 @@ class StopsController < ApplicationController
     target_stop = Stop.find_by(id: params[:stop_id])
     return render json: { status: "no_data", eta_minutes: nil, stops_away: nil } unless target_stop
 
-    bus = target_stop.route&.bus
-    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil } unless bus
+    route = target_stop.route
+    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil } unless route
 
-    progress = RouteProgress.new(bus)
-    case progress.status
+    selection = RouteBusSelector.call(route, target_stop)
+    case selection.status
     when :no_trip
-      return render json: { eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number, status: "no_trip" }
+      return render json: { eta_minutes: nil, stops_away: nil, bus_number: nil, status: "no_trip" }
     when :no_gps
-      return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number }
+      return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: nil }
     end
 
-    result = progress.eta_to(target_stop)
-    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: bus.bus_number } unless result
+    result = selection.progress.eta_to(target_stop)
+    return render json: { status: "no_data", eta_minutes: nil, stops_away: nil, bus_number: selection.bus.bus_number } unless result
 
-    render json: result.merge(bus_number: bus.bus_number)
+    render json: result.merge(bus_number: selection.bus.bus_number)
   end
 
   def debug_bus
@@ -78,7 +78,10 @@ class StopsController < ApplicationController
     # 목표 정류장: 현재 페이지의 정류장 (params[:stop_id])
     debug_target = target_stop
 
-    trip = route.bus.trips.where(ended_at: nil).order(started_at: :desc).first
+    # 개발 전용 GPS 시뮬레이터: 배정된 버스가 여러 대여도 특정 버스를 지목할 개념이 없으므로
+    # 첫 번째 버스에 GPS를 심는 것으로 단순 유지한다(RouteBusSelector의 "가장 가까운 버스
+    # 선택" 로직은 승객 화면 표시용이라 이 디버그 도구와는 목적이 다르다).
+    trip = route.buses.first.trips.where(ended_at: nil).order(started_at: :desc).first
     return render json: { error: "no active trip" }, status: :unprocessable_entity unless trip
 
     # pct: 0 = 정류장 위치, 0~100 = 다음 정류장 방향 보간 (상단에서 이미 clamp 처리됨)
@@ -145,7 +148,9 @@ class StopsController < ApplicationController
     return render json: { error: "not found" }, status: :not_found unless stop
 
     token  = session[:like_token] ||= SecureRandom.hex(16)
-    bus_id = stop.route&.bus_id
+    # 좋아요는 stop/route 단위 집계이고 ETA와 무관하므로 배정된 버스 중 어느 걸 bus_id로
+    # 남기는지는 중요하지 않다 — 첫 번째 버스로 단순 유지.
+    bus_id = stop.route&.buses&.first&.id
     # NOTE: session 기반 중복 방지는 쿠키 삭제/시크릿 모드로 우회 가능. MVP 단계 의도된 트레이드오프.
     return render json: { error: "data error" }, status: :unprocessable_entity unless bus_id
 
@@ -164,30 +169,5 @@ class StopsController < ApplicationController
       count: StopLike.where(stop_id: stop.id).count,
       already_liked: true
     }
-  end
-
-  private
-
-  # 현재 운행 중인 trip과 최신 GPS 로그를 함께 반환
-  # @return [Array(Trip|nil, GpsLog|nil)]
-  def active_trip_with_gps(bus)
-    trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
-    return [ nil, nil ] unless trip
-
-    latest_gps = trip.gps_logs.order(recorded_at: :desc).first
-    [ trip, latest_gps ]
-  end
-
-  # GPS 좌표에 가장 가까운 정류장을 반환 (gps가 nil이면 nil 반환)
-  # 경도 방향에 위도 보정(cos factor)을 적용해 실제 거리에 근사
-  def nearest_stop(all_stops, gps)
-    return nil unless gps
-
-    lat_factor = Math.cos(gps.lat.to_f * Math::PI / 180)
-    all_stops.min_by do |s|
-      dlat = s.lat.to_f - gps.lat.to_f
-      dlng = (s.lng.to_f - gps.lng.to_f) * lat_factor
-      dlat**2 + dlng**2
-    end
   end
 end

@@ -1,0 +1,9 @@
+one_active:
+  bus: one
+  started_at: <%= 10.minutes.ago %>
+  ended_at:
+
+two_active:
+  bus: two
+  started_at: <%= 10.minutes.ago %>
+  ended_at:

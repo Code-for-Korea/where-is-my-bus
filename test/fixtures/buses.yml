@@ -1,0 +1,13 @@
+one:
+  area: one
+  license_plate: 경남70가1234
+  pin: "1111"
+  traccar_unique_id: bus-one-fixture
+  bus_number: 1번
+
+two:
+  area: one
+  license_plate: 경남70가5678
+  pin: "2222"
+  traccar_unique_id: bus-two-fixture
+  bus_number: 2번

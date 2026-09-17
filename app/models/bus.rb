@@ -1,8 +1,9 @@
 class Bus < ApplicationRecord
   belongs_to :area
-  has_many :routes,    dependent: :destroy
-  has_many :trips,     dependent: :destroy
-  has_many :pin_codes, dependent: :destroy
+  has_many :route_buses, dependent: :destroy
+  has_many :routes,      through: :route_buses
+  has_many :trips,       dependent: :destroy
+  has_many :pin_codes,   dependent: :destroy
 
   enum :status, { active: "active", inactive: "inactive", deleted: "deleted" }
 

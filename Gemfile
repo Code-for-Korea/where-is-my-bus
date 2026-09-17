@@ -54,6 +54,11 @@ group :development, :test do
   gem "rubocop-rails-omakase", require: false
 end
 
+group :test do
+  # Stub external HTTP calls (Traccar API) in tests [https://github.com/bblimke/webmock]
+  gem "webmock"
+end
+
 group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
