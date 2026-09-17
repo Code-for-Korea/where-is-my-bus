@@ -18,7 +18,7 @@ module Admin
         post admin_stops_path, params: { stop: { route_id: @route.id, name: "새 정류장", sequence: 1, lat: 35.1, lng: 128.1 } }
       end
 
-      stop = Stop.order(:id).last
+      stop = Stop.find_by!(name: "새 정류장")
       assert_redirected_to admin_stops_path(route_id: @route.id)
       assert_equal 7, stop.reload.traccar_geofence_id
       assert_nil flash[:alert]
