@@ -28,8 +28,8 @@ end
 puts "Seeding routes..."
 route = Route.find_or_create_by!(name: "고성↔통영 1번 노선") do |r|
   r.area = area
-  r.bus  = bus
 end
+RouteBus.find_or_create_by!(route: route, bus: bus)
 
 puts "Seeding stops..."
 stops_data = [

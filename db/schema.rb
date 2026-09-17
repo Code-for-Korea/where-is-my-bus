@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_103953) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_17_000003) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -71,19 +71,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_103953) do
     t.index ["slug"], name: "index_regions_on_slug", unique: true
   end
 
+  create_table "route_buses", force: :cascade do |t|
+    t.integer "bus_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "route_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bus_id"], name: "index_route_buses_on_bus_id"
+    t.index ["route_id", "bus_id"], name: "index_route_buses_on_route_id_and_bus_id", unique: true
+  end
+
   create_table "routes", force: :cascade do |t|
     t.integer "area_id", null: false
-    t.integer "bus_id"
     t.datetime "created_at", null: false
     t.integer "headway_minutes"
     t.integer "likes_count", default: 0, null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
     t.integer "stops_count", default: 0, null: false
+    t.integer "traccar_group_id"
     t.datetime "updated_at", null: false
     t.index ["area_id", "name"], name: "index_routes_on_area_id_and_name", unique: true
     t.index ["area_id"], name: "index_routes_on_area_id"
-    t.index ["bus_id"], name: "index_routes_on_bus_id"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -143,8 +151,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_103953) do
   add_foreign_key "buses", "areas"
   add_foreign_key "gps_logs", "trips"
   add_foreign_key "pin_codes", "buses"
+  add_foreign_key "route_buses", "buses"
+  add_foreign_key "route_buses", "routes"
   add_foreign_key "routes", "areas"
-  add_foreign_key "routes", "buses"
   add_foreign_key "sessions", "users"
   add_foreign_key "stop_likes", "buses"
   add_foreign_key "stop_likes", "stops"

@@ -4,7 +4,7 @@ class StopsController < ApplicationController
 
   def show
     @stop   = Stop.find_by(id: params[:stop_id])
-    @bus    = @stop&.route&.bus
+    @bus    = @stop&.route&.buses&.first
     @region = @bus&.region
     @area   = @bus&.area
     token = session[:like_token] ||= SecureRandom.hex(16)
@@ -18,7 +18,7 @@ class StopsController < ApplicationController
     @stop = Stop.find_by(id: params[:stop_id])
     return head :not_found unless @stop
 
-    @bus    = @stop.route&.bus
+    @bus    = @stop.route&.buses&.first
     @region = @bus&.region
     @area   = @bus&.area
     return render json: { error: "data error" }, status: :unprocessable_entity if @bus.nil? || @region.nil?
@@ -42,7 +42,7 @@ class StopsController < ApplicationController
     target_stop = Stop.find_by(id: params[:stop_id])
     return render json: { status: "no_data", eta_minutes: nil, stops_away: nil } unless target_stop
 
-    bus = target_stop.route&.bus
+    bus = target_stop.route&.buses&.first
     return render json: { status: "no_data", eta_minutes: nil, stops_away: nil } unless bus
 
     progress = RouteProgress.new(bus)
@@ -78,7 +78,7 @@ class StopsController < ApplicationController
     # 목표 정류장: 현재 페이지의 정류장 (params[:stop_id])
     debug_target = target_stop
 
-    trip = route.bus.trips.where(ended_at: nil).order(started_at: :desc).first
+    trip = route.buses.first.trips.where(ended_at: nil).order(started_at: :desc).first
     return render json: { error: "no active trip" }, status: :unprocessable_entity unless trip
 
     # pct: 0 = 정류장 위치, 0~100 = 다음 정류장 방향 보간 (상단에서 이미 clamp 처리됨)
@@ -145,7 +145,7 @@ class StopsController < ApplicationController
     return render json: { error: "not found" }, status: :not_found unless stop
 
     token  = session[:like_token] ||= SecureRandom.hex(16)
-    bus_id = stop.route&.bus_id
+    bus_id = stop.route&.buses&.first&.id
     # NOTE: session 기반 중복 방지는 쿠키 삭제/시크릿 모드로 우회 가능. MVP 단계 의도된 트레이드오프.
     return render json: { error: "data error" }, status: :unprocessable_entity unless bus_id
 
