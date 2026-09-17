@@ -38,3 +38,35 @@
     <%= link_to "목록", admin_routes_path, class: "text-sm text-gray-500 hover:text-gray-900" %>
   </div>
 </div>
+
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4 mt-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-gray-900">배차 차량</h2>
+    <%= button_to "Traccar group 동기화 재시도", sync_group_admin_route_path(@route), method: :post,
+          class: "text-xs text-indigo-600 underline cursor-pointer" %>
+  </div>
+
+  <% if @route.route_buses.empty? %>
+    <p class="text-sm text-gray-400">배정된 차량이 없습니다.</p>
+  <% else %>
+    <ul class="divide-y divide-gray-100">
+      <% @route.route_buses.includes(:bus).each do |route_bus| %>
+        <li class="flex items-center justify-between py-2">
+          <div>
+            <div class="font-medium text-sm"><%= route_bus.bus.display_number %></div>
+            <div class="text-xs text-gray-400"><%= route_bus.bus.license_plate %></div>
+          </div>
+          <%= button_to "해제", admin_route_route_bus_path(@route, route_bus), method: :delete,
+                form: { data: { turbo_confirm: "배차를 해제하시겠습니까?" }, class: "inline" },
+                class: "text-red-500 hover:text-red-700 text-sm" %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <%= form_with url: admin_route_route_buses_path(@route), method: :post, class: "flex items-center gap-3 pt-2 border-t border-gray-100" do |f| %>
+    <%= f.collection_select :bus_id, @candidate_buses, :id, :display_number, { prompt: "차량 선택" },
+          class: "flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 text-sm" %>
+    <%= f.submit "추가", class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
+  <% end %>
+</div>

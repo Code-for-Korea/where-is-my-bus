@@ -34,5 +34,7 @@
     <%= link_to "수정", edit_admin_stop_path(@stop),
           class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
     <%= link_to "목록", admin_stops_path(route_id: @stop.route_id), class: "text-sm text-gray-500 hover:text-gray-900" %>
+    <%= button_to "Traccar 동기화 재시도", sync_geofence_admin_stop_path(@stop), method: :post,
+          class: "text-xs text-indigo-600 underline cursor-pointer" %>
   </div>
 </div>

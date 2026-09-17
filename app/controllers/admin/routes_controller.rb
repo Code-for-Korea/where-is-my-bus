@@ -8,6 +8,7 @@ module Admin
     end
 
     def show
+      @candidate_buses = @route.area.buses.where.not(id: @route.buses.select(:id))
     end
 
     def new
