@@ -28,6 +28,7 @@ Rails.application.routes.draw do
     end
     resources :buses do
       member { post :regenerate_pin }
+      member { post :sync_device }
     end
     get "guides/bus_registration", to: "guides#bus_registration", as: :bus_registration_guide
   end

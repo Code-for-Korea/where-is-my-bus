@@ -73,7 +73,7 @@ Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 �
 ## 운영 측 (운영자가 수행 — 미구현/수동)
 
 - **Traccar 서버**: Docker(`traccar/traccar`)로 기동, 데이터 볼륨 + `traccar.xml` 영속화. 포트 8082(API/WS), 5055(OsmAnd 수신).
-- **차량 ↔ 단말 등록**: 각 버스에 추측 불가능한 `traccar_unique_id` 발급(예: `goseong-1-a8f3c2`). 운전자는 Traccar Client에 서버 주소 + 이 식별자 입력 후 "시작".
+- **차량 ↔ 단말 등록**: 각 버스에 추측 불가능한 `traccar_unique_id` 발급(예: `goseong-1-a8f3c2`). Admin에서 차량 등록 시 `TraccarDeviceSync`가 이 값으로 Traccar 서버에 디바이스를 자동 생성해 `bus.traccar_device_id`에 저장(수동 등록 불필요). 운전자는 Traccar Client에 서버 주소 + 이 식별자 입력 후 "시작".
 - **PIN 흐름**: 기존 `PinCode`는 운영자가 운전자에게 단말 식별자를 발급/승인하는 본인확인 용도로 유지.
 
 ## 보안
@@ -89,7 +89,7 @@ Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 �
 | 0 | Traccar Docker 기동 + Traccar Client로 위치 수신 확인 | 운영 수동 |
 | 1 | Rails 수신 엔드포인트 + 모델 컬럼 + 포워딩 → GpsLog 적재 | **완료** |
 | 1.5 | Admin 정류장 등록 시 geofence 자동 생성 + 노선 단위 group 자동 연결(배차 시 device 자동 추가) | **완료** |
-| 2 | 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API) + admin 단말 상태 표시 | 예정 |
+| 2 | 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API) + admin 단말 상태 표시 | **완료** |
 | 3 | Trip 자동 종료(오프라인/타임아웃, Solid Queue) | 예정 |
 
 > 폴링 유지·지도 미도입 결정에 따라, 실시간 Cable·지도 단계는 로드맵에서 제외.

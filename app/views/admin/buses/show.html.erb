@@ -22,10 +22,18 @@
   <div>
     <div class="text-xs text-gray-400">단말 식별자 (traccar_unique_id)</div>
     <div class="font-medium font-mono"><%= @bus.traccar_unique_id %></div>
-    <p class="mt-1 text-xs text-gray-400">
-      Traccar 서버 디바이스 등록 시 Identifier에 그대로 붙여넣으세요.
-      <%= link_to "등록 절차 보기", admin_bus_registration_guide_path, class: "text-indigo-600 underline" %>
-    </p>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">Traccar 연동 상태</div>
+    <div class="flex items-center gap-3">
+      <% if @bus.traccar_device_id.present? %>
+        <div class="font-medium">연동됨 (device id: <%= @bus.traccar_device_id %>)</div>
+      <% else %>
+        <div class="font-medium text-amber-600">미연동</div>
+      <% end %>
+      <%= button_to "재동기화", sync_device_admin_bus_path(@bus), method: :post,
+            class: "text-xs text-indigo-600 underline cursor-pointer" %>
+    </div>
   </div>
   <div>
     <div class="text-xs text-gray-400">최종수정일자</div>
