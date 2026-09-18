@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_17_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -28,6 +28,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_000004) do
     t.datetime "created_at", null: false
     t.string "license_plate", null: false
     t.string "pin", null: false
+    t.datetime "pin_registered_at"
     t.string "status", default: "active", null: false
     t.integer "traccar_device_id"
     t.string "traccar_unique_id"

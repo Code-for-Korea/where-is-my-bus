@@ -26,8 +26,9 @@ class Bus < ApplicationRecord
   end
 
   # PIN 유출 시 운영자가 즉시 무효화할 수 있도록 — 재발급하면 옛 PIN으로는 더 이상 register API가 안 먹힘.
+  # pin_registered_at도 함께 초기화해서 새 PIN으로 다시 한 번 등록(기기분실/교체 포함)할 수 있게 한다.
   def regenerate_pin!
-    update!(pin: generate_pin)
+    update!(pin: generate_pin, pin_registered_at: nil)
   end
 
   private

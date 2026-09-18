@@ -33,7 +33,13 @@ module Admin
       if success
         redirect_to admin_bus_path(@bus), notice: "차량이 등록되었습니다."
       else
-        @bus.errors.add(:base, "Traccar 연동 실패: #{@traccar_error}") if @traccar_error
+        # @bus.save가 트랜잭션 내부에서 성공했다가 Traccar 실패로 롤백된 경우, DB는
+        # 되돌아가도 @bus 객체의 persisted?/id는 그대로 남아 폼이 PATCH로 잘못
+        # 렌더링된다 — 새 인스턴스로 교체해 "생성 폼" 상태를 복원한다.
+        if @traccar_error
+          @bus = Bus.new(bus_params)
+          @bus.errors.add(:base, "Traccar 연동 실패: #{@traccar_error}")
+        end
         render :new, status: :unprocessable_entity
       end
     end

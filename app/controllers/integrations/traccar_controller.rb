@@ -10,17 +10,25 @@ module Integrations
 
     # POST /integrations/traccar/register
     # 운전자 앱 온보딩: PIN → { traccarServerUrl, deviceId }. 브루트포스 방지를 위해 IP당 시도 횟수 제한.
+    # PIN은 1회용 — 최초 등록 성공 시 pin_registered_at을 찍어 소모 처리한다. PIN이 유출돼도
+    # 이미 등록된 기기가 있으면 다른 기기가 같은 PIN으로 추가 등록할 수 없다(기기분실/교체는
+    # 운영자가 admin에서 PIN을 재발급하는 것으로 처리 — Bus#regenerate_pin!).
     def register
       return render json: { error: "too_many_attempts" }, status: :too_many_requests if register_locked_out?
 
       bus = Bus.active.find_by(pin: params[:pin].to_s)
-      if bus
-        Rails.cache.delete(register_rate_limit_key)
-        render json: { traccarServerUrl: traccar_server_url, deviceId: bus.traccar_unique_id }
-      else
+      if bus.nil?
         Rails.cache.increment(register_rate_limit_key, 1, expires_in: REGISTER_LOCKOUT_WINDOW)
-        render json: { error: "invalid_pin" }, status: :unauthorized
+        return render json: { error: "invalid_pin" }, status: :unauthorized
       end
+
+      # 조건부 UPDATE 한 줄로 "미등록 확인"과 "소모 처리"를 원자화 — 동시 요청 경쟁 상태 방지.
+      consumed = Bus.where(id: bus.id, pin_registered_at: nil)
+                    .update_all(pin_registered_at: Time.current)
+      return render json: { error: "pin_already_used" }, status: :conflict if consumed.zero?
+
+      Rails.cache.delete(register_rate_limit_key)
+      render json: { traccarServerUrl: traccar_server_url, deviceId: bus.traccar_unique_id }
     end
 
     # GET /integrations/traccar/routes?deviceId=...

@@ -18,6 +18,13 @@
             class: "text-xs text-indigo-600 underline cursor-pointer" %>
     </div>
     <p class="mt-1 text-xs text-gray-400">유출 등으로 무효화가 필요하면 재발급하세요 — 운전자는 새 PIN으로 재등록해야 합니다.</p>
+    <p class="mt-1 text-xs">
+      <% if @bus.pin_registered_at.present? %>
+        <span class="text-gray-500">등록됨 (<%= @bus.pin_registered_at.strftime("%Y-%m-%d %H:%M") %>) — 이 PIN은 다른 기기에서 재사용할 수 없습니다.</span>
+      <% else %>
+        <span class="text-amber-600">미등록 — 이 PIN으로 아직 어떤 기기도 등록하지 않았습니다.</span>
+      <% end %>
+    </p>
   </div>
   <div>
     <div class="text-xs text-gray-400">단말 식별자 (traccar_unique_id)</div>
