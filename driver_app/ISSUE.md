@@ -6,12 +6,11 @@
 
 ## 임시 설정 (원복 필요)
 
-Rails 서버 주소가 아직 안 정해져서 폰에서 실접속 테스트가 어려운 동안, Traccar 실전송 자체를 먼저 검증하려고 깔아둔 임시 우회. 서버 주소 확정되면 전부 원복 대상.
+Rails 서버 주소가 확정되면서 register API 우회는 원복 완료(아래 "완료" 참고). 남은 항목은 실배포
+주소가 정해지기 전까지 유지되는 로컬/테스트 전용 설정.
 
-- **driver_app** `DriverRegistration.register()`(`lib/driver_registration.dart`) — `ApiClient.register()`(실제 `POST /register` 호출, `lib/api_client.dart`에 그대로 있음) 대신 네트워크 호출 없이 즉시 성공 처리. PIN 검증 안 함, `deviceId`는 `{adminUrl 입력값}-1a2b3c`로 결정론적 생성, `busNumber`는 목업 `'13'` 고정. → 원복: `ApiClient.register()` 호출로 되돌리기.
-- **driver_app** `TrackingController.nextStopName`/`nextStopEtaMinutes`(`lib/tracking_controller.dart`) — routes API도 같은 사유로 응답을 못 받으니 메인화면 "다음 정류장" 칩이 계속 비어 보이지 않도록 목업 초기값(`고성종합버스터미널`/`3분`)을 넣어둠. `_refreshRouteInfo`가 언젠가 실제 응답을 받으면 자동으로 덮어써서 원복됨(코드 변경 불필요) — 단, 그 전까지는 실제 다음 정류장이 아니라 항상 이 고정값이 보인다는 점 QC 때 주의.
-- **Rails** `traccar_server_url` 로컬 기본값(`app/controllers/integrations/traccar_controller.rb`) — `http://yehyunserver.iptime.org:5055`로 임시 고정(원래는 `credentials[:traccar][:server_url]`/`ENV["TRACCAR_SERVER_URL"]` 우선). → 원복: 실배포 확정되면 credentials/ENV로 실제 값 주입, 이 로컬 기본값은 그대로 둬도 무해.
-- **Android** `network_security_config.xml`(`driver_app/android/app/src/main/res/xml/`) — `yehyunserver.iptime.org`만 평문(cleartext) HTTP 허용. Rails adminUrl을 실제 IP/도메인으로 http 접속 테스트하려면 **이 파일에도 해당 도메인 추가해야 함**(안 하면 register API 재활성화해도 연결 자체가 막힘). → 원복: 실배포가 https면 이 예외 자체를 제거.
+- **Rails** `traccar_server_url` 로컬 기본값(`app/controllers/integrations/traccar_controller.rb`) — 내부 테스트 Traccar 서버(비공개 도메인)로 임시 고정(원래는 `credentials[:traccar][:server_url]`/`ENV["TRACCAR_SERVER_URL"]` 우선). → 원복: 실배포 확정되면 credentials/ENV로 실제 값 주입, 이 로컬 기본값은 그대로 둬도 무해.
+- **Android** `network_security_config.xml`(`driver_app/android/app/src/main/res/xml/`) — 위와 같은 내부 테스트 서버 도메인만 평문(cleartext) HTTP 허용. → 원복: 실배포가 https면 이 예외 자체를 제거.
 
 ## 미채택
 
@@ -66,8 +65,9 @@ SDK `Config`엔 "포그라운드일 때만 전송"에 대응하는 옵션이 없
 ### `POST /integrations/traccar/register` — 계약
 - 요청: `{ pin }` (adminUrl은 요청 대상 서버 자체이므로 body에 없음)
 - 성공(200): `{ traccarServerUrl, deviceId }` — `deviceId` = 해당 버스의 `traccar_unique_id`
-- 실패: `401`(PIN 불일치) / `429`(IP당 5회 실패 시 15분 잠금, `Rails.cache` 기반 — 신규 gem 미도입)
-- driver_app: `ApiClient.register()`(`lib/api_client.dart`)가 타임아웃/네트워크 오류/401/429를 각각 사람이 읽을 메시지로 변환해 `ApiException`으로 던짐 → 온보딩 화면이 SnackBar로 노출.
+- 실패: `401`(PIN 불일치) / `409`(PIN 1회용 — 이미 다른 기기가 같은 PIN으로 등록 완료, 유출 대응) / `429`(IP당 5회 실패 시 15분 잠금, `Rails.cache` 기반 — 신규 gem 미도입)
+- PIN은 최초 등록 성공 시 `bus.pin_registered_at`을 찍어 소모 처리(원자적 조건부 UPDATE로 동시 요청 경쟁 상태 방지). 기기분실/교체 등 정상 재등록은 어드민 "PIN 재발급"(`Bus#regenerate_pin!`)이 `pin_registered_at`도 함께 초기화해서 새 PIN으로 다시 등록 가능하게 한다.
+- driver_app: `ApiClient.register()`(`lib/api_client.dart`)가 타임아웃/네트워크 오류/401/409/429를 각각 사람이 읽을 메시지로 변환해 `ApiException`으로 던짐 → 온보딩 화면이 SnackBar로 노출.
 
 ### `GET /integrations/traccar/routes?deviceId=...` — 계약
 - 응답: `{ busNumber, routeName, stops: [{name, lat, lng, avgTravelSeconds}], nextStop: {name, etaMinutes} | null }`
@@ -85,7 +85,7 @@ SDK `Config`엔 "포그라운드일 때만 전송"에 대응하는 옵션이 없
 - Admin: 버스별 QR 코드 생성 화면(후순위, 온보딩은 수동입력으로도 동작).
 - 정류장 크라우드소싱 등록 화면(SDK 범위 밖, driver_app 별도 구현).
 - 앱스토어/플레이스토어 배포 파이프라인(Android 릴리즈 키스토어, iOS 배포 인증서 등 전체 미구성).
-- `traccar-integration.md` 로드맵 2단계: 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API) — **완전 후순위, 앱 파트 단독 결정 아님, 팀 논의 후 착수**. 현재는 Admin "신규등록 운영자 지침" 페이지(`/admin/guides/bus_registration`)의 수동 절차로 대체.
+- Trip 자동 종료(오프라인/타임아웃, Solid Queue) — `docs/traccar-integration.md` 로드맵 3단계.
 
 ## 미검증 (실기기 QC 필요)
 
@@ -100,6 +100,9 @@ SDK `Config`엔 "포그라운드일 때만 전송"에 대응하는 옵션이 없
 
 - iOS 위치 권한 팝업 로컬라이제이션(`InfoPlist.strings` ko/en) — 시스템 언어를 따름, 앱 내 언어설정과 무관(OS 공통 동작). `NSMotionUsageDescription`은 미도입(`stopDetection: false`).
 - Traccar Client SDK 연동(`init`/`start`/`stop`, 상태표시) — 실기기(SM-A516N)로 위치 도달 확인.
-- 백엔드 API 5종 구현: `register`/`routes`(위 계약 참고), `Bus.pin`·`traccar_unique_id` 자동생성 + PIN 재발급, Admin "신규등록 운영자 지침" 페이지. driver_app 실연동 코드도 작성 완료했으나 현재 "임시 설정" 우회로 비활성 상태(위 섹션 참고).
+- 백엔드 API 5종 구현: `register`/`routes`(위 계약 참고), `Bus.pin`·`traccar_unique_id` 자동생성 + PIN 재발급, Admin "신규등록 운영자 지침" 페이지.
+- driver_app register API 실연동 활성화 — `DriverRegistration.register()`가 `ApiClient.register()`를 실제로 호출하도록 원복, 실서버+실기기 e2e(PIN 입력 → register → deviceId 수신 → 메인화면 전환) 검증 완료.
+- 차량 등록 시 Traccar device 자동 프로비저닝(`TraccarDeviceSync`) — `docs/traccar-integration.md` 로드맵 2단계.
 - driver_app 설정화면 "PIN으로 재등록" → `TrackingController.forceStop()` + `DriverRegistration.clear()` 연결.
 - Admin 차량/시·도/운행지역/노선/정류장 리스트·상세에 최종수정일자 표시.
+- register PIN 1회용 처리 + 동시 요청 경쟁 상태 방지(원자적 조건부 UPDATE) — 위 register 계약 참고.

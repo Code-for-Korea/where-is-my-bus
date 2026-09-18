@@ -57,6 +57,8 @@ class ApiClient {
         );
       case 401:
         throw ApiException('PIN이 올바르지 않습니다.');
+      case 409:
+        throw ApiException('이미 다른 기기에서 등록된 PIN입니다. 운영자에게 새 PIN 발급을 요청해주세요.');
       case 429:
         throw ApiException('시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.');
       default:

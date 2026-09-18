@@ -36,7 +36,9 @@
 - [x] 다국어(한국어/English) 인프라
 - [x] iOS `Info.plist` 위치 권한 문구 + 언어별 `InfoPlist.strings` + Background Modes
 - [x] Traccar Client SDK 연동(`init`/`start`/`stop`, 상태표시) — 실기기 검증 완료
-- [x] 백엔드 API(register/positions/routes) — Rails 쪽 5개 항목 구현 완료. driver_app 실연동 코드도 작성됐으나 **현재 임시 비활성**(서버 주소 미확정) — `ISSUE.md` "임시 설정" 참고
+- [x] 백엔드 API(register/positions/routes) — Rails 쪽 5개 항목 구현 완료. driver_app 실연동도 활성화되어 실서버+실기기 e2e 검증 완료
+- [x] 차량 등록 시 Traccar device 자동 프로비저닝
+- [x] register PIN 1회용 처리(유출 대응) — 상세는 `ISSUE.md` 참고
 - [x] 설정화면 "PIN으로 재등록" 연결
 - [ ] 정류장 크라우드소싱 등록 화면
 - [ ] 앱 아이콘/스플래시 이미지 자산 (패키지 ID는 이미 변경됨 — 아이콘은 아직 기본 Flutter 로고)
@@ -45,7 +47,7 @@
 
 ## Admin 연동
 
-버스 등록 → Traccar 서버 등록 절차는 Admin "신규등록 운영자 지침" 페이지(`/admin/guides/bus_registration`)에 실제 문구가 있음. PIN·`traccar_unique_id`는 Rails가 자동 생성하며, PIN은 어드민 차량 상세화면에서 재발급(유출 대응) 가능 — 상세는 `ISSUE.md` 참고.
+차량을 admin에서 등록하면 Rails가 PIN·`traccar_unique_id`를 자동 생성하고 Traccar 서버에 device도 자동 프로비저닝한다. 운영자는 발급된 PIN과 서버 주소만 운전자에게 전달하면 되고, 절차 안내는 Admin "신규등록 운영자 지침" 페이지(`/admin/guides/bus_registration`)에 있다. PIN은 1회용(최초 등록 시 소모)이라 유출돼도 다른 기기가 같은 PIN으로 추가 등록할 수 없으며, 기기분실/교체 시엔 어드민 차량 상세화면에서 PIN 재발급으로 대응한다 — 상세는 `ISSUE.md` 참고.
 
 ## 메타
 

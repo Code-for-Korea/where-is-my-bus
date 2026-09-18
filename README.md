@@ -85,10 +85,11 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 
 - ✅ 도메인 모델, 관리자 CRUD, 인증·권한
 - ✅ 승객서비스 웹화면(mvp 기준 완료), 좋아요(추천)
-- ✅ 운전자 앱(`driver_app/` Flutter) — Traccar Client SDK 연동(GPS 전송, 실기기 검증 완료). register/routes API 연동 코드는 작성됐으나 현재 임시로 비활성(아래 "어드민 변경" 참고)
+- ✅ 운전자 앱(`driver_app/` Flutter) — Traccar Client SDK 연동(GPS 전송) + register/routes API 실연동. 실서버+실기기 e2e 검증 완료(아래 "어드민 변경" 참고)
 - ✅ 실시간 버스 위치 — 운전자 GPS → Traccar 서버 → Rails 수신(`/integrations/traccar/positions`) → 기존 폴링(5초)으로 시민 화면 반영. Solid Cable 도입은 보류 결정(`docs/traccar-integration.md`)
+- ✅ 차량 등록 시 Traccar 디바이스 자동 프로비저닝(`docs/traccar-integration.md` 로드맵 2단계)
 - ⬜ 운전자 앱: 정류장 크라우드소싱 등록 화면, 앱스토어/플레이스토어 배포 파이프라인 (`driver_app/README.md` 체크리스트 참고)
-- ⬜ Traccar 디바이스 자동 프로비저닝(현재는 admin "신규등록 운영자 지침" 페이지로 수동 등록)
+- ⬜ Trip 자동 종료(오프라인/타임아웃, Solid Queue) — `docs/traccar-integration.md` 로드맵 3단계
 - ⬜ 비밀번호 재설정 메일 발송 설정(SMTP / 개발용 letter_opener)
 
 ### 어드민 변경 (2026-09-16)
@@ -98,7 +99,13 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 - Admin "신규등록 운영자 지침" 페이지 추가
 - 시·도/운행지역/노선/정류장/차량 리스트·상세에 최종수정일자 표시
 
-⚠️ **임시 설정 있음** — Rails 서버 주소가 아직 안 정해져서, driver_app의 register API 연동은 지금 꺼둔 상태(PIN 검증 없이 즉시 통과)이고 `traccar_server_url` 로컬 기본값도 테스트 서버로 임시 고정돼 있습니다. 서버 주소 확정되면 원복 필요 — 원복 대상 전체 목록은 [`driver_app/ISSUE.md`](driver_app/ISSUE.md) 상단 "임시 설정 (원복 필요)" 섹션 참고. 상세 구현 내용·QC 필요 항목도 같은 파일에 있습니다.
+### 어드민 변경 (2026-09-18)
+
+- 차량 등록 시 Traccar device 자동 프로비저닝, driver_app register API 실연동 활성화(실서버 e2e 검증 완료)
+- register PIN을 1회용으로 처리(유출돼도 같은 PIN으로 다른 기기가 추가 등록 불가) + 동시 요청 경쟁 상태 방지
+- admin 차량 등록 시 Traccar 연동 실패로 롤백되면 재시도가 막히던 버그 수정
+
+⚠️ **임시 설정 남아있음** — 내부 테스트 Traccar 서버(비공개 도메인)로 로컬 기본값이 임시 고정돼 있습니다. 실배포 서버 주소 확정되면 원복 필요 — 원복 대상 전체 목록은 [`driver_app/ISSUE.md`](driver_app/ISSUE.md) 상단 "임시 설정 (원복 필요)" 섹션 참고.
 
 ---
 
