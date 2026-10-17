@@ -42,8 +42,9 @@ PIN 인증으로 대신 받아오는 구조다. `deviceId`는 Traccar 쪽에서 
 
 - 인증 실패(PIN 오류 401, 시도 초과 429, 서버 무응답)는 각각 사람이 읽을 메시지로 변환되어
   `SnackBar`로 노출된다(`driver_app/lib/api_client.dart`).
-- `PinCode` 모델(`app/models/pin_code.rb`)이 별도로 존재하지만 **어디에서도 참조되지 않는
-  미사용 코드**다 — 실제 PIN 인증은 `Bus.pin` 컬럼으로 이뤄진다. 혼동 방지용으로 남겨둠.
+- `PinCode` 모델과 테이블은 존재하지만 **현재 등록 API의 PIN 인증에는 사용하지 않는다**(레거시) — 실제
+  PIN 인증은 `Bus.pin` 컬럼으로 이뤄진다. `has_many :pin_codes` 연관과 `db/seeds.rb`의 데모
+  레코드 생성만 남아 있으므로, 새 기능에서 `PinCode`를 참조·확장하지 않는다.
 
 ## Rails 수신 측 (구현 완료 — Phase 1)
 
@@ -72,10 +73,12 @@ Groups](https://www.traccar.org/permissions-groups/) 기능을 이용해 **노�
 그룹을 두는 간접 연결** 구조를 쓴다.
 
 ```
-Route 생성/수정   →  Traccar Group 생성 (route.traccar_group_id)
+Route 생성       →  Traccar Group 생성 (route.traccar_group_id)
+                    (⚠️ 수정 시는 sync 미호출 — 노선명/운행지역 변경 후 `sync_group` 수동 재동기화로 회복)
 Stop 생성/수정    →  Geofence 생성 (stop.traccar_geofence_id) → 소속 Route의 Group에 연결
 버스 배차(RouteBus) →  그 Route의 Group에 device 추가 → Group에 연결된 모든 geofence 이벤트 수신 시작
-배차 해제         →  Group에서 device 제거
+                    (⚠️ Traccar device가 없는 버스는 group sync·device 연결 없이 배차만 저장됨)
+배차 해제         →  device를 Group에서 해제 (리소스 삭제 아님 — group·geofence·device 유지)
 ```
 
 Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 하위 group)에 자동
@@ -89,13 +92,40 @@ Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 �
 맞는다. 승객 화면 ETA는 배정된 버스들 중 활성 운행 중인 버스가 여럿이면 목표 정류장에 가장
 먼저 도착할 버스 하나를 골라 보여준다.
 
-**정합성 정책 (완전 롤백)**: admin의 Route/Stop/RouteBus 생성·수정·삭제는 Traccar API 호출과
-하나의 트랜잭션처럼 취급한다. Traccar 쪽 호출이 실패하면 Rails DB 변경도 커밋(생성/수정) 또는
-실행(삭제)되지 않는다 — "Traccar 측 선행조건이 없으면 Rails 레코드도 존재할 수 없다"는
-원칙이다. 이는 Rails와 Traccar 서버 상태가 서로 어긋나는(레코드는 있는데 실제 Traccar 자원은
-없는) 드리프트를 원천적으로 막기 위한 설계로, 대신 Traccar 서버가 다운되어 있으면 admin에서
-해당 CRUD를 전혀 수행할 수 없다는 트레이드오프를 가진다. 화면에는 실패 사유(예: Traccar
+⚠️ **N:N 모델과 Traccar device 단일 group 제약**: Traccar device는 하나의 group에만 속할 수
+있어 `TraccarGroupMembership`은 device의 단일 `groupId`를 읽고 쓴다. 모델(`route_buses` N:N)은
+한 버스를 여러 노선에 배차하는 것을 막지 않지만, 그러면 나중에 등록한 배차의 group이 기존
+group을 덮어쓰고, 한 노선의 배차 해제(`groupId → 0`)가 다른 노선의 배차 연결까지 끊는다
+(`set_device_group`은 device 단일 필드 교체 방식 — 다중 group 연결 방식이 아니다). 운영상
+제약: **한 버스가 동시에 여러 노선에 배차되는 구성은 현재 지원하지 않는다** — driver_app이
+`bus.routes.first`로 첫 노선을 읽는 계약도 이 동일한 "버스당 배차 1개" 가정에 의존한다.
+validation(`bus_id uniqueness: scope: route_id`)은 같은 노선 중복 배차만 막고, 버스가 여러
+노선에 걸치는 것은 막지 않는다. 배차 단일성 validation 추가와 Traccar 다중 group 연결 방식에
+맞춘 membership 재설계는 별도 작업(PR)에서 다룬다.
+
+**정합성 정책 (완전 롤백)**: admin의 Route/Stop/Bus 생성·수정·삭제와 RouteBus 배차 생성·해제는
+Traccar API 호출과 하나의 트랜잭션처럼 취급한다. Traccar 쪽 호출이 실패하면 Rails DB 변경도
+커밋(생성/수정) 또는 실행(삭제)되지 않는다 — "Traccar 측 선행조건이 없으면 Rails 레코드도 존재할
+수 없다"는 원칙이다. 이는 Rails와 Traccar 서버 상태가 서로 어긋나는(레코드는 있는데 실제 Traccar
+자원은
+없는) 드리프트를 원천적으로 막기 위한 설계로, 대신 Traccar 서버가 다운되어 있으면 **Traccar sync가
+필요한** admin 생성·수정·삭제 작업이 실패한다는 트레이드오프를 가진다 — Route 수정과 미프로비저닝
+Bus의 RouteBus 배차는 Traccar 호출 없이 진행되므로 별도 예외다. 화면에는 실패 사유(예: Traccar
 서버와 통신할 수 없음)를 명확히 표시한다.
+
+이 정합성 원칙의 예외·한계는 `AGENTS.md` "Admin CRUD ↔ Traccar 정합성" 섹션에 상세히 기록되어
+있으며, 요점은 다음과 같다. ① 대상별 범위 — Route/Stop/Bus는 생성·수정(transaction+sync)·삭제
+(Traccar 먼저, RouteBus는 device group 해제뿐)이고, Bus는 수정 시에도 device sync를 거친다
+(삭제는 device 삭제 성공 후 Rails destroy). ② 예외 — Route **수정**은 현재 group sync를 호출하지
+않는다; Traccar device가 없는 버스의 배차는 membership 스킵으로 저장된다
+(`TraccarGroupMembership.add`의 조기 반환이 group sync보다 앞). ③ 외부 HTTP는 트랜잭션으로
+롤백되지 않는다. ④ 양방향 drift — Traccar 쪽에만 남는 orphan(Rails 레코드 소실 → Traccar 콘솔
+수동 정리)과, 삭제 시 Rails `destroy` 실패로 Rails 레코드만 남는 반대 방향 drift가 모두 가능하다.
+⑤ 복구 — Rails 레코드가 남아 있으면 admin 수동 sync 액션(`sync_group`/`sync_geofence`/
+`sync_device`; id가 남아 있으면 먼저 콘솔에서 `traccar_*_id`를 nil로 리셋)으로 단일 리소스를
+재생성한다. 단, **연관 링크는 자동 복구되지 않는다** — group 재생성 후 각 Stop geofence의 group
+permission은 `sync_geofence` 재실행으로 복원하고, device 재생성 후 배차 membership는 수동 sync
+액션이 없으므로 admin에서 배차 해제→재배차로 재연결하거나 콘솔 수동 작업이 필요하다.
 
 ## 운영 측 (운영자가 수행)
 
@@ -109,7 +139,10 @@ Group에 연결된 geofence 이벤트는 그 Group에 속한 모든 device(및 �
 
 - 수신 엔드포인트: 공유 토큰 헤더 필수(+가능하면 Traccar 호스트 IP 제한·rate limit).
 - `traccar_unique_id`는 추측 불가능해야 함 — OsmAnd는 id만 알면 위치 주입 가능하므로 스푸핑 방지의 핵심.
-- Traccar 매니저 자격증명·ingest 토큰은 Rails credentials/ENV로 관리(커밋 금지).
+- 수신 컨트롤러의 `ingest_token`(및 `server_url`)은 Rails credentials → ENV
+  (`TRACCAR_INGEST_TOKEN` 등) → 개발 기본값 순서로 관리(커밋 금지). Traccar API 매니저 자격증명
+  (`TraccarApiClient`의 `api_base_url`/`api_email`/`api_password`)은 **credentials만** 읽는다 —
+  ENV fallback은 구현돼 있지 않다(커밋 금지).
 
 ## 단계별 로드맵
 
