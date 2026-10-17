@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_18_000005) do
   create_table "areas", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -39,6 +39,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
     t.index ["traccar_unique_id"], name: "index_buses_on_traccar_unique_id", unique: true
   end
 
+  create_table "current_positions", force: :cascade do |t|
+    t.float "accuracy"
+    t.integer "battery"
+    t.float "bearing"
+    t.integer "bus_id", null: false
+    t.datetime "created_at", null: false
+    t.decimal "lat", precision: 10, scale: 6, null: false
+    t.decimal "lng", precision: 10, scale: 6, null: false
+    t.datetime "received_at", null: false
+    t.datetime "recorded_at", null: false
+    t.float "speed"
+    t.datetime "updated_at", null: false
+    t.index ["bus_id"], name: "index_current_positions_on_bus_id", unique: true
+  end
+
+  create_table "devices", force: :cascade do |t|
+    t.integer "bus_id", null: false
+    t.datetime "created_at", null: false
+    t.string "credential_digest"
+    t.datetime "last_seen_at"
+    t.string "unique_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bus_id"], name: "index_devices_on_bus_id", unique: true
+    t.index ["unique_id"], name: "index_devices_on_unique_id", unique: true
+  end
+
   create_table "gps_logs", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.decimal "lat", precision: 10, scale: 6, null: false
@@ -58,6 +84,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
     t.datetime "updated_at", null: false
     t.index ["bus_id"], name: "index_pin_codes_on_bus_id"
     t.index ["code"], name: "index_pin_codes_on_code", unique: true
+  end
+
+  create_table "position_histories", force: :cascade do |t|
+    t.float "accuracy"
+    t.integer "battery"
+    t.float "bearing"
+    t.integer "bus_id", null: false
+    t.datetime "created_at", null: false
+    t.decimal "lat", precision: 10, scale: 6, null: false
+    t.decimal "lng", precision: 10, scale: 6, null: false
+    t.datetime "received_at", null: false
+    t.datetime "recorded_at", null: false
+    t.float "speed"
+    t.datetime "updated_at", null: false
+    t.index ["bus_id", "recorded_at"], name: "index_position_histories_on_bus_id_and_recorded_at"
+    t.index ["bus_id"], name: "index_position_histories_on_bus_id"
   end
 
   create_table "regions", force: :cascade do |t|
@@ -81,6 +123,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
     t.index ["route_id", "bus_id"], name: "index_route_buses_on_route_id_and_bus_id", unique: true
   end
 
+  create_table "route_segment_stats", force: :cascade do |t|
+    t.float "avg_seconds", null: false
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.integer "from_stop_id", null: false
+    t.integer "hour_of_day", null: false
+    t.integer "route_id", null: false
+    t.integer "samples_count", default: 0, null: false
+    t.integer "to_stop_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_stop_id"], name: "index_route_segment_stats_on_from_stop_id"
+    t.index ["route_id", "from_stop_id", "to_stop_id", "hour_of_day", "date"], name: "index_route_segment_stats_on_segment_and_hour_and_date", unique: true
+    t.index ["route_id"], name: "index_route_segment_stats_on_route_id"
+    t.index ["to_stop_id"], name: "index_route_segment_stats_on_to_stop_id"
+  end
+
   create_table "routes", force: :cascade do |t|
     t.integer "area_id", null: false
     t.datetime "created_at", null: false
@@ -102,6 +160,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
     t.string "user_agent"
     t.integer "user_id", null: false
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "stop_events", force: :cascade do |t|
+    t.integer "bus_id", null: false
+    t.datetime "created_at", null: false
+    t.string "dedup_key", null: false
+    t.string "event_type", null: false
+    t.datetime "occurred_at", null: false
+    t.integer "stop_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bus_id", "occurred_at"], name: "index_stop_events_on_bus_id_and_occurred_at"
+    t.index ["bus_id"], name: "index_stop_events_on_bus_id"
+    t.index ["dedup_key"], name: "index_stop_events_on_dedup_key", unique: true
+    t.index ["stop_id", "occurred_at"], name: "index_stop_events_on_stop_id_and_occurred_at"
+    t.index ["stop_id"], name: "index_stop_events_on_stop_id"
   end
 
   create_table "stop_likes", force: :cascade do |t|
@@ -151,12 +224,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_092145) do
 
   add_foreign_key "areas", "regions"
   add_foreign_key "buses", "areas"
+  add_foreign_key "current_positions", "buses"
+  add_foreign_key "devices", "buses"
   add_foreign_key "gps_logs", "trips"
   add_foreign_key "pin_codes", "buses"
+  add_foreign_key "position_histories", "buses"
   add_foreign_key "route_buses", "buses"
   add_foreign_key "route_buses", "routes"
+  add_foreign_key "route_segment_stats", "routes"
+  add_foreign_key "route_segment_stats", "stops", column: "from_stop_id"
+  add_foreign_key "route_segment_stats", "stops", column: "to_stop_id"
   add_foreign_key "routes", "areas"
   add_foreign_key "sessions", "users"
+  add_foreign_key "stop_events", "buses"
+  add_foreign_key "stop_events", "stops"
   add_foreign_key "stop_likes", "buses"
   add_foreign_key "stop_likes", "stops"
   add_foreign_key "stops", "routes"
