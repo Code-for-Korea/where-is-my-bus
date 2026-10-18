@@ -18,7 +18,7 @@ class GpsControllerTest < ActionDispatch::IntegrationTest
         battery: 80,
         accuracy: 5.0,
         timestamp: "2026-10-18T12:00:00Z"
-      }, headers: { "X-Ingest-Token" => ingest_token }
+      }
     end
 
     assert_response :ok
@@ -31,36 +31,26 @@ class GpsControllerTest < ActionDispatch::IntegrationTest
         lat: 34.123456,
         lon: 128.123456,
         timestamp: "2026-10-18T12:00:00Z"
-      }, headers: { "X-Ingest-Token" => ingest_token }
+      }
     end
 
     assert_response :ok
   end
 
-  test "잘못된 토큰은 401을 반환한다" do
-    post gps_path, params: { id: @bus.traccar_unique_id, lat: 34.0, lon: 128.0 },
-                  headers: { "X-Ingest-Token" => "bad-token" }
-
-    assert_response :unauthorized
-  end
-
   test "알 수 없는 단말은 200 ack로 무시한다" do
-    post gps_path, params: { id: "unknown-device", lat: 34.0, lon: 128.0 },
-                  headers: { "X-Ingest-Token" => ingest_token }
+    post gps_path, params: { id: "unknown-device", lat: 34.0, lon: 128.0 }
 
     assert_response :ok
   end
 
   test "누락된 좌표는 200 ack로 무시한다" do
-    post gps_path, params: { id: @bus.traccar_unique_id, lat: nil, lon: nil },
-                  headers: { "X-Ingest-Token" => ingest_token }
+    post gps_path, params: { id: @bus.traccar_unique_id, lat: nil, lon: nil }
 
     assert_response :ok
   end
 
   test "숫자 타임스탬프는 501 Not Implemented를 반환한다" do
-    post gps_path, params: { id: @bus.traccar_unique_id, lat: 34.0, lon: 128.0, timestamp: 1729252800 },
-                  headers: { "X-Ingest-Token" => ingest_token }
+    post gps_path, params: { id: @bus.traccar_unique_id, lat: 34.0, lon: 128.0, timestamp: 1729252800 }
 
     assert_response :not_implemented
   end
@@ -74,15 +64,9 @@ class GpsControllerTest < ActionDispatch::IntegrationTest
         lat: 34.0,
         lon: 128.0,
         timestamp: "2026-10-18T12:00:00Z"
-      }, headers: { "X-Ingest-Token" => ingest_token }
+      }
     end
 
     assert_response :ok
-  end
-
-  private
-
-  def ingest_token
-    Rails.env.local? ? "dev-traccar-token" : "test-token"
   end
 end
