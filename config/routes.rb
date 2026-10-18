@@ -13,6 +13,8 @@ Rails.application.routes.draw do
     get  "traccar/routes",    to: "traccar#routes"
   end
 
+  match "/gps", to: "gps#create", via: %i[get post]
+
   # 관리자
   namespace :admin do
     root "dashboard#index"
@@ -42,6 +44,8 @@ Rails.application.routes.draw do
     get "/r/:region_slug/:stop_id/detail",  to: "stops#detail",  as: :stop_detail
     get "/r/:region_slug/:stop_id/arrival", to: "stops#arrival", as: :stop_arrival_json
     post "/r/:region_slug/:stop_id/like",   to: "stops#like",    as: :stop_like
+
+    get "/routes/:id/map", to: "map#show", as: :route_map
 
     if Rails.env.development?
       post "/r/:region_slug/:stop_id/debug_bus", to: "stops#debug_bus", as: :stop_debug_bus

@@ -16,3 +16,6 @@ production:
   trip_auto_terminator:
     class: TripAutoTerminatorJob
     schedule: every minute
+  retention:
+    class: RetentionJob
+    schedule: every hour at minute 30

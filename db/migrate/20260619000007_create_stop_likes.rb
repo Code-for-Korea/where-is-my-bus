@@ -8,9 +8,9 @@ class CreateStopLikes < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :stop_likes, [:session_token, :stop_id]
-    add_index :stop_likes, [:stop_id, :bus_id, :session_token]
-    add_index :stop_likes, [:stop_id, :session_token, :created_at], name: "index_stop_likes_on_stop_session_created"
+    add_index :stop_likes, [ :session_token, :stop_id ]
+    add_index :stop_likes, [ :stop_id, :bus_id, :session_token ]
+    add_index :stop_likes, [ :stop_id, :session_token, :created_at ], name: "index_stop_likes_on_stop_session_created"
     add_foreign_key :stop_likes, :stops
     add_foreign_key :stop_likes, :buses
   end

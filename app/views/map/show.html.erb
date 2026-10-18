@@ -1,0 +1,25 @@
+<% content_for :title, "#{@route.name} 노선 지도" %>
+<% content_for :head do %>
+  <% if @provider == "google" && (api_key = ENV["GOOGLE_MAPS_API_KEY"]).present? %>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=<%= api_key %>&callback=initMapProvider" data-turbo-track="reload"></script>
+  <% end %>
+<% end %>
+
+<div class="flex flex-col h-full" data-controller="map"
+     data-map-provider-value="<%= @provider %>"
+     data-map-stops-value="<%= raw @route.stops.select(&:coordinates?).map { |s| { id: s.id, name: s.display_name, lat: s.lat, lng: s.lng, sequence: s.sequence } }.to_json %>"
+     data-map-buses-value="<%= raw @selections.map { |sel| pos = sel.bus.current_position; next unless pos; { id: sel.bus.id, number: sel.bus.display_number, lat: pos.lat, lng: pos.lng } }.compact.to_json %>"
+     data-map-center-value="<%= raw center_coordinate(@route).to_json %>">
+  <div class="px-6 py-4 border-b border-gray-100 shrink-0">
+    <h1 class="text-lg font-bold text-gray-900"><%= @route.area.name %> <%= @route.name %></h1>
+    <p class="text-sm text-gray-500 mt-1">실시간 버스 위치</p>
+  </div>
+
+  <div data-map-target="canvas" class="flex-1 min-h-0 bg-gray-50 relative">
+    <% if @provider == "google" && ENV["GOOGLE_MAPS_API_KEY"].blank? %>
+      <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 p-6 text-center">
+        Google Maps API 키가 설정되지 않았습니다.<br>관리자에게 문의해 주세요.
+      </div>
+    <% end %>
+  </div>
+</div>

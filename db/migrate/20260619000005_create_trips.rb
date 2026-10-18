@@ -9,7 +9,7 @@ class CreateTrips < ActiveRecord::Migration[8.1]
     end
 
     add_index :trips, :bus_id
-    add_index :trips, [:bus_id, :ended_at]
+    add_index :trips, [ :bus_id, :ended_at ]
     add_foreign_key :trips, :buses
   end
 end

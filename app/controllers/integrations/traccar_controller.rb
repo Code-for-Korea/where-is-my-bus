@@ -53,28 +53,29 @@ module Integrations
 
     # POST /integrations/traccar/positions
     def positions
-      unique_id = params.dig(:device, :uniqueId)
-      pos       = params[:position] || {}
-      lat       = pos[:latitude]
-      lng       = pos[:longitude]
-
-      bus = unique_id && Bus.find_by(traccar_unique_id: unique_id)
-      # 알 수 없는 단말/좌표 누락은 조용히 무시(ack) — 포워딩 재시도 폭주 방지
-      return head :ok if bus.nil? || lat.blank? || lng.blank?
-
-      trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
-      trip ||= bus.trips.create!(started_at: Time.current)
-
-      trip.gps_logs.create!(
-        lat: lat,
-        lng: lng,
-        recorded_at: parse_time(pos[:fixTime] || pos[:deviceTime])
-      )
-
+      forwarded_positions.each { |pos| PositionIngestor.call(pos, source: :traccar) }
       head :ok
     end
 
     private
+
+    def forwarded_positions
+      body = request.request_parameters
+      body = body.to_unsafe_h if body.respond_to?(:to_unsafe_h)
+
+      list = if body.is_a?(Array)
+               body
+      elsif body.is_a?(Hash) && (body[:_json].is_a?(Array) || body["_json"].is_a?(Array))
+               body[:_json] || body["_json"]
+      elsif body.is_a?(Hash)
+               [ body ]
+      else
+               []
+      end
+
+      list.map { |element| element.respond_to?(:to_unsafe_h) ? element.to_unsafe_h : element }
+          .select { |element| element.is_a?(Hash) }
+    end
 
     def authenticate_ingest!
       provided = request.headers["X-Ingest-Token"].to_s
@@ -104,12 +105,6 @@ module Integrations
 
     def register_locked_out?
       Rails.cache.read(register_rate_limit_key).to_i >= MAX_REGISTER_ATTEMPTS
-    end
-
-    def parse_time(value)
-      (value.present? && Time.zone.parse(value.to_s)) || Time.current
-    rescue ArgumentError
-      Time.current
     end
   end
 end

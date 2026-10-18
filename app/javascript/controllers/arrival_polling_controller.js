@@ -22,7 +22,7 @@ export default class extends Controller {
     this.poll()
     this.timer = setInterval(() => {
       if (!document.hidden) this.poll()
-    }, 5000)
+    }, 10000)
     this._onDebugRefresh = () => this.poll()
     document.addEventListener("debug:refresh", this._onDebugRefresh)
 

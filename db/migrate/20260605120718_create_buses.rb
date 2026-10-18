@@ -7,6 +7,6 @@ class CreateBuses < ActiveRecord::Migration[8.1]
 
       t.timestamps
     end
-    add_index :buses, [:area_id, :license_plate], unique: true
+    add_index :buses, [ :area_id, :license_plate ], unique: true
   end
 end
