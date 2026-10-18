@@ -10,7 +10,7 @@ class CreateGpsLogs < ActiveRecord::Migration[8.1]
     end
 
     add_index :gps_logs, :trip_id
-    add_index :gps_logs, [ :trip_id, :recorded_at ]
+    add_index :gps_logs, [:trip_id, :recorded_at]
     add_foreign_key :gps_logs, :trips
   end
 end
