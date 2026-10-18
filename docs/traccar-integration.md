@@ -146,6 +146,9 @@ permission은 `sync_geofence` 재실행으로 복원하고, device 재생성 후
 
 ## 단계별 로드맵
 
+로컬 Rails 서버에 `driver_app`을 연결해 Traccar 없이 GPS 수신 계약을 시험하는 방법은
+[driver_app과 로컬 Rails 서버 연결 테스트](driver-app-local-rails-test.md)를 참고한다.
+
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 0 | Traccar Docker 기동 + 위치 수신 확인 | 운영 수동 |
