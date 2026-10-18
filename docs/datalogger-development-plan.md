@@ -286,11 +286,12 @@ GPS 수신 호스트는 일반 승객 사이트의 Host 기반 테넌트 식별�
 - `RouteBusSelector`는 `:passenger`(단일 추천 버스)와 `:map`/`:admin`(GPS 있는 모든 버스) 컨텍스트를 지원한다.
 - `PositionIngestor`는 Traccar 포워딩과 `/gps` 모두에서 호출되며, `CurrentPosition` upsert 시 `recorded_at` 역전을 방지한다.
 - `StopEventDetector`는 approach(200m)/arrive(30m)/depart(100m) 히스테리시스와 dedup_key로 중복을 방지한다.
-- 숫자 타임스탬프는 501 Not Implemented를 반환하며, ISO8601 문자염만 지원한다.
+- 숫자 타임스탬프는 501 Not Implemented를 반환하며, ISO8601 문자열만 지원한다.
 - `arrival_polling_controller.js` 폴리ng 주기는 5000ms에서 10000ms로 변경됐다.
 
 ### 11.3 검증 결과
 
-- `bin/rails test`: 110 tests, 312 assertions, 0 failures, 0 errors (2026-10-18)
-- `bin/rubocop`: Ruby 소스 all clean
+- `bin/rails test`: 113 tests, 339 assertions, 0 failures, 0 errors, 0 skips (2026-10-18)
+- `bin/rubocop`: 122 files inspected, no offenses
 - `bin/rails db:migrate` (dev/test): 성공
+- CI에 테스트 잡이 없으므로 테스트 통과는 로컬 실행으로 검증했다(AGENTS.md §테스트). 작업별 근거는 `.omo/evidence/task-1-datalogger-p0-execution.md` ~ `task-9-datalogger-p0-execution.md` 참고.

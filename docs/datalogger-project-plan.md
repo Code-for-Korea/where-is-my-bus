@@ -158,7 +158,7 @@ P0 작업이 `.omo/plans/datalogger-p0-execution.md`에 따라 완료됐다. 주
 
 ### 10.3 보존 정책
 
-`config/initializers/datalogger.rb`에서 중앙 관리하며 `RetentionJob`이 매 시간 실행한다.
+`config/initializers/datalogger.rb`에서 중앙 관리하며 `RetentionJob`이 매 시간 30분에 실행한다(`config/recurring.yml`, Solid Queue recurring — production 환경).
 
 - `PositionHistory`: 24시간 초과 삭제
 - `GpsLog`: 24시간 초과 삭제
@@ -173,6 +173,7 @@ P0 작업이 `.omo/plans/datalogger-p0-execution.md`에 따라 완료됐다. 주
 
 ### 10.5 검증
 
-- `bin/rails test`: 110 tests, 312 assertions, 0 failures, 0 errors (2026-10-18)
-- `bin/rubocop`: Ruby 소스 all clean
+- `bin/rails test`: 113 tests, 339 assertions, 0 failures, 0 errors, 0 skips (2026-10-18)
+- `bin/rubocop`: 122 files inspected, no offenses
 - P0 가드레일 준수: `tenant_id` 미도입, Device 인증 로직 미추가, SSE/WebSocket 미도입, 10초 폴리ng 유지
+- 작업별 산출물·검증 근거는 `.omo/evidence/task-1-datalogger-p0-execution.md` ~ `task-9-datalogger-p0-execution.md` 참고. CI에 테스트 잡이 없으므로 테스트 통과는 로컬 실행으로 검증했다.
