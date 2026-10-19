@@ -53,13 +53,16 @@ class StopEventDetector
     time_bucket = occurred_at.to_i / DEDUP_WINDOW.to_i
     dedup_key = "#{@bus.id}-#{stop.id}-#{event_type}-#{time_bucket}"
 
-    StopEvent.create!(
+    event = StopEvent.create!(
       bus: @bus,
       stop: stop,
       event_type: event_type,
       occurred_at: occurred_at,
       dedup_key: dedup_key
     )
+    # Rails 8 ActiveJob은 트랜잭션 커밋 후 enqueue를 지연하므로 ingest 트랜잭션 안에서도 안전하다.
+    RouteSegmentStatAggregatorJob.perform_later(arrive_event_id: event.id) if event_type == "arrive"
+    event
   rescue ActiveRecord::RecordNotUnique
     # 동시 처리로 인한 중복 — 무시
   end

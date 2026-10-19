@@ -1,6 +1,8 @@
 require "test_helper"
 
 class StopEventDetectorTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   setup do
     @bus = buses(:one)
     @bus.update!(traccar_unique_id: "stop-event-device")
@@ -36,6 +38,38 @@ class StopEventDetectorTest < ActiveSupport::TestCase
     assert_difference -> { StopEvent.where(event_type: "arrive", stop: @stop).count } => 1 do
       StopEventDetector.call(bus: @bus, current_position: current)
     end
+  end
+
+  test "arrive 이벤트 생성 시 구간 통계 집계 잡을 enqueue한다" do
+    current = CurrentPosition.create!(
+      bus: @bus,
+      lat: @stop.lat,
+      lng: @stop.lng,
+      recorded_at: Time.current,
+      received_at: Time.current
+    )
+
+    assert_enqueued_with(job: RouteSegmentStatAggregatorJob) do
+      StopEventDetector.call(bus: @bus, current_position: current)
+    end
+  end
+
+  test "approach·depart 이벤트로는 집계 잡을 enqueue하지 않는다" do
+    # fixture 정류장 1~3이 35.100~35.102에 몰려 있으므로, 전부 30m(도착 반경) 밖이면서
+    # 테스트 정류장의 접근 반경(200m) 안인 위치를 잡는다.
+    current = CurrentPosition.create!(
+      bus: @bus,
+      lat: @stop.lat + 0.0015,
+      lng: @stop.lng,
+      recorded_at: Time.current,
+      received_at: Time.current
+    )
+
+    assert_no_enqueued_jobs do
+      StopEventDetector.call(bus: @bus, current_position: current)
+    end
+    assert_equal 1, StopEvent.where(event_type: "approach", stop: @stop).count
+    assert_equal 0, StopEvent.where(event_type: "arrive").count
   end
 
   test "버스가 정류장에서 이탈하면 depart 이벤트를 생성한다" do
