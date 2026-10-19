@@ -14,6 +14,7 @@ class RetentionJobTest < ActiveJob::TestCase
     CurrentPosition.create!(bus: @bus, lat: 35.0, lng: 128.0, recorded_at: 25.hours.ago, received_at: 25.hours.ago)
     PositionHistory.create!(bus: @bus, lat: 35.0, lng: 128.0, recorded_at: 25.hours.ago, received_at: 25.hours.ago)
 
+    trips(:two_active).update!(ended_at: 15.minutes.ago)
     recent_trip = Trip.create!(bus: buses(:two), started_at: 30.minutes.ago)
     recent_gps = GpsLog.create!(trip: recent_trip, lat: 35.0, lng: 128.0, recorded_at: 10.minutes.ago)
     recent_history = PositionHistory.create!(bus: buses(:two), lat: 35.0, lng: 128.0, recorded_at: 10.minutes.ago, received_at: 10.minutes.ago)

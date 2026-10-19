@@ -2,6 +2,8 @@ require "test_helper"
 
 class TripAutoTerminatorJobTest < ActiveJob::TestCase
   test "타임아웃 이상 GPS 없는 활성 trip을 종료한다" do
+    # fixture 열운행 trip(one_active)과의 중복을 피하려고 종료 처리 후 새 trip을 만든다
+    trips(:one_active).update!(ended_at: 1.hour.ago)
     trip = Trip.create!(bus: buses(:one), started_at: 30.minutes.ago)
     GpsLog.create!(trip: trip, lat: 35.100000, lng: 128.100000, recorded_at: 20.minutes.ago)
 
@@ -21,6 +23,7 @@ class TripAutoTerminatorJobTest < ActiveJob::TestCase
 
   test "GpsLog가 없어도 버스의 CurrentPosition이 오래되었으면 종료한다" do
     bus = buses(:two)
+    trips(:two_active).update!(ended_at: 1.hour.ago)
     trip = Trip.create!(bus: bus, started_at: 30.minutes.ago)
     CurrentPosition.create!(bus: bus, lat: 35.100000, lng: 128.100000, recorded_at: 20.minutes.ago, received_at: 20.minutes.ago)
 
@@ -32,6 +35,8 @@ class TripAutoTerminatorJobTest < ActiveJob::TestCase
   end
 
   test "GpsLog와 CurrentPosition이 모두 없으면 started_at 기준으로 판정한다" do
+    trips(:one_active).update!(ended_at: 1.hour.ago)
+    trips(:two_active).update!(ended_at: 1.hour.ago)
     stale_trip = Trip.create!(bus: buses(:one), started_at: 30.minutes.ago)
     recent_trip = Trip.create!(bus: buses(:two), started_at: 1.minute.ago)
 

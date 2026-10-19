@@ -41,7 +41,7 @@ class MapControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GPS가 있는 버스는 마커 데이터에 숫자 좌표로 포함된다" do
-    trip = @bus.trips.create!(started_at: 10.minutes.ago)
+    trip = trips(:one_active)
     GpsLog.create!(trip: trip, lat: 35.100000, lng: 128.100000, recorded_at: 1.minute.ago)
     PositionIngestor.call({ id: @bus.traccar_unique_id, lat: 35.100000, lon: 128.100000, timestamp: 1.minute.ago.to_i }, source: :osmand)
 
