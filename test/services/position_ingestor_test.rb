@@ -62,6 +62,37 @@ class PositionIngestorTest < ActiveSupport::TestCase
     assert_equal existing_trip.id, result.trip.id
   end
 
+  test "recovers from concurrent current position insert (RecordNotUnique race)" do
+    older_time = 2.minutes.ago
+    newer_time = 1.minute.ago
+    PositionIngestor.call(traccar_payload(lat: 34.0, lng: 128.0, fix_time: older_time.iso8601), source: :traccar)
+
+    # race: find_or_initialize_by가 이미 존재하는 row를 보지 못한(다른 요청이 커밋 전인) 첫 조회를 흉내낸다
+    CurrentPosition.singleton_class.alias_method(:__original_find_or_initialize_by, :find_or_initialize_by)
+    CurrentPosition.define_singleton_method(:find_or_initialize_by) do |attributes|
+      CurrentPosition.new(attributes)
+    end
+
+    result = PositionIngestor.call(traccar_payload(lat: 35.0, lng: 129.0, fix_time: newer_time.iso8601), source: :traccar)
+
+    assert result.success?
+    current = @bus.reload.current_position
+    assert_equal 35.0.to_d, current.lat
+    assert_equal 129.0.to_d, current.lng
+    assert_equal newer_time.to_i, current.recorded_at.to_i
+  ensure
+    CurrentPosition.singleton_class.send(:remove_method, :find_or_initialize_by)
+    CurrentPosition.singleton_class.send(:alias_method, :find_or_initialize_by, :__original_find_or_initialize_by)
+  end
+
+  test "blocks duplicate active trips via partial unique index" do
+    @bus.trips.create!(started_at: 10.minutes.ago)
+
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      @bus.trips.create!(started_at: 5.minutes.ago)
+    end
+  end
+
   test "returns skipped for unknown device" do
     result = PositionIngestor.call(traccar_payload(unique_id: "unknown-device"), source: :traccar)
 

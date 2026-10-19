@@ -179,12 +179,17 @@ class PositionIngestor
     )
   end
 
+  MAX_UPSERT_ATTEMPTS = 3
+
   def upsert_current_position(bus, lat, lng, recorded_at)
+    attempts = 0
     current = CurrentPosition.find_or_initialize_by(bus_id: bus.id)
 
-    if current.persisted? && current.recorded_at > recorded_at
-      [ current, false ]
-    else
+    begin
+      if current.persisted? && current.recorded_at > recorded_at
+        return [ current, false ]
+      end
+
       current.assign_attributes(
         lat: lat,
         lng: lng,
@@ -197,6 +202,14 @@ class PositionIngestor
       )
       current.save!
       [ current, true ]
+    rescue ActiveRecord::RecordNotUnique
+      # 동시 수신이 같은 버스의 CurrentPosition을 먼저 저장한 경우 —
+      # 재조회 후 recorded_at 비교 분기로 되돌아간다.
+      attempts += 1
+      raise if attempts >= MAX_UPSERT_ATTEMPTS
+
+      current = CurrentPosition.find_by!(bus_id: bus.id)
+      retry
     end
   end
 
