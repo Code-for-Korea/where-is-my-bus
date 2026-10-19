@@ -11,6 +11,7 @@ Rails 서버 주소가 확정되면서 register API 우회는 원복 완료(아�
 
 - **Rails** `traccar_server_url` 로컬 기본값(`app/controllers/integrations/traccar_controller.rb`) — 내부 테스트 Traccar 서버(비공개 도메인)로 임시 고정(원래는 `credentials[:traccar][:server_url]`/`ENV["TRACCAR_SERVER_URL"]` 우선). → 원복: 실배포 확정되면 credentials/ENV로 실제 값 주입, 이 로컬 기본값은 그대로 둬도 무해.
 - **Android** `network_security_config.xml`(`driver_app/android/app/src/main/res/xml/`) — 위와 같은 내부 테스트 서버 도메인만 평문(cleartext) HTTP 허용. → 원복: 실배포가 https면 이 예외 자체를 제거.
+- **Rails** `config/credentials.yml.enc`의 지도 API 키 실값 커밋(2026-10-19) — 노선 지도는 관리자 화면 설정(`/admin/setting`, settings 테이블)이 단일 소스라 크리덴셜의 `google_maps.api_key`·`kakao_maps.app_key`는 코드에서 참조하지 않는다. 운영 키 노출 최소화를 위해 임시로 커밋 유지. → 원복: 관리자 화면에 키 입력·저장 후, `bin/rails credentials:edit`에서 지도 키 항목 삭제하고 커밋.
 
 ## 미채택
 
