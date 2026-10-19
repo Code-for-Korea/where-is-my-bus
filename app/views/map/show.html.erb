@@ -1,0 +1,51 @@
+<% content_for :title, "#{@route.name} 노선 지도" %>
+<% content_for :head do %>
+  <% if @provider == "osm" %>
+    <%= stylesheet_link_tag "leaflet", "data-turbo-track": "reload" %>
+  <% elsif @provider == "google" && (api_key = google_maps_api_key).present? %>
+    <script>
+      window.initMapProvider = function () {
+        window.dispatchEvent(new Event("google-maps:ready"))
+      }
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=<%= api_key %>&callback=initMapProvider" data-turbo-track="reload"></script>
+  <% elsif @provider == "kakao" && (app_key = kakao_maps_app_key).present? %>
+    <script>
+      // 카카오맵은 Google의 &callback= 파라미터가 없다 — 공식 로드 계약:
+      // autoload=false로 스크립트를 읽고 script.onload 뒤 kakao.maps.load(cb)로 v3 본체를 로드한다.
+      (function () {
+        var script = document.createElement("script")
+        script.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=<%= app_key %>&autoload=false"
+        script.onload = function () {
+          kakao.maps.load(function () {
+            window.dispatchEvent(new Event("kakao-maps:ready"))
+          })
+        }
+        document.head.appendChild(script)
+      })()
+    </script>
+  <% end %>
+<% end %>
+
+<div class="flex flex-col h-screen" data-controller="map"
+     data-map-provider-value="<%= @provider %>"
+     data-map-stops-value="<%= @route.stops.select(&:coordinates?).map { |s| { id: s.id, name: s.display_name, lat: s.lat.to_f, lng: s.lng.to_f, sequence: s.sequence } }.to_json %>"
+     data-map-buses-value="<%= @selections.map { |sel| pos = sel.bus.current_position; next unless pos; { id: sel.bus.id, number: sel.bus.display_number, lat: pos.lat.to_f, lng: pos.lng.to_f } }.compact.to_json %>"
+     data-map-center-value="<%= center_coordinate(@route).to_json %>">
+  <div class="px-6 py-4 border-b border-gray-100 shrink-0">
+    <h1 class="text-lg font-bold text-gray-900"><%= @route.area.name %> <%= @route.name %></h1>
+    <p class="text-sm text-gray-500 mt-1">실시간 버스 위치</p>
+  </div>
+
+  <div data-map-target="canvas" class="flex-1 min-h-0 bg-gray-50 relative">
+    <% if @provider == "google" && google_maps_api_key.blank? %>
+      <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 p-6 text-center">
+        Google Maps API 키가 설정되지 않았습니다.<br>관리자에게 문의해 주세요.
+      </div>
+    <% elsif @provider == "kakao" && kakao_maps_app_key.blank? %>
+      <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 p-6 text-center">
+        Kakao Maps 앱 키가 설정되지 않았습니다.<br>관리자에게 문의해 주세요.
+      </div>
+    <% end %>
+  </div>
+</div>

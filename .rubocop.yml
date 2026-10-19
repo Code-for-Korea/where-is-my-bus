@@ -6,3 +6,8 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
 # Layout/SpaceInsideArrayLiteralBrackets:
 #   Enabled: false
+
+# 과거 마이그레이션은 `[:a, :b]` 표기를 유지한다(새 코드는 omakase의 `[ :a, :b ]`).
+Layout/SpaceInsideArrayLiteralBrackets:
+  Exclude:
+    - "db/migrate/**/*"

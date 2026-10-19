@@ -2,3 +2,7 @@ operator:
   email_address: operator@example.com
   password_digest: <%= BCrypt::Password.create("password123") %>
   role: operator
+member:
+  email_address: member@example.com
+  password_digest: <%= BCrypt::Password.create("password123") %>
+  role: member
