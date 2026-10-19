@@ -47,7 +47,9 @@ class PositionIngestor
       position_history = create_position_history(bus, lat, lng, recorded_at)
       current_position, updated = upsert_current_position(bus, lat, lng, recorded_at)
 
-      StopEventDetector.call(bus: bus, current_position: current_position)
+      # 오래된 GPS(CurrentPosition 미갱신)로는 이벤트를 판정하지 않는다 —
+      # 히스토리에 기록된 과거 점이 previous로 잡혀 가짜 도착·출발 이벤트가 생긴다.
+      StopEventDetector.call(bus: bus, current_position: current_position) if updated
 
       Result.new(
         success: true,

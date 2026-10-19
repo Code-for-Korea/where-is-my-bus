@@ -108,6 +108,29 @@ class PositionIngestorTest < ActiveSupport::TestCase
     assert_equal 129.0.to_d, current.lng
   end
 
+  test "does not create StopEvent when stale GPS does not update current position" do
+    RouteBus.create!(route: routes(:one), bus: @bus)
+    newer_time = 1.minute.ago
+    older_time = 30.minutes.ago
+
+    # 정류장1 좌표로 최신 위치 수신 → CurrentPosition 갱신 + arrive 이벤트 생성
+    PositionIngestor.call(traccar_payload(lat: 35.100000, lng: 128.100000, fix_time: newer_time.iso8601), source: :traccar)
+    assert_equal 1, StopEvent.where(stop: stops(:one), event_type: "arrive").count
+
+    # 30분 전 timestamp로 정류장3 좌표 재전송(stale) → CurrentPosition 미갱신, 가짜 이벤트 없음
+    event_count = StopEvent.count
+    result = PositionIngestor.call(traccar_payload(lat: 35.102000, lng: 128.102000, fix_time: older_time.iso8601), source: :traccar)
+
+    assert result.success?, result.message
+    assert_equal false, result.updated
+    current = @bus.reload.current_position
+    assert_equal 35.100000.to_d, current.lat
+    assert_equal 128.100000.to_d, current.lng
+    assert_equal newer_time.to_i, current.recorded_at.to_i
+    assert_equal event_count, StopEvent.count
+    assert_equal 0, StopEvent.where(stop: stops(:three)).count
+  end
+
   test "parses epoch second timestamp" do
     timestamp = 1_760_788_800
     recorded_at = Time.zone.at(timestamp)
