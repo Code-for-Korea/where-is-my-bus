@@ -1,6 +1,6 @@
 <% content_for :title, "#{@route.name} 노선 지도" %>
 <% content_for :head do %>
-  <% if @provider == "google" && (api_key = ENV["GOOGLE_MAPS_API_KEY"]).present? %>
+  <% if @provider == "google" && (api_key = google_maps_api_key).present? %>
     <script>
       window.initMapProvider = function () {
         window.dispatchEvent(new Event("google-maps:ready"))
@@ -21,7 +21,7 @@
   </div>
 
   <div data-map-target="canvas" class="flex-1 min-h-0 bg-gray-50 relative">
-    <% if @provider == "google" && ENV["GOOGLE_MAPS_API_KEY"].blank? %>
+    <% if @provider == "google" && google_maps_api_key.blank? %>
       <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 p-6 text-center">
         Google Maps API 키가 설정되지 않았습니다.<br>관리자에게 문의해 주세요.
       </div>
