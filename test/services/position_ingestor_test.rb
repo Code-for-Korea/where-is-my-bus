@@ -85,6 +85,33 @@ class PositionIngestorTest < ActiveSupport::TestCase
     CurrentPosition.singleton_class.send(:alias_method, :find_or_initialize_by, :__original_find_or_initialize_by)
   end
 
+  test "returns failure result instead of raising when current position upsert retries are exhausted" do
+    PositionIngestor.call(traccar_payload(lat: 34.0, lng: 128.0, fix_time: 2.minutes.ago.iso8601), source: :traccar)
+
+    # save!를 항상 충돌로 실패시켜 재시도 한도(3회) 소진을 재현한다
+    gps_log_count_before = GpsLog.count
+    CurrentPosition.class_eval do
+      alias_method(:__original_save!, :save!)
+      def save!
+        raise ActiveRecord::RecordNotUnique, "simulated unique conflict"
+      end
+    end
+
+    result = PositionIngestor.call(traccar_payload(lat: 35.0, lng: 129.0, fix_time: 1.minute.ago.iso8601), source: :traccar)
+
+    # 200-ack 계약: 예외를 던져 500을 내는 대신 failure Result로 흡수된다
+    assert_not result.success?
+    assert_equal :conflict, result.error
+    # 두 번째 수신은 트랜잭션 전체가 롤백 — 최초 상태가 유지된다
+    assert_equal 34.0.to_d, @bus.reload.current_position.lat
+    assert_equal gps_log_count_before, GpsLog.count
+  ensure
+    CurrentPosition.class_eval do
+      alias_method(:save!, :__original_save!)
+      remove_method(:__original_save!)
+    end
+  end
+
   test "blocks duplicate active trips via partial unique index" do
     @bus.trips.create!(started_at: 10.minutes.ago)
 

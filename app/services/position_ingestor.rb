@@ -70,6 +70,16 @@ class PositionIngestor
       error: :invalid_record,
       message: e.message
     )
+  rescue ActiveRecord::RecordNotUnique => e
+    # 수신 엔드포인트는 200-ack 계약(인증 실패 401 제외) — 경쟁 상태가 재시도 한도를
+    # 넘어 전파되더라도 500 대신 failure Result로 흡수한다.
+    Result.new(
+      success: false,
+      skipped: false,
+      updated: false,
+      error: :conflict,
+      message: e.message
+    )
   end
 
   private
@@ -154,10 +164,14 @@ class PositionIngestor
   end
 
   def find_or_create_active_trip(bus, recorded_at)
-    trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
-    trip || bus.trips.create!(started_at: recorded_at)
+    ActiveRecord::Base.transaction(requires_new: true) do
+      trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
+      trip || bus.trips.create!(started_at: recorded_at)
+    end
   rescue ActiveRecord::RecordNotUnique
     # 동시 수신(포워딩 + /gps)이 열운행 Trip을 이미 생성한 경우 — 재조회해 재사용한다.
+    # 저장점 밖에서 재조회한다: PostgreSQL은 제약 위반 뒤 트랜잭션이 aborted 상태가 되므로
+    # 같은 트랜잭션 안의 조회가 실패한다(requires_new가 저장점 롤백으로 회복해 준다).
     bus.trips.where(ended_at: nil).order(started_at: :desc).first || raise
   end
 
@@ -186,34 +200,43 @@ class PositionIngestor
 
   def upsert_current_position(bus, lat, lng, recorded_at)
     attempts = 0
-    current = CurrentPosition.find_or_initialize_by(bus_id: bus.id)
-
+    current = nil
     begin
-      if current.persisted? && current.recorded_at > recorded_at
-        return [ current, false ]
+      # 저장점으로 격리: PostgreSQL은 제약 위반 뒤 트랜잭션이 aborted 상태가 되므로
+      # 같은 트랜잭션 안의 재조회가 실패한다 — 저장점 롤백으로 회복시킨다.
+      ActiveRecord::Base.transaction(requires_new: true) do
+        upsert_current_position_once(current, bus, lat, lng, recorded_at)
       end
-
-      current.assign_attributes(
-        lat: lat,
-        lng: lng,
-        recorded_at: recorded_at,
-        received_at: Time.current,
-        speed: to_float(extract(:speed)),
-        bearing: to_float(extract(:bearing)),
-        accuracy: to_float(extract(:accuracy)),
-        battery: to_integer(extract(:battery))
-      )
-      current.save!
-      [ current, true ]
     rescue ActiveRecord::RecordNotUnique
       # 동시 수신이 같은 버스의 CurrentPosition을 먼저 저장한 경우 —
-      # 재조회 후 recorded_at 비교 분기로 되돌아간다.
+      # 저장점 밖에서 재조회한 뒤 재시도한다.
       attempts += 1
       raise if attempts >= MAX_UPSERT_ATTEMPTS
 
       current = CurrentPosition.find_by!(bus_id: bus.id)
       retry
     end
+  end
+
+  def upsert_current_position_once(current, bus, lat, lng, recorded_at)
+    current ||= CurrentPosition.find_or_initialize_by(bus_id: bus.id)
+
+    if current.persisted? && current.recorded_at > recorded_at
+      return [ current, false ]
+    end
+
+    current.assign_attributes(
+      lat: lat,
+      lng: lng,
+      recorded_at: recorded_at,
+      received_at: Time.current,
+      speed: to_float(extract(:speed)),
+      bearing: to_float(extract(:bearing)),
+      accuracy: to_float(extract(:accuracy)),
+      battery: to_integer(extract(:battery))
+    )
+    current.save!
+    [ current, true ]
   end
 
   def skipped(reason)
