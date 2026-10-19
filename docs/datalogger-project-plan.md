@@ -15,7 +15,7 @@ datalogger 분석에서 소유자 결정이 확정되어 본 문서에 반영했
 - **운전자 앱**: 현행 Flutter + Traccar Client SDK + PIN 1회용 인증 유지.
 - **초기 규모·SLO**: 동시 접속 100명, 가용성 99%, p95 응답 500ms. 운영 실측에 따라 조정.
 - **폴링**: 근접 가변 폴링(3정류장 이상 10초, 2정류장 5초, 1정류장 이하 3초 — 2026-10-19 결정), SSE 전환 보류.
-- **지도 SDK**: Google Maps·Kakao Map·Naver Map을 동시 지원(우선순위가 아닌 멀티 벤더 구성).
+- **지도 SDK**: Google Maps·Kakao Map·OpenStreetMap을 동시 지원(우선순위가 아닌 멀티 벤더 구성, 2026-10-19 Naver 제외).
 - **버스 표시**: `RouteBusSelector` 확장 — 승객 화면은 단일 추천 버스, 관리자·지도 화면에서만 다중 버스 표시.
 - **unknown-device 200-ack 계약 유지** 및 **CurrentPosition 테이블 신설** 확정.
 - **P0 실행 범위 확정**: 단일 서버·테넌트 없음. 10개 P0 작업 목록은 `docs/datalogger-development-plan.md`의 "0.5. P0 실행 범위 (2026-10-18 확정)" 섹션 및 `.omo/plans/datalogger-p0-execution.md` 참고.
@@ -71,7 +71,7 @@ datalogger 분석에서 소유자 결정이 확정되어 본 문서에 반영했
 ### 4.3 승객 서비스
 
 - 지도 위 노선, 정류장, 차량별 실시간 위치 표시.
-- **지도 SDK는 Google Maps·Kakao Map·Naver Map을 동시 지원(2026-10-18 결정)**. 우선순위가 아닌 멀티 벤더 구성으로, 지자체·브랜딩·라이선스 조건에 따라 런타임 또는 설정에서 선택한다. **P0 구현 순서는 Google Maps 먼저, Kakao는 실제 SDK 연동으로 구현(2026-10-19), Naver는 공통 MapProvider 인터페이스 + stub으로 준비한다.**
+- **지도 SDK는 Google Maps·Kakao Map·OpenStreetMap을 동시 지원(2026-10-18 결정, 2026-10-19 Naver 제외·OSM 추가)**. 우선순위가 아닌 멀티 벤더 구성으로, 지자체·브랜딩·라이선스 조건에 따라 런타임 또는 설정에서 선택한다. **P0 구현: Google Maps·Kakao는 실제 SDK 연동, OpenStreetMap은 Leaflet + OSM 타일(키 불필요).**
 - **승객 화면에는 노선별 단일 추천 버스를 표시한다(2026-10-18 결정)**. 기존 `RouteBusSelector`를 확장해 추천 로직을 공유하고, 다중 버스 표시는 관리자·지도 화면에서만 제공한다. 운행 방향 및 최신 수신 시각 제공.
 - **폴링은 근접 가변으로 유지한다. SSE 전환은 보류(2026-10-18 결정, 2026-10-19 가변 폴링으로 구체화)** — 단일 서버에서 SSE 커넥션 관리 부담이 크다. 정류장 도착 임박 신호의 신선도가 중요해 3정류장 이상 10초, 2정류장 5초, 1정류장 이하 3초로 조정한다(평균 요청 수는 10초 고정과 유사).
 - 지도 아이콘은 위치 보간 애니메이션을 사용할 수 있으나 예측 위치와 실제 수신 위치를 혼동하지 않도록 처리.
@@ -153,7 +153,7 @@ P0 작업이 `.omo/plans/datalogger-p0-execution.md`에 따라 완료됐다. 주
 | --- | --- | --- |
 | `POST /integrations/traccar/positions` | Traccar 포워딩 수신 | `X-Ingest-Token` 인증, unknown device/누락 좌표 시 200 ack |
 | `GET/POST /gps` | OsmAnd 호환 수신 | id/lat/lon/timestamp/speed/bearing/battery/accuracy, ISO8601 timestamp, 숫자 타임스탬프 501 |
-| `GET /routes/:id/map` | 노선 지도 페이지 | Google Maps 우선, Kakao 실연동, Naver stub |
+| `GET /routes/:id/map` | 노선 지도 페이지 | Google Maps 우선, Kakao 실연동, OSM(Leaflet) |
 | `GET /r/:region_slug/:stop_id/arrival` | 승객 도착 정보 JSON | 10초 폴리ng 대상 |
 
 ### 10.3 보존 정책
@@ -167,9 +167,9 @@ P0 작업이 `.omo/plans/datalogger-p0-execution.md`에 따라 완료됐다. 주
 
 ### 10.4 지도 SDK 설정
 
-- `MAP_PROVIDER` 환경 변수(`google`/`kakao`/`naver`)로 공급자 선택. 기본값 `google`.
+- `MAP_PROVIDER` 환경 변수(`google`/`kakao`/`osm`)로 공급자 선택. 기본값 `google`.
 - Google Maps 사용 시 `GOOGLE_MAPS_API_KEY` 환경 변수 필요. 미설정 시 폴리백 메시지 출력.
-- Kakao는 실제 SDK를 연동(`kakao_maps.app_key` 크리덴셜 → `KAKAO_MAPS_APP_KEY` ENV 폴백). Naver는 P0에서 stub로 동작하며, 실제 SDK 연동은 지자체 요구에 따라 확장.
+- Kakao는 실제 SDK를 연동(`kakao_maps.app_key` 크리덴셜 → `KAKAO_MAPS_APP_KEY` ENV 폴백). OpenStreetMap은 Leaflet + OSM 타일로 키 없이 동작. Naver는 2026-10-19 제외(라이선스·발급 절차 부담) — 필요 시 MapProvider 인터페이스로 재추가.
 
 ### 10.5 검증
 

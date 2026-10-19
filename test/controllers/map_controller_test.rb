@@ -74,6 +74,22 @@ class MapControllerTest < ActionDispatch::IntegrationTest
     ENV.delete("MAP_PROVIDER")
   end
 
+  test "osm provider는 키 없이 렌더링하고 leaflet 스타일시트를 로드한다" do
+    ENV["MAP_PROVIDER"] = "osm"
+    stub_credentials(google: nil, kakao: nil) do
+      get route_map_path(id: @route.id)
+
+      assert_response :ok
+      assert_select "[data-map-provider-value='osm']"
+      assert_select "link[href*='leaflet']"
+      refute_includes response.body, "설정되지 않았습니다"
+      refute_includes response.body, "dapi.kakao.com"
+      refute_includes response.body, "maps.googleapis.com"
+    end
+  ensure
+    ENV.delete("MAP_PROVIDER")
+  end
+
   test "data-* 속성이 올바른 JSON으로 직렬화된다" do
     get route_map_path(id: @route.id)
 

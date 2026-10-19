@@ -15,7 +15,7 @@ datalogger 분석에서 소유자 결정이 확정되어 본 문서에 반영했
 - **운전자 앱**: 현행 Flutter + Traccar Client SDK + PIN 1회용 인증 유지.
 - **초기 규모·SLO**: 동시 접속 100명, 가용성 99%, p95 응답 500ms. 운영 실측에 따라 조정.
 - **폴링**: 근접 가변 폴링(3정류장 이상 10초, 2정류장 5초, 1정류장 이하 3초 — 2026-10-19 결정), SSE 전환 보류.
-- **지도 SDK**: Google Maps·Kakao Map·Naver Map을 동시 지원(우선순위가 아닌 멀티 벤더 구성).
+- **지도 SDK**: Google Maps·Kakao Map·OpenStreetMap을 동시 지원(우선순위가 아닌 멀티 벤더 구성, 2026-10-19 Naver 제외).
 - **버스 표시**: `RouteBusSelector` 확장 — 승객 화면은 단일 추천 버스, 관리자·지도 화면에서만 다중 버스 표시.
 - **unknown-device 200-ack 계약 유지** 및 **CurrentPosition 테이블 신설** 확정.
 
@@ -35,12 +35,12 @@ P0는 아래 10개 작업으로 구성된다. 실행 순서는 의존 관계에 
 | 6 | StopEvent 판정 서비스(접근/도착/이탈, 히스테리시스, dedup_key) | GAP-6 |
 | 7 | Trip 자동 종료 잡(마지막 GPS 수신 후 타임아웃, Solid Queue recurring) | GAP-7 |
 | 8 | 보존/삭제 잡(PositionHistory 24시간, StopEvent 7일, RouteSegmentStat 90일, 소규모 배치 삭제) | GAP-8 |
-| 9 | 멀티 벤더 지도 UI + `RouteBusSelector` 확장(Google Maps 우선, Kakao 실연동, Naver 공통 인터페이스 + stub) | GAP-9, GAP-10 |
+| 9 | 멀티 벤더 지도 UI + `RouteBusSelector` 확장(Google Maps·Kakao 실연동, OpenStreetMap Leaflet, Naver 제외) | GAP-9, GAP-10 |
 | 10 | 테스트 보강 및 docs 업데이트 | IS-1~IS-12 문서화 |
 
 **P0에서 하지 않는 것(가드레일):** 멀티테넌트·독립 도메인·서브도메인 격리, Traccar 완전 대체와 운전자 앱 Traccar Client SDK 제거, SSE/WebSocket, 30초 GPS 샘플링, 숫자 타임스탬프 지원, per-device 인증(Device 스키마만 추가하고 인증 로직은 P1), Roundhouse/Spinel PoC, 앱스토어 배포 파이프라인.
 
-**주요 아키텍처 결정:** Traccar 포워딩을 주 경로로 유지하면서 새 `/gps` 엔드포인트를 그림자 경로로 추가해 운전자 앱 변경 없이 점진 전환한다. 두 경로 모두 공통 PositionIngestor로 CurrentPosition/PositionHistory/GpsLog/Trip/StopEvent에 적재한다. CurrentPosition은 차량당 1행 upsert이며 recorded_at 역전 재전송이 최신 위치를 덮어쓰지 않는다. 지도는 Google Maps를 먼저 구현하고 Kakao/Naver는 공통 MapProvider 인터페이스로 준비한다.
+**주요 아키텍처 결정:** Traccar 포워딩을 주 경로로 유지하면서 새 `/gps` 엔드포인트를 그림자 경로로 추가해 운전자 앱 변경 없이 점진 전환한다. 두 경로 모두 공통 PositionIngestor로 CurrentPosition/PositionHistory/GpsLog/Trip/StopEvent에 적재한다. CurrentPosition은 차량당 1행 upsert이며 recorded_at 역전 재전송이 최신 위치를 덮어쓰지 않는다. 지도는 Google Maps·Kakao를 먼저 구현하고 OpenStreetMap(Leaflet)을 추가한다(2026-10-19).
 
 ## 1. 기술 방향
 
@@ -49,7 +49,7 @@ P0는 아래 10개 작업으로 구성된다. 실행 순서는 의존 관계에 
 - 웹서버: Puma 단일 프로세스(워커 0)와 소수 스레드로 시작.
 - GPS: Traccar Client OsmAnd 호환 HTTP 수신기.
 - 백그라운드 처리: 기존 Solid Queue가 있다면 사용하되 1GB RAM에서 별도 프로세스 메모리 검증. 단순 정리 작업은 주기 실행 대안 검토.
-- 지도: **Google Maps·Kakao Map·Naver Map을 동시 지원하는 멀티 벤더 구성(2026-10-18 결정)**. 지자체·라이선스 조건에 따라 런타임 또는 설정에서 선택. 노선별 최신 위치 API 제공.
+- 지도: **Google Maps·Kakao Map·OpenStreetMap을 동시 지원하는 멀티 벤더 구성(2026-10-18 결정, 2026-10-19 Naver 제외·OSM 추가)**. 지자체·라이선스 조건에 따라 런타임 또는 설정에서 선택. 노선별 최신 위치 API 제공.
 - 멀티테넌트: 공유 DB + `tenant_id`, 도메인 기반 테넌트 판별. **보류(2026-10-18 결정)** — 단일 테넌트로 운영하며 tenant_id 스킴은 향후 별도 검토.
 - Roundhouse + Spinel: GPS 수집 기능을 분리 가능한 형태로 만든 뒤 별도 PoC 진행. DB 드라이버, Rails 호환성, 실메모리 이점은 검증 전제.
 

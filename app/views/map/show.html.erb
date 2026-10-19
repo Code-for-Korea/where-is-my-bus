@@ -1,6 +1,8 @@
 <% content_for :title, "#{@route.name} 노선 지도" %>
 <% content_for :head do %>
-  <% if @provider == "google" && (api_key = google_maps_api_key).present? %>
+  <% if @provider == "osm" %>
+    <%= stylesheet_link_tag "leaflet", "data-turbo-track": "reload" %>
+  <% elsif @provider == "google" && (api_key = google_maps_api_key).present? %>
     <script>
       window.initMapProvider = function () {
         window.dispatchEvent(new Event("google-maps:ready"))
