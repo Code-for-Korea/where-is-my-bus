@@ -156,6 +156,9 @@ class PositionIngestor
   def find_or_create_active_trip(bus, recorded_at)
     trip = bus.trips.where(ended_at: nil).order(started_at: :desc).first
     trip || bus.trips.create!(started_at: recorded_at)
+  rescue ActiveRecord::RecordNotUnique
+    # 동시 수신(포워딩 + /gps)이 열운행 Trip을 이미 생성한 경우 — 재조회해 재사용한다.
+    bus.trips.where(ended_at: nil).order(started_at: :desc).first || raise
   end
 
   def create_gps_log(trip, lat, lng, recorded_at)
