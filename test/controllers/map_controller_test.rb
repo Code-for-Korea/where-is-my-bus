@@ -18,16 +18,52 @@ class MapControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Google Maps API 키가 있으면 스크립트와 콜백 정의를 로드한다" do
-    ENV["GOOGLE_MAPS_API_KEY"] = "test-key-123"
+    stub_credentials(api_key: "test-key-123") do
+      get route_map_path(id: @route.id)
 
-    get route_map_path(id: @route.id)
+      assert_response :ok
+      assert_includes response.body, "window.initMapProvider"
+      assert_includes response.body, "maps.googleapis.com/maps/api/js?key=test-key-123"
+      refute_includes response.body, "Google Maps API 키가 설정되지 않았습니다"
+    end
+  end
 
-    assert_response :ok
-    assert_includes response.body, "window.initMapProvider"
-    assert_includes response.body, "maps.googleapis.com/maps/api/js?key=test-key-123"
-    refute_includes response.body, "Google Maps API 키가 설정되지 않았습니다"
+  test "credentials의 키를 ENV보다 우선 사용한다" do
+    ENV["GOOGLE_MAPS_API_KEY"] = "from-env"
+    stub_credentials(api_key: "from-credentials") do
+      assert_equal "from-credentials", helper_with_google_key
+    end
   ensure
     ENV.delete("GOOGLE_MAPS_API_KEY")
+  end
+
+  test "credentials에 키가 없으면 ENV를 사용한다" do
+    ENV["GOOGLE_MAPS_API_KEY"] = "from-env"
+    stub_credentials(api_key: nil) do
+      assert_equal "from-env", helper_with_google_key
+    end
+  ensure
+    ENV.delete("GOOGLE_MAPS_API_KEY")
+  end
+
+  private
+
+  def helper_with_google_key
+    Object.new.extend(MapHelper).google_maps_api_key
+  end
+
+  private
+
+  # 테스트용 credentials 스왑 — 실제 encrypted credentials는 테스트에서 편집할 수 없다
+  def stub_credentials(api_key:)
+    Rails.application.singleton_class.alias_method(:__original_credentials, :credentials)
+    Rails.application.define_singleton_method(:credentials) do
+      { google_maps: { api_key: api_key } }
+    end
+    yield
+  ensure
+    Rails.application.singleton_class.send(:remove_method, :credentials)
+    Rails.application.singleton_class.send(:alias_method, :credentials, :__original_credentials)
   end
 
   test "data-* 속성이 올바른 JSON으로 직렬화된다" do
