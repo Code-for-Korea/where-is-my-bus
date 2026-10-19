@@ -9,6 +9,8 @@ const PROVIDERS = {
   naver: NaverMapsProvider
 }
 
+const GOOGLE_MAPS_READY_EVENT = "google-maps:ready"
+
 export default class extends Controller {
   static targets = ["canvas"]
   static values = {
@@ -19,7 +21,25 @@ export default class extends Controller {
   }
 
   connect() {
-    this.render()
+    if (this.providerValue === "google" && !GoogleMapsProvider.isAvailable()) {
+      this.waitForGoogleMaps()
+    } else {
+      this.render()
+    }
+  }
+
+  disconnect() {
+    if (this.onReady) {
+      window.removeEventListener(GOOGLE_MAPS_READY_EVENT, this.onReady)
+    }
+  }
+
+  waitForGoogleMaps() {
+    this.onReady = () => {
+      window.removeEventListener(GOOGLE_MAPS_READY_EVENT, this.onReady)
+      this.render()
+    }
+    window.addEventListener(GOOGLE_MAPS_READY_EVENT, this.onReady)
   }
 
   render() {

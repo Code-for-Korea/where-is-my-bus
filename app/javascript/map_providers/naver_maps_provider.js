@@ -1,4 +1,4 @@
-import { BaseMapProvider } from "./base_map_provider"
+import { BaseMapProvider } from "map_providers/base_map_provider"
 
 export class NaverMapsProvider extends BaseMapProvider {
   render(_center, _stops, _buses) {

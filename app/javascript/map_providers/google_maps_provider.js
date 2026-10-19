@@ -1,4 +1,4 @@
-import { BaseMapProvider } from "./base_map_provider"
+import { BaseMapProvider } from "map_providers/base_map_provider"
 
 export class GoogleMapsProvider extends BaseMapProvider {
   render(center, stops, buses) {
