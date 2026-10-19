@@ -168,8 +168,8 @@ P0 작업이 `.omo/plans/datalogger-p0-execution.md`에 따라 완료됐다. 주
 ### 10.4 지도 SDK 설정
 
 - `MAP_PROVIDER` 환경 변수(`google`/`kakao`/`osm`)로 공급자 선택. 기본값 `google`.
-- Google Maps 사용 시 `GOOGLE_MAPS_API_KEY` 환경 변수 필요. 미설정 시 폴리백 메시지 출력.
-- Kakao는 실제 SDK를 연동(`kakao_maps.app_key` 크리덴셜 → `KAKAO_MAPS_APP_KEY` ENV 폴백). OpenStreetMap은 Leaflet + OSM 타일로 키 없이 동작. Naver는 2026-10-19 제외(라이선스·발급 절차 부담) — 필요 시 MapProvider 인터페이스로 재추가.
+- 지도 제공자·API 키는 **관리자 화면(/admin/setting)에서 설정**(2026-10-19 결정) — settings 테이블이 단일 소스로, `MAP_PROVIDER` ENV·크리덴셜 조회를 대체한다. Google Maps 키 미설정 시 폴백 메시지 출력.
+- Kakao는 실제 SDK를 연동(관리자 화면에서 앱 키 입력). OpenStreetMap은 Leaflet + OSM 타일로 키 없이 동작. Naver는 2026-10-19 제외(라이선스·발급 절차 부담) — 필요 시 MapProvider 인터페이스로 재추가.
 
 ### 10.5 검증
 

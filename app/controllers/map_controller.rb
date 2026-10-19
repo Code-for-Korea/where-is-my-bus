@@ -6,6 +6,6 @@ class MapController < ApplicationController
     return head :not_found unless @route
 
     @selections = RouteBusSelector.call(@route, nil, context: :map)
-    @provider = ENV.fetch("MAP_PROVIDER", "google").downcase
+    @provider = Setting.fetch(:map_provider) || "google"
   end
 end

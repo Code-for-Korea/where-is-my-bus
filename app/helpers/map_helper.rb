@@ -1,13 +1,12 @@
 module MapHelper
-  # Traccar 수신 컨트롤러와 같은 우선순위: credentials → ENV.
-  # API 키는 브라우저로 전송되는 값이라 도메인/리퍼러 제한은 Google Cloud 콘솔에서 설정해야 한다.
+  # 지도 제공자·API 키는 관리자 화면(/admin/setting)에서 설정한 settings 테이블이 단일 소스다.
+  # API 키는 브라우저로 전송되는 값이라 도메인/리퍼러 제한은 각 콘솔에서 설정해야 한다.
   def google_maps_api_key
-    Rails.application.credentials.dig(:google_maps, :api_key) || ENV["GOOGLE_MAPS_API_KEY"]
+    Setting.fetch(:google_maps_api_key)
   end
 
-  # 카카오맵은 "JavaScript 키"를 appkey로 사용하며, 카카오 개발자 콘솔에 Web 플랫폼 도메인 등록이 필요하다.
   def kakao_maps_app_key
-    Rails.application.credentials.dig(:kakao_maps, :app_key) || ENV["KAKAO_MAPS_APP_KEY"]
+    Setting.fetch(:kakao_maps_app_key)
   end
 
   def center_coordinate(route)

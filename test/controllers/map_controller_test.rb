@@ -3,6 +3,7 @@ require "nokogiri"
 
 class MapControllerTest < ActionDispatch::IntegrationTest
   setup do
+    Setting.delete_all
     @route = routes(:one)
     @bus = buses(:one)
     @bus.update!(traccar_unique_id: "map-test-device")
@@ -17,77 +18,51 @@ class MapControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-map-provider-value='google']"
   end
 
-  test "Google Maps API 키가 있으면 스크립트와 콜백 정의를 로드한다" do
-    stub_credentials(google: "test-key-123", kakao: nil) do
-      get route_map_path(id: @route.id)
+  test "Google Maps 키가 있으면 스크립트와 콜백 정의를 로드한다" do
+    Setting.store!(:google_maps_api_key, "test-key-123")
 
-      assert_response :ok
-      assert_includes response.body, "window.initMapProvider"
-      assert_includes response.body, "maps.googleapis.com/maps/api/js?key=test-key-123"
-      refute_includes response.body, "Google Maps API 키가 설정되지 않았습니다"
-    end
-  end
+    get route_map_path(id: @route.id)
 
-  test "credentials의 키를 ENV보다 우선 사용한다" do
-    ENV["GOOGLE_MAPS_API_KEY"] = "from-env"
-    stub_credentials(google: "from-credentials", kakao: nil) do
-      assert_equal "from-credentials", helper_with_key(:google_maps_api_key)
-    end
-  ensure
-    ENV.delete("GOOGLE_MAPS_API_KEY")
-  end
-
-  test "credentials에 키가 없으면 ENV를 사용한다" do
-    ENV["GOOGLE_MAPS_API_KEY"] = "from-env"
-    stub_credentials(google: nil, kakao: nil) do
-      assert_equal "from-env", helper_with_key(:google_maps_api_key)
-    end
-  ensure
-    ENV.delete("GOOGLE_MAPS_API_KEY")
+    assert_response :ok
+    assert_includes response.body, "window.initMapProvider"
+    assert_includes response.body, "maps.googleapis.com/maps/api/js?key=test-key-123"
+    refute_includes response.body, "Google Maps API 키가 설정되지 않았습니다"
   end
 
   test "kakao provider는 앱 키가 있으면 SDK 로드 분기를 렌더링한다" do
-    ENV["MAP_PROVIDER"] = "kakao"
-    stub_credentials(google: nil, kakao: "kakao-test-key") do
-      get route_map_path(id: @route.id)
+    Setting.store!(:map_provider, "kakao")
+    Setting.store!(:kakao_maps_app_key, "kakao-test-key")
 
-      assert_response :ok
-      assert_includes response.body, "dapi.kakao.com/v2/maps/sdk.js?appkey=kakao-test-key"
-      assert_includes response.body, "kakao.maps.load"
-      assert_includes response.body, "kakao-maps:ready"
-      refute_includes response.body, "Kakao Maps 앱 키가 설정되지 않았습니다"
-    end
-  ensure
-    ENV.delete("MAP_PROVIDER")
+    get route_map_path(id: @route.id)
+
+    assert_response :ok
+    assert_includes response.body, "dapi.kakao.com/v2/maps/sdk.js?appkey=kakao-test-key"
+    assert_includes response.body, "kakao.maps.load"
+    assert_includes response.body, "kakao-maps:ready"
+    refute_includes response.body, "Kakao Maps 앱 키가 설정되지 않았습니다"
   end
 
   test "kakao provider는 앱 키가 없으면 안내 메시지를 표시한다" do
-    ENV["MAP_PROVIDER"] = "kakao"
-    stub_credentials(google: nil, kakao: nil) do
-      get route_map_path(id: @route.id)
+    Setting.store!(:map_provider, "kakao")
 
-      assert_response :ok
-      assert_includes response.body, "Kakao Maps 앱 키가 설정되지 않았습니다"
-      refute_includes response.body, "dapi.kakao.com"
-    end
-  ensure
-    ENV.delete("MAP_PROVIDER")
+    get route_map_path(id: @route.id)
+
+    assert_response :ok
+    assert_includes response.body, "Kakao Maps 앱 키가 설정되지 않았습니다"
+    refute_includes response.body, "dapi.kakao.com"
   end
 
   test "osm provider는 키 없이 렌더링하고 leaflet 스타일시트를 로드한다" do
-    ENV["MAP_PROVIDER"] = "osm"
-    stub_credentials(google: nil, kakao: nil) do
-      get route_map_path(id: @route.id)
+    Setting.store!(:map_provider, "osm")
 
-      assert_response :ok
-      assert_select "[data-map-provider-value='osm']"
-      assert_select "link[href*='leaflet']"
-      refute_includes response.body, "설정되지 않았습니다"
-      refute_includes response.body, "dapi.kakao.com"
-      refute_includes response.body, "maps.googleapis.com"
-    end
-  ensure
-    ENV.delete("MAP_PROVIDER")
+    get route_map_path(id: @route.id)
+
+    assert_response :ok
+    assert_select "[data-map-provider-value='osm']"
+    assert_select "link[href*='leaflet']"
+    refute_includes response.body, "설정되지 않았습니다"
+    refute_includes response.body, "dapi.kakao.com"
+    refute_includes response.body, "maps.googleapis.com"
   end
 
   test "data-* 속성이 올바른 JSON으로 직렬화된다" do
@@ -142,21 +117,5 @@ class MapControllerTest < ActionDispatch::IntegrationTest
     el = doc.at_css("[data-controller='map']")
     el.attributes.slice("data-map-stops-value", "data-map-buses-value", "data-map-center-value")
       .transform_values { |attr| JSON.parse(attr.value) }
-  end
-
-  def helper_with_key(method_name)
-    Object.new.extend(MapHelper).public_send(method_name)
-  end
-
-  # 테스트용 credentials 스왑 — 실제 encrypted credentials는 테스트에서 편집할 수 없다
-  def stub_credentials(google:, kakao:)
-    Rails.application.singleton_class.alias_method(:__original_credentials, :credentials)
-    Rails.application.define_singleton_method(:credentials) do
-      { google_maps: { api_key: google }, kakao_maps: { app_key: kakao } }
-    end
-    yield
-  ensure
-    Rails.application.singleton_class.send(:remove_method, :credentials)
-    Rails.application.singleton_class.send(:alias_method, :credentials, :__original_credentials)
   end
 end

@@ -32,6 +32,7 @@ Rails.application.routes.draw do
       member { post :regenerate_pin }
       member { post :sync_device }
     end
+    resource :setting, only: %i[edit update], controller: "settings"
     get "guides/bus_registration", to: "guides#bus_registration", as: :bus_registration_guide
   end
 
