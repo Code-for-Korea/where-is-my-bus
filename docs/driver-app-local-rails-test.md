@@ -4,6 +4,36 @@
 
 현재 `driver_app`은 위치 수집과 전송을 `traccar_client_sdk`에 위임한다. SDK는 `serverUrl`로 `POST` 요청을 보내므로, Rails가 SDK가 사용하는 OsmAnd 형식의 요청을 직접 받을 수 있으면 단일 서버 구성이 가능하다.
 
+## 브라우저에서 확인할 수 있는 범위
+
+`driver_app`은 Flutter 앱이므로 다음 명령으로 웹 실행을 시도할 수 있다.
+
+```bash
+cd driver_app
+flutter config --enable-web
+flutter pub get
+flutter run -d chrome
+```
+
+다만 이 프로젝트의 지원 대상은 Android와 iOS이며, 위치 수집·전송은 네이티브 기능을 사용하는 `traccar_client_sdk`에 의존한다. 따라서 Chrome 실행이 되더라도 다음 기능을 브라우저에서 실제 앱과 같은 방식으로 검증할 수 있다고 보장할 수 없다.
+
+- GPS 권한 요청과 실제 위치 수집
+- 백그라운드 위치 전송
+- Android 알림·배터리 최적화 처리
+- SDK의 `init`·`start`·`stop` 동작
+- `adb emu geo fix`를 이용한 위치 주입
+
+브라우저 실행은 온보딩 화면, 서버 주소 입력, PIN 등록 요청, Rails 응답에 따른 화면 전환 같은 UI와 API 계약을 빠르게 확인하는 용도로만 사용한다. `traccar_client_sdk`가 웹 플랫폼을 지원하지 않으면 웹 빌드 자체가 실패할 수 있으며, 이 경우 앱 코드의 문제가 아니라 SDK의 플랫폼 지원 범위 문제일 수 있다.
+
+Rails를 브라우저에서 여는 것과 `driver_app`을 Chrome에서 실행하는 것은 별개의 테스트다. Rails 브라우저 화면은 승객·관리자 웹을 확인하고, driver_app 웹 실행은 운전자 앱 UI를 확인한다. 어느 쪽도 Android/iOS의 실제 GPS 전송을 대신하지 않는다.
+
+브라우저에서 GPS 수신 계약만 확인하려면 앱을 웹으로 억지로 실행하기보다 다음 순서를 사용한다.
+
+1. `curl`로 `POST /gps` 요청을 재현한다.
+2. Rails 로그와 `Trip`·`GpsLog`·`CurrentPosition`·`PositionHistory`를 확인한다.
+3. 앱 UI와 register/routes 응답만 Chrome에서 확인한다.
+4. 실제 위치 권한과 백그라운드 전송은 Android 기기 또는 에뮬레이터에서 확인한다.
+
 ## 먼저 확인할 구조
 
 앱은 다음 순서로 동작한다.
@@ -34,9 +64,9 @@ SDK가 보내는 실제 요청은 다음 형식이다.
 
 자세한 요청 형식은 [OsmAnd 요청 샘플](osmand-request-samples.md)에 기록되어 있다.
 
-현재 `app/controllers/gps_controller.rb`는 숫자 형식의 `timestamp`를 받으면 `501 Not Implemented`를 반환한다. 실제 SDK는 숫자 epoch timestamp를 보내므로, 이 차단을 제거하거나 테스트 전에 수정해야 한다.
+`app/controllers/gps_controller.rb`는 ISO8601 timestamp만 지원하며, 숫자 epoch timestamp는 `501 Not Implemented`로 거부한다. 이 차단은 의도된 동작이다. 실제 SDK는 숫자 epoch timestamp를 보내므로, SDK를 `/gps`에 직접 연결하는 단일 서버 구성은 epoch 초 지원이 추가된 후에 가능하다.
 
-이 문제가 해결되기 전에는 앱을 실행해도 GPS 요청이 정상적으로 적재되지 않는다.
+SDK 대신 아래 curl 예제처럼 ISO8601 timestamp를 보내면 GPS 수신 계약을 그대로 확인할 수 있다.
 
 ## 1. Rails 서버 실행
 
@@ -63,7 +93,7 @@ adb shell curl http://10.0.2.2:3000/up
 
 ## 2. 앱 없이 GPS 수신 계약 확인
 
-앱을 실행하기 전에 SDK 요청을 `curl`로 재현한다.
+앱을 실행하기 전에 `/gps` 요청을 `curl`로 재현한다. 실제 SDK는 epoch 초 timestamp를 보내지만 현재 `/gps`는 ISO8601만 받으므로(위 섹션 참고), 여기서는 ISO8601 timestamp를 사용한다.
 
 ```bash
 curl -i -X POST http://127.0.0.1:3000/gps \
@@ -71,7 +101,7 @@ curl -i -X POST http://127.0.0.1:3000/gps \
   --data 'id=goseong-1-demo' \
   --data 'lat=35.2285' \
   --data 'lon=128.8894' \
-  --data 'timestamp=1760760000' \
+  --data 'timestamp=2026-10-18T12:00:00Z' \
   --data 'accuracy=5' \
   --data 'speed=0' \
   --data 'bearing=0' \
@@ -158,7 +188,7 @@ http://192.168.x.x:3000
 ```text
 Rails /up 확인
   ↓
-curl로 실제 SDK 형식의 POST /gps 재현
+curl로 POST /gps 재현
   ↓
 Trip·GpsLog·CurrentPosition·PositionHistory 확인
   ↓
@@ -174,3 +204,13 @@ Rails 로그와 DB 적재 확인
 ```
 
 이 절차를 통과하면 Traccar 없이 Rails 단일 서버가 GPS 수신과 저장을 담당할 수 있는지 판단할 수 있다. 단, `/gps`가 현재 토큰 없이 `id`만으로 버스를 식별하므로 운영 전에는 기기별 인증이나 별도 rate limit을 추가로 검토해야 한다.
+
+## 테스트 방법별 판단 기준
+
+| 방법 | 확인할 수 있는 것 | 확인할 수 없는 것 |
+| --- | --- | --- |
+| Rails 브라우저 | 승객·관리자 웹 화면, 폴링 결과 | driver_app 동작, GPS 권한 |
+| `driver_app` Chrome 실행 | 운전자 UI, 일부 register/routes API 흐름 | 네이티브 SDK GPS, 백그라운드 전송 |
+| `curl` | Rails의 GPS 요청 형식, 인증·DB 적재 | 앱 UI, 모바일 권한 |
+| Android 에뮬레이터 | 앱과 Rails의 HTTP 연동, 모의 위치, 기본 권한 흐름 | 실제 센서, 제조사별 배터리 정책 |
+| Android 실기기 | 실제 GPS, 권한, 백그라운드·배터리 동작 | — |

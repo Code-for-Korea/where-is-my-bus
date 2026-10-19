@@ -209,9 +209,11 @@ case "timestamp" -> {
 
 ⚠️ 장기 리스크 각주: epoch 초가 2147483648(2038-01-19)을 넘으면 위 휴리스틱이 초를 ms로 오인한다. 그 전에 서버 측(Traccar 또는 자체 `/gps`) 업데이트 필요. 자체 `/gps` 구현 시 이 휴리스틱을 그대로 복사할지는 Todo 5의 판단 사항 — 최소한 **초 우선**으로 명시적 파싱 권장.
 
-### 4.3 Rails 현황 (GAP-2) [코드]
+### 4.3 Rails 현황 [코드]
 
-`traccar_controller.rb:109-113`의 `parse_time`은 `Time.zone.parse`(ISO8601 전용)이며, 숫자 문자열은 파싱 실패 → `rescue ArgumentError` → **`Time.current`로 조용히 대체**된다. 현재 경로는 문제없다(Traccar 포워딩이 ISO8601 `fixTime`을 줌). 그러나 Todo 5의 `/gps`가 OsmAnd 초 타임스탬프를 직접 받으려면 **초 → Time 변환을 명시적으로** 구현해야 한다 (`Time.at(value.to_i)`).
+Traccar 포워딩 경로(`traccar_controller.rb:56`)는 `PositionIngestor`에 위임하며, 공통 파서(`position_ingestor.rb`의 `parse_timestamp`)는 ISO8601(`T` 포함)과 숫자 epoch 초·밀리초를 모두 해석한다.
+
+자체 `/gps` 엔드포인트(`app/controllers/gps_controller.rb`)는 **ISO8601 timestamp만 지원**하며, 숫자 epoch timestamp(초·밀리초 모두)는 `501 Not Implemented`로 거부한다. 이 차단은 의도적이다. SDK가 보내는 epoch 초의 직접 연동은 후속 작업으로 남겨졌으며, 그때는 초 → Time 변환(`Time.at(value.to_i)`)을 명시적으로 구현해야 한다.
 
 ---
 
@@ -224,8 +226,10 @@ case "timestamp" -> {
 | 미등록 단말 (`application/json` 경로) | **404 Not Found, 빈 body** | **[실측]** + [서버소스] |
 | 등록 단말 + lat/lon 누락 | 200 (마지막 위치 폴백 `getLastLocation`) | [서버소스] |
 | 서버에 대기 중인 커맨드가 있을 때 | 200 + 커맨드 문자열 body | [서버소스] (평시엔 빈 body) |
+| Rails `/gps` + ISO8601 timestamp | **200 OK, 빈 body** (미등록 단말·좌표 누락도 200-ack) | [코드] `app/controllers/gps_controller.rb` |
+| Rails `/gps` + 숫자 epoch timestamp | **501 Not Implemented, 빈 body** — ISO8601만 지원(§4.3) | [코드] `app/controllers/gps_controller.rb` |
 
-**SDK의 성공 판정** [코드]: `response.status.isSuccess()` — **2xx만 성공**. 4xx/5xx/네트워크 오류는 전부 실패로 보고 재시도한다(§7 백오프). 즉 서버가 4xx를 반환하면 SDK는 무한 재시도한다(백오프로 완화되지만 끝나지 않음). Rails의 "검증 실패도 200-ack" 계약(`traccar_controller.rb:62-63` 주석 — 포워딩 재시도 폭주 방지)과 같은 원리가 클라이언트 측에도 적용된다. **Todo 5의 `/gps`도 같은 원칙을 따라야 한다: 인증 실패(토큰)만 401, 그 외(미등록 단말·좌표 누락)는 200-ack.**
+**SDK의 성공 판정** [코드]: `response.status.isSuccess()` — **2xx만 성공**. 4xx/5xx/네트워크 오류는 전부 실패로 보고 재시도한다(§7 백오프). 즉 서버가 4xx를 반환하면 SDK는 무한 재시도한다(백오프로 완화되지만 끝나지 않음). Rails의 "검증 실패도 200-ack" 계약(`traccar_controller.rb:62-63` 주석 — 포워딩 재시도 폭주 방지)과 같은 원리가 클라이언트 측에도 적용된다. 자체 `/gps`도 같은 원칙을 따른다: 토큰 인증이 없어 401 경로는 없고, 미등록 단말·좌표 누락은 200-ack으로 무시한다. 숫자 epoch timestamp만 예외적으로 501로 거부한다(§4.3) — SDK가 이 응답을 받으면 백오프 재시도를 반복하므로, SDK 직접 연동 시에는 epoch 지원 추가가 선행돼야 한다.
 
 ---
 
