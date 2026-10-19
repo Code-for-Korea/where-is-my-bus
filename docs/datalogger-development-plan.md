@@ -275,9 +275,10 @@ GPS 수신 호스트는 일반 승객 사이트의 Host 기반 테넌트 식별�
 | OsmAnd /gps 컨트롤러 | `app/controllers/gps_controller.rb` |
 | 지도 컨트롤러·뷰·JS | `app/controllers/map_controller.rb`, `app/views/map/show.html.erb`, `app/javascript/controllers/map_controller.js`, `app/javascript/map_providers/*` |
 | RouteBusSelector 확장 | `app/services/route_bus_selector.rb` |
-| 배경 잡 | `app/jobs/trip_auto_terminator_job.rb`, `app/jobs/retention_job.rb`, `config/recurring.yml` |
+| 배경 잡 | `app/jobs/trip_auto_terminator_job.rb`, `app/jobs/retention_job.rb`, `app/jobs/route_segment_stat_aggregator_job.rb`, `config/recurring.yml` |
 | 설정 상수 | `config/initializers/datalogger.rb` |
 | 모델 | `app/models/current_position.rb`, `app/models/position_history.rb`, `app/models/stop_event.rb`, `app/models/route_segment_stat.rb`, `app/models/device.rb` |
+| 구간 통계 집계 | `app/services/route_segment_stat_aggregator.rb` |
 | 마이그레이션 | `db/migrate/20261018*_create_*.rb` |
 | 테스트 | `test/services/position_ingestor_test.rb`, `test/services/stop_event_detector_test.rb`, `test/controllers/integrations/traccar_controller_test.rb`, `test/controllers/gps_controller_test.rb`, `test/controllers/map_controller_test.rb`, `test/jobs/trip_auto_terminator_job_test.rb`, `test/jobs/retention_job_test.rb` |
 
@@ -295,3 +296,12 @@ GPS 수신 호스트는 일반 승객 사이트의 Host 기반 테넌트 식별�
 - `bin/rubocop`: 122 files inspected, no offenses
 - `bin/rails db:migrate` (dev/test): 성공
 - CI에 테스트 잡이 없으므로 테스트 통과는 로컬 실행으로 검증했다(AGENTS.md §테스트). 작업별 근거는 `.omo/evidence/task-1-datalogger-p0-execution.md` ~ `task-9-datalogger-p0-execution.md` 참고.
+
+### 11.4 PR #21 리뷰 반영 (2026-10-19)
+
+WIP 리뷰(hye-k) 지적 사항을 반영했다.
+
+- **노선 지도 렌더링 수정**: `show.html.erb`의 `raw ... to_json`을 제거해 `data-*` 속성 JSON이 HTML 이스케이프로 안전해졌고, 좌표는 `to_f`로 숫자 직렬화한다. Google Maps script의 `callback=initMapProvider`는 head 인라인 스크립트에서 정의해 `google-maps:ready` 커스텀 이벤트를 발행하고, `map_controller.js`는 `google` 객체가 없으면 이 이벤트를 기다렸다가 렌더링한다. provider 3개의 상대 import(`./base_map_provider`)를 importmap 핀 경로(`map_providers/base_map_provider`)로 바꿨고, 지도 루트를 `h-screen`으로 바꿔 캔버스 높이가 0이 되지 않게 했다. `map_controller_test.rb`는 응답 HTML의 속성 값을 JSON 파싱해 검증한다.
+- **stale-GPS 이벤트 방지**: `PositionIngestor`는 `CurrentPosition`이 실제 갱신된 경우(updated)에만 `StopEventDetector`를 호출한다. 운전자 앱 버퍼 재전송(원본 timestamp 유지)으로 시각 역전이 와도 가짜 도착·출발 이벤트가 생기지 않는다. GpsLog·PositionHistory 기록은 계속 유지된다.
+- **구간 통계 집계 구현**: `StopEventDetector`가 arrive 이벤트를 생성하면 `RouteSegmentStatAggregatorJob`을 enqueue하고(Solid Queue, 트랜잭션 커밋 후 실행), `RouteSegmentStatAggregator`가 같은 버스의 직전 `depart` 이벤트와 쌍을 이뤄 구간 소요 시간을 집계한다. 쌍 인정 조건: depart 정류장은 arrive 정류장 바로 이전 순번(sequence - 1), 소요 시간은 0초 초과 2시간 이하. 집계 단위는 `(route_id, from_stop_id, to_stop_id, hour_of_day, date)` — hour/date는 arrive 시각 기준 — 이며 unique index로 중복을 막고 표본 평균(`avg_seconds`, `samples_count`)을 upsert한다.
+- **`/gps` timestamp 계약 명시**: `/gps`는 ISO8601 timestamp만 지원하며 숫자 epoch timestamp는 `501 Not Implemented`로 거부한다(의도적 차단). SDK의 epoch 초 직접 연동은 후속 작업이다. `docs/osmand-request-samples.md` §4.3/§5, `docs/driver-app-local-rails-test.md`에 동일하게 반영했다.
