@@ -69,7 +69,7 @@ app/
 
 ## Traccar 연동 (핵심 아키텍처)
 
-데이터 흐름: 운전자 폰(`driver_app` → traccar_client_sdk, OsmAnd :5055) → Traccar 서버(Docker, API :8082) → 위치 포워딩(JSON POST) → Rails `/integrations/traccar/positions` → Trip → GpsLog → 승객 화면 폴링(5초)으로 반영.
+데이터 흐름: 운전자 폰(`driver_app` → traccar_client_sdk, OsmAnd :5055) → Traccar 서버(Docker, API :8082) → 위치 포워딩(JSON POST) → Rails `/integrations/traccar/positions` → Trip → GpsLog → 승객 화면 폴링(근접 가변: 10s/5s/3s)으로 반영.
 
 ### 수신 API (`Integrations::TraccarController`, `ActionController::API`)
 
@@ -106,7 +106,7 @@ Route/Stop/Bus는 생성·수정·삭제, RouteBus는 배차 생성·해제 작�
 
 ## 프론트엔드 (승객 화면)
 
-- 실시간: **폴링 5초**(`arrival_polling_controller.js`, `document.hidden` 시 스킵). Solid Cable 도입은 보류 결정 — WebSocket으로 바꾸려면 `docs/traccar-integration.md` 결정 사항을 먼저 뒤집어야 한다.
+- 실시간: **근접 가변 폴링**(`arrival_polling_controller.js` — 응답 `stops_away` 기준 3정류장 이상 10s / 2정류장 5s / 1정류장 이하 3s, `document.hidden` 시 스킵). Solid Cable 도입은 보류 결정 — WebSocket으로 바꾸려면 `docs/traccar-integration.md` 결정 사항을 먼저 뒤집어야 한다.
 - 응답 status 의미: `no_trip`(운행 중 버스 없음) / `no_data`(운행 중이나 GPS 미수신) / 그 외(정상). GA4 `arrival_status` 이벤트의 분류와 동일.
 - `StopsController#show/detail`은 `no_turbo_cache` before_action — Turbo 캐시 복원 시 시간이 오래된 ETA가 보이는 걸 방지.
 - GA4: 스크립트는 `layouts/service.html.erb`에서 `Rails.env.production?`일 때만 로드(Measurement ID `G-V5FQ7DHE99`). `app/javascript/ga4.js`는 `ga4Event` 헬퍼. 정류장 페이지는 가상 page_path(`/:지역명/:버스번호/:정류장명`) 사용(`content_for(:ga4_page_path)`) — 실제 URL(`/r/:region_slug/:stop_id`)과 다름. 이벤트: `arrival_status`, `like_stop`, `select_bus`, `view_detail`. 상세는 README "Google Analytics 4" 섹션.

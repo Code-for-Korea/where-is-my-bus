@@ -14,7 +14,7 @@ datalogger 분석에서 소유자 결정이 확정되어 본 문서에 반영했
 - **OsmAnd 타임스탬프**: 현행 ISO8601 문자열 파싱 유지. 숫자 타임스탬프(초/밀리초) 지원은 실기기 샘플 확보 후 추가.
 - **운전자 앱**: 현행 Flutter + Traccar Client SDK + PIN 1회용 인증 유지.
 - **초기 규모·SLO**: 동시 접속 100명, 가용성 99%, p95 응답 500ms. 운영 실측에 따라 조정.
-- **폴링**: 10초 폴링 유지, SSE 전환 보류.
+- **폴링**: 근접 가변 폴링(3정류장 이상 10초, 2정류장 5초, 1정류장 이하 3초 — 2026-10-19 결정), SSE 전환 보류.
 - **지도 SDK**: Google Maps·Kakao Map·Naver Map을 동시 지원(우선순위가 아닌 멀티 벤더 구성).
 - **버스 표시**: `RouteBusSelector` 확장 — 승객 화면은 단일 추천 버스, 관리자·지도 화면에서만 다중 버스 표시.
 - **unknown-device 200-ack 계약 유지** 및 **CurrentPosition 테이블 신설** 확정.
@@ -288,7 +288,7 @@ GPS 수신 호스트는 일반 승객 사이트의 Host 기반 테넌트 식별�
 - `PositionIngestor`는 Traccar 포워딩과 `/gps` 모두에서 호출되며, `CurrentPosition` upsert 시 `recorded_at` 역전을 방지한다.
 - `StopEventDetector`는 approach(200m)/arrive(30m)/depart(100m) 히스테리시스와 dedup_key로 중복을 방지한다.
 - 숫자 타임스탬프는 501 Not Implemented를 반환하며, ISO8601 문자열만 지원한다.
-- `arrival_polling_controller.js` 폴리ng 주기는 5000ms에서 10000ms로 변경됐다.
+- `arrival_polling_controller.js` 폴링 주기는 응답의 stops_away에 따른 가변 조정(3정류장 이상 10000ms, 2정류장 5000ms, 1정류장 이하 3000ms)으로 변경됐다(2026-10-19).
 
 ### 11.3 검증 결과
 
