@@ -35,7 +35,7 @@ P0는 아래 10개 작업으로 구성된다. 실행 순서는 의존 관계에 
 | 6 | StopEvent 판정 서비스(접근/도착/이탈, 히스테리시스, dedup_key) | GAP-6 |
 | 7 | Trip 자동 종료 잡(마지막 GPS 수신 후 타임아웃, Solid Queue recurring) | GAP-7 |
 | 8 | 보존/삭제 잡(PositionHistory 24시간, StopEvent 7일, RouteSegmentStat 90일, 소규모 배치 삭제) | GAP-8 |
-| 9 | 멀티 벤더 지도 UI + `RouteBusSelector` 확장(Google Maps 우선, Kakao/Naver 공통 인터페이스 + stub) | GAP-9, GAP-10 |
+| 9 | 멀티 벤더 지도 UI + `RouteBusSelector` 확장(Google Maps 우선, Kakao 실연동, Naver 공통 인터페이스 + stub) | GAP-9, GAP-10 |
 | 10 | 테스트 보강 및 docs 업데이트 | IS-1~IS-12 문서화 |
 
 **P0에서 하지 않는 것(가드레일):** 멀티테넌트·독립 도메인·서브도메인 격리, Traccar 완전 대체와 운전자 앱 Traccar Client SDK 제거, SSE/WebSocket, 30초 GPS 샘플링, 숫자 타임스탬프 지원, per-device 인증(Device 스키마만 추가하고 인증 로직은 P1), Roundhouse/Spinel PoC, 앱스토어 배포 파이프라인.

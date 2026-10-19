@@ -18,7 +18,7 @@ class MapControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Google Maps API 키가 있으면 스크립트와 콜백 정의를 로드한다" do
-    stub_credentials(api_key: "test-key-123") do
+    stub_credentials(google: "test-key-123", kakao: nil) do
       get route_map_path(id: @route.id)
 
       assert_response :ok
@@ -30,8 +30,8 @@ class MapControllerTest < ActionDispatch::IntegrationTest
 
   test "credentials의 키를 ENV보다 우선 사용한다" do
     ENV["GOOGLE_MAPS_API_KEY"] = "from-env"
-    stub_credentials(api_key: "from-credentials") do
-      assert_equal "from-credentials", helper_with_google_key
+    stub_credentials(google: "from-credentials", kakao: nil) do
+      assert_equal "from-credentials", helper_with_key(:google_maps_api_key)
     end
   ensure
     ENV.delete("GOOGLE_MAPS_API_KEY")
@@ -39,31 +39,39 @@ class MapControllerTest < ActionDispatch::IntegrationTest
 
   test "credentials에 키가 없으면 ENV를 사용한다" do
     ENV["GOOGLE_MAPS_API_KEY"] = "from-env"
-    stub_credentials(api_key: nil) do
-      assert_equal "from-env", helper_with_google_key
+    stub_credentials(google: nil, kakao: nil) do
+      assert_equal "from-env", helper_with_key(:google_maps_api_key)
     end
   ensure
     ENV.delete("GOOGLE_MAPS_API_KEY")
   end
 
-  private
+  test "kakao provider는 앱 키가 있으면 SDK 로드 분기를 렌더링한다" do
+    ENV["MAP_PROVIDER"] = "kakao"
+    stub_credentials(google: nil, kakao: "kakao-test-key") do
+      get route_map_path(id: @route.id)
 
-  def helper_with_google_key
-    Object.new.extend(MapHelper).google_maps_api_key
+      assert_response :ok
+      assert_includes response.body, "dapi.kakao.com/v2/maps/sdk.js?appkey=kakao-test-key"
+      assert_includes response.body, "kakao.maps.load"
+      assert_includes response.body, "kakao-maps:ready"
+      refute_includes response.body, "Kakao Maps 앱 키가 설정되지 않았습니다"
+    end
+  ensure
+    ENV.delete("MAP_PROVIDER")
   end
 
-  private
+  test "kakao provider는 앱 키가 없으면 안내 메시지를 표시한다" do
+    ENV["MAP_PROVIDER"] = "kakao"
+    stub_credentials(google: nil, kakao: nil) do
+      get route_map_path(id: @route.id)
 
-  # 테스트용 credentials 스왑 — 실제 encrypted credentials는 테스트에서 편집할 수 없다
-  def stub_credentials(api_key:)
-    Rails.application.singleton_class.alias_method(:__original_credentials, :credentials)
-    Rails.application.define_singleton_method(:credentials) do
-      { google_maps: { api_key: api_key } }
+      assert_response :ok
+      assert_includes response.body, "Kakao Maps 앱 키가 설정되지 않았습니다"
+      refute_includes response.body, "dapi.kakao.com"
     end
-    yield
   ensure
-    Rails.application.singleton_class.send(:remove_method, :credentials)
-    Rails.application.singleton_class.send(:alias_method, :credentials, :__original_credentials)
+    ENV.delete("MAP_PROVIDER")
   end
 
   test "data-* 속성이 올바른 JSON으로 직렬화된다" do
@@ -114,16 +122,25 @@ class MapControllerTest < ActionDispatch::IntegrationTest
   private
 
   def parsed_map_data
-    @parsed_map_data ||= begin
-      doc = Nokogiri::HTML(response.body)
-      element = doc.at_css("[data-controller='map']")
-      raise "지도 컨트롤러 요소를 찾을 수 없습니다" unless element
+    doc = Nokogiri::HTML(response.body)
+    el = doc.at_css("[data-controller='map']")
+    el.attributes.slice("data-map-stops-value", "data-map-buses-value", "data-map-center-value")
+      .transform_values { |attr| JSON.parse(attr.value) }
+  end
 
-      {
-        "data-map-stops-value" => JSON.parse(element["data-map-stops-value"]),
-        "data-map-buses-value" => JSON.parse(element["data-map-buses-value"]),
-        "data-map-center-value" => JSON.parse(element["data-map-center-value"])
-      }
+  def helper_with_key(method_name)
+    Object.new.extend(MapHelper).public_send(method_name)
+  end
+
+  # 테스트용 credentials 스왑 — 실제 encrypted credentials는 테스트에서 편집할 수 없다
+  def stub_credentials(google:, kakao:)
+    Rails.application.singleton_class.alias_method(:__original_credentials, :credentials)
+    Rails.application.define_singleton_method(:credentials) do
+      { google_maps: { api_key: google }, kakao_maps: { app_key: kakao } }
     end
+    yield
+  ensure
+    Rails.application.singleton_class.send(:remove_method, :credentials)
+    Rails.application.singleton_class.send(:alias_method, :credentials, :__original_credentials)
   end
 end

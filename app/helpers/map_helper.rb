@@ -5,6 +5,11 @@ module MapHelper
     Rails.application.credentials.dig(:google_maps, :api_key) || ENV["GOOGLE_MAPS_API_KEY"]
   end
 
+  # 카카오맵은 "JavaScript 키"를 appkey로 사용하며, 카카오 개발자 콘솔에 Web 플랫폼 도메인 등록이 필요하다.
+  def kakao_maps_app_key
+    Rails.application.credentials.dig(:kakao_maps, :app_key) || ENV["KAKAO_MAPS_APP_KEY"]
+  end
+
   def center_coordinate(route)
     stops = route.stops.select(&:coordinates?)
     return { lat: 37.5665, lng: 126.9780 } if stops.empty?

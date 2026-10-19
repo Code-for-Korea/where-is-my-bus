@@ -7,6 +7,21 @@
       }
     </script>
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=<%= api_key %>&callback=initMapProvider" data-turbo-track="reload"></script>
+  <% elsif @provider == "kakao" && (app_key = kakao_maps_app_key).present? %>
+    <script>
+      // 카카오맵은 Google의 &callback= 파라미터가 없다 — 공식 로드 계약:
+      // autoload=false로 스크립트를 읽고 script.onload 뒤 kakao.maps.load(cb)로 v3 본체를 로드한다.
+      (function () {
+        var script = document.createElement("script")
+        script.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=<%= app_key %>&autoload=false"
+        script.onload = function () {
+          kakao.maps.load(function () {
+            window.dispatchEvent(new Event("kakao-maps:ready"))
+          })
+        }
+        document.head.appendChild(script)
+      })()
+    </script>
   <% end %>
 <% end %>
 
@@ -24,6 +39,10 @@
     <% if @provider == "google" && google_maps_api_key.blank? %>
       <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 p-6 text-center">
         Google Maps API 키가 설정되지 않았습니다.<br>관리자에게 문의해 주세요.
+      </div>
+    <% elsif @provider == "kakao" && kakao_maps_app_key.blank? %>
+      <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 p-6 text-center">
+        Kakao Maps 앱 키가 설정되지 않았습니다.<br>관리자에게 문의해 주세요.
       </div>
     <% end %>
   </div>
