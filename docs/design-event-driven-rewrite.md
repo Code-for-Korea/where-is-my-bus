@@ -163,6 +163,20 @@ erDiagram
    - 선택한 정류장까지 남은 정거장 수는 `route_stops.sequence` 차이로 계산한다.
 3. 운행 중인 버스가 없으면 "운행 중인 버스 없음".
 
+### 운전자 앱·Traccar 연동 API
+
+모두 `ActionController::API` 기반의 머신 간 엔드포인트다. 운전자 앱은 `deviceId`(= `buses.traccar_unique_id`)로 버스를 식별한다 (기기별 토큰은 후속 과제, `docs/future-improvements.md` 2번).
+
+| 메서드·경로 | 호출자 | 요청 | 응답 |
+|---|---|---|---|
+| `POST /integrations/traccar/register` | 앱 (최초 1회) | `pin` | `200 { traccarServerUrl, deviceId }`. 잘못된 PIN `401`, 사용된 PIN `409`, 시도 초과 `429` |
+| `GET /integrations/traccar/routes` | 앱 (운행 시작 화면) | `deviceId` | `200 { busNumber, activeTrip, routes: [{ id, name, stops: [{ name, lat, lng }] }] }`. `activeTrip`은 진행 중인 운행이 없으면 `null`. 알 수 없는 기기 `404` |
+| `POST /integrations/traccar/trips/start` | 앱 | `deviceId`, `routeId` | `200 { trip: { id, routeId, routeName, startedAt } }`. 같은 노선으로 이미 운행 중이면 같은 응답(멱등). 다른 노선으로 운행 중이면 `409 { error: "trip_already_active", trip }`. Traccar 실패 `502 { error: "traccar_unavailable" }`(운행은 만들어지지 않음). 알 수 없는 노선·기기 `404` |
+| `POST /integrations/traccar/trips/end` | 앱 | `deviceId` | `200 { ended: true\|false, warning? }`. 진행 중인 운행이 없어도 `200`(멱등). Traccar 그룹 해제가 실패하면 `warning: "group_clear_failed"` |
+| `POST /integrations/traccar/events` | Traccar 서버 | Traccar 이벤트 JSON (`X-Ingest-Token`) | `200 { status: "recorded"\|"ignored", reason? }`. 토큰 오류 `401` |
+
+기존 `POST /integrations/traccar/positions`(위치 수신)는 제거했다. 앱의 GPS는 Traccar로 직접 전송되고 Rails는 좌표를 저장하지 않는다. `routes` 응답에서 `nextStop`(ETA)이 사라진 것이 앱에 대한 변경점이다.
+
 ## 5. Docker 구성
 
 - `docker-compose` 서비스 두 개:

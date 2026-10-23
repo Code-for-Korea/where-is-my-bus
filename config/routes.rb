@@ -8,10 +8,11 @@ Rails.application.routes.draw do
 
   # Traccar 위치 포워딩 수신 (머신 간)
   namespace :integrations do
-    post "traccar/register",  to: "traccar#register"
-    post "traccar/positions", to: "traccar#positions"
-    get  "traccar/routes",    to: "traccar#routes"
-    post "traccar/events",    to: "traccar_events#create"
+    post "traccar/register",    to: "traccar#register"
+    get  "traccar/routes",      to: "traccar#routes"
+    post "traccar/events",      to: "traccar_events#create"
+    post "traccar/trips/start", to: "trips#start"
+    post "traccar/trips/end",   to: "trips#finish"
   end
 
   # 관리자
