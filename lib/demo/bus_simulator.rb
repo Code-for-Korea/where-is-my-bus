@@ -16,13 +16,14 @@ module Demo
     Point = Struct.new(:lat, :lng, :speed, :label, keyword_init: true)
 
     def initialize(device_id:, route_name:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
-                   interval: 1.0, dwell: 6, out: $stdout)
+                   interval: 1.0, dwell: 6, settle: 3.0, out: $stdout)
       @device_id = device_id
       @route_name = route_name
       @rails_url = rails_url
       @osmand_url = osmand_url
       @interval = interval
       @dwell = dwell
+      @settle = settle
       @out = out
       @last_timestamp = 0
     end
@@ -33,6 +34,7 @@ module Demo
       start_trip(route)
       begin
         build_path(route["stops"]).each { |point| send_position(point) }
+        sleep @settle # 마지막 정류장의 이탈 이벤트가 Rails에 도착할 시간을 준 뒤 종료한다
       ensure
         end_trip
       end

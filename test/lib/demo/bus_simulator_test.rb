@@ -21,7 +21,7 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
 
   def simulate(route_name: "시험 노선")
     Demo::BusSimulator.new(device_id: "dev1", route_name: route_name, rails_url: RAILS, osmand_url: OSMAND,
-                           interval: 0.001, dwell: 0.002, out: StringIO.new).run
+                           interval: 0.001, dwell: 0.002, settle: 0, out: StringIO.new).run
   end
 
   def positions
