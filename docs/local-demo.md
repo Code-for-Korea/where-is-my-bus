@@ -75,6 +75,7 @@ TRACCAR_SERVER_URL=http://<PC의 LAN 주소>:5055 docker compose up -d
 
 - **승객 화면에 "위치 확인 중"에서 안 넘어간다**: Traccar가 이벤트를 못 보내는 경우다. `docker compose logs traccar`와 `docker compose logs rails`에서 `/integrations/traccar/events` 요청이 오는지 본다.
 - **시뮬레이터를 중간에 끊었다**: 운행이 열린 채 남는다. 같은 명령을 다시 실행하면 먼저 종료하고 새로 시작한다. 직접 닫으려면 `curl -X POST localhost:3000/integrations/traccar/trips/end -d deviceId=<deviceId>`.
+- **전송 간격을 1초보다 짧게 하지 않는다**: 위치 시각은 1초 단위로 항상 앞으로만 가야 한다. 더 자주 보내면 시각이 실제 시간보다 앞서가서, 곧바로 다시 실행했을 때 첫 정류장 구간의 위치를 Traccar가 과거로 보고 건너뛴다 (그 정류장 방문이 기록되지 않는다). 그래서 시뮬레이터는 1초 미만을 거부한다. 시연 시간을 줄이려면 정차 시간(`dwell`)을 줄인다. 예: `demo:drive[1번,1번 노선,1,2]`
 - **시뮬레이터를 두 개 동시에 돌리지 않는다**: 같은 기기에 서로 다른 위치가 섞여 들어가 정류장 진입/이탈이 번갈아 기록된다. 백그라운드로 돌릴 때는 `docker compose exec -d`를 쓰고 끝날 때까지 기다린다.
 - **CSS를 고쳤는데 반영이 안 된다**: 컨테이너 시작 때 한 번 빌드한다. `docker compose exec rails bin/rails tailwindcss:build` 후 새로고침한다.
 - **테스트 실행**: 호스트에서 `bin/rails test` (Docker 불필요, Traccar 호출은 모두 스텁).
