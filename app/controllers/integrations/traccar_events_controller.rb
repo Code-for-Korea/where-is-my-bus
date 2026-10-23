@@ -24,8 +24,8 @@ module Integrations
     end
 
     def ingest_token
-      Rails.application.credentials.dig(:traccar, :ingest_token) ||
-        ENV["TRACCAR_INGEST_TOKEN"] ||
+      ENV["TRACCAR_INGEST_TOKEN"].presence ||
+        Rails.application.credentials.dig(:traccar, :ingest_token) ||
         (Rails.env.local? ? "dev-traccar-token" : nil)
     end
   end

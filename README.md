@@ -7,6 +7,11 @@ BIS(버스정보시스템)에 등록되지 않은 시골·도서 지역의 노�
 
 이 저장소는 모노레포입니다. 루트는 **웹 애플리케이션(Rails)**, `driver_app/`은 버스 운전자용 **Flutter 앱**입니다.
 
+> **이 브랜치(`feature/event-driven-rewrite`)는 데이터 모델을 처음부터 다시 만든 로컬 데모 버전입니다.**
+> Traccar의 정류장 Geofence 진입/이탈 이벤트로 "버스가 어느 정류장에 있는지"를 알려줍니다.
+> 실행 방법은 [docs/local-demo.md](docs/local-demo.md), 설계는 [docs/design-event-driven-rewrite.md](docs/design-event-driven-rewrite.md)를 보세요.
+> 아래 구성 요소·구조 설명은 재작성 이전 기준이라 아직 갱신되지 않았습니다.
+
 ---
 
 ## 구성 요소

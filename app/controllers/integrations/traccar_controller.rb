@@ -49,12 +49,12 @@ module Integrations
 
     private
 
-    # 배포(지역/국가)별 Traccar 서버 주소 — 운전자 앱이 위치를 직접 전송할 대상.
-    # ponytail: 로컬 기본값은 실제 배포 전까지 기존 테스트 서버로 임시 고정. credentials/ENV 세팅되면 그쪽이 우선.
+    # 운전자 앱이 위치를 직접 전송할 Traccar 서버(OsmAnd 수신) 주소. 환경변수가 credentials보다 우선한다.
+    # 로컬 기본값은 localhost — 같은 Wi-Fi의 실제 폰으로 시험하려면 TRACCAR_SERVER_URL을 PC의 LAN 주소로 지정한다.
     def traccar_server_url
-      Rails.application.credentials.dig(:traccar, :server_url) ||
-        ENV["TRACCAR_SERVER_URL"] ||
-        (Rails.env.local? ? "http://yehyunserver.iptime.org:5055" : nil)
+      ENV["TRACCAR_SERVER_URL"].presence ||
+        Rails.application.credentials.dig(:traccar, :server_url) ||
+        (Rails.env.local? ? "http://localhost:5055" : nil)
     end
 
     def register_rate_limit_key

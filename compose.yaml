@@ -1,0 +1,43 @@
+# 로컬 데모: Rails 앱 + Traccar 서버.
+#   docker compose up -d --build
+#   docker compose exec rails bin/rails db:seed
+# 자세한 사용법은 docs/local-demo.md
+services:
+  traccar:
+    image: traccar/traccar:6
+    restart: unless-stopped
+    ports:
+      - "8082:8082"   # 웹 UI · API
+      - "5055:5055"   # 기기 위치 수신(OsmAnd 프로토콜)
+    volumes:
+      - ./docker/traccar/traccar.xml:/opt/traccar/conf/traccar.xml:ro
+      - traccar-data:/opt/traccar/data
+      - traccar-logs:/opt/traccar/logs
+
+  rails:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - traccar
+    ports:
+      - "3000:3000"
+    environment:
+      RAILS_ENV: development
+      TRACCAR_API_BASE_URL: http://traccar:8082
+      TRACCAR_API_TOKEN: dev-traccar-api-token
+      TRACCAR_INGEST_TOKEN: dev-traccar-token
+      # 운전자 앱에 내려주는 위치 전송 주소. 실제 폰으로 시험할 때는 PC의 LAN 주소로 바꾼다.
+      TRACCAR_SERVER_URL: ${TRACCAR_SERVER_URL:-http://localhost:5055}
+      # 시뮬레이터(rake demo:drive)가 Traccar에 위치를 보낼 주소
+      TRACCAR_OSMAND_URL: http://traccar:5055
+    volumes:
+      - .:/rails
+      - rails-storage:/rails/storage   # SQLite는 호스트 마운트 대신 볼륨에 둔다
+      - rails-tmp:/rails/tmp
+
+volumes:
+  traccar-data:
+  traccar-logs:
+  rails-storage:
+  rails-tmp:
