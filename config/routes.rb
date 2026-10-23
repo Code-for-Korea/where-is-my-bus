@@ -33,18 +33,9 @@ Rails.application.routes.draw do
     get "guides/bus_registration", to: "guides#bus_registration", as: :bus_registration_guide
   end
 
-  # 승객 웹 (i18n 지원)
-  scope "(:locale)", locale: /ko|en/ do
-    root "pages#index"
-    get "/about", to: "pages#about"
-
-    get "/r/:region_slug/:stop_id",         to: "stops#show",    as: :stop_arrival
-    get "/r/:region_slug/:stop_id/detail",  to: "stops#detail",  as: :stop_detail
-    get "/r/:region_slug/:stop_id/arrival", to: "stops#arrival", as: :stop_arrival_json
-    post "/r/:region_slug/:stop_id/like",   to: "stops#like",    as: :stop_like
-
-    if Rails.env.development?
-      post "/r/:region_slug/:stop_id/debug_bus", to: "stops#debug_bus", as: :stop_debug_bus
-    end
-  end
+  # 승객 웹: 정류장 → (노선 선택) → 그 노선 버스의 위치
+  root "pages#index"
+  resources :stops, only: :show
+  get "stops/:stop_id/routes/:route_id",       to: "arrivals#show",  as: :stop_route_arrivals
+  get "stops/:stop_id/routes/:route_id/buses", to: "arrivals#buses", as: :stop_route_buses
 end
