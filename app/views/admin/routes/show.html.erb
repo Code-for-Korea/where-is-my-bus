@@ -7,7 +7,7 @@
       <div class="font-medium"><%= @route.name %></div>
     </div>
     <div>
-      <div class="text-xs text-gray-400">Traccar group</div>
+      <div class="text-xs text-gray-400">Traccar 노선</div>
       <div class="flex items-center gap-3">
         <div class="font-medium font-mono"><%= @route.traccar_group_id || "—" %></div>
         <%= button_to "재동기화", sync_group_admin_route_path(@route), method: :post,

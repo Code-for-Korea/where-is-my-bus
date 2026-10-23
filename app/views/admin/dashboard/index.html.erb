@@ -36,17 +36,27 @@
   <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <h2 class="px-5 py-3 text-sm font-semibold border-b border-gray-100">최근 정류장 방문</h2>
     <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-gray-400 border-b border-gray-100">
+          <th class="px-5 py-2 font-normal">도착</th>
+          <th class="px-5 py-2 font-normal">출발</th>
+          <th class="px-5 py-2 font-normal">차량</th>
+          <th class="px-5 py-2 font-normal">정류장</th>
+          <th class="px-5 py-2 font-normal text-right">상태</th>
+        </tr>
+      </thead>
       <tbody class="divide-y divide-gray-100">
         <% @recent_visits.each do |visit| %>
           <tr>
-            <td class="px-5 py-3 text-gray-400"><%= visit.entered_at.in_time_zone.strftime("%H:%M:%S") %></td>
+            <td class="px-5 py-3 text-gray-600"><%= visit.entered_at.in_time_zone.strftime("%m-%d %H:%M:%S") %></td>
+            <td class="px-5 py-3 text-gray-600"><%= visit.exited_at ? visit.exited_at.in_time_zone.strftime("%m-%d %H:%M:%S") : "-" %></td>
             <td class="px-5 py-3 font-medium"><%= visit.trip.bus.license_plate %></td>
             <td class="px-5 py-3 text-gray-600"><%= visit.stop.name %></td>
-            <td class="px-5 py-3 text-right <%= visit.open? ? "text-green-600" : "text-gray-400" %>"><%= visit.open? ? "정차 중" : "출발" %></td>
+            <td class="px-5 py-3 text-right <%= visit.open? ? "text-green-600" : "text-gray-400" %>"><%= visit.open? ? "정차 중" : "출발함" %></td>
           </tr>
         <% end %>
         <% if @recent_visits.empty? %>
-          <tr><td class="px-5 py-8 text-center text-gray-400">정류장 방문 기록이 없습니다.</td></tr>
+          <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">정류장 방문 기록이 없습니다.</td></tr>
         <% end %>
       </tbody>
     </table>

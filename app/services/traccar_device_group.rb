@@ -10,14 +10,14 @@ class TraccarDeviceGroup
   class << self
     # 운행 시작 시 호출. device나 노선 group이 없으면 이벤트를 받을 수 없으므로 실패.
     def assign(bus, route)
-      return Result.new(success: false, error: "차량의 Traccar device가 없습니다") if bus.traccar_device_id.blank?
-      return Result.new(success: false, error: "노선의 Traccar group이 없습니다") if route.traccar_group_id.blank?
+      return Result.new(success: false, error: "Traccar 차량이 없습니다") if bus.traccar_device_id.blank?
+      return Result.new(success: false, error: "Traccar 노선이 없습니다") if route.traccar_group_id.blank?
 
       set_group(bus.traccar_device_id, route.traccar_group_id)
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarDeviceGroup] assign #{bus.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "group 이동 실패: #{e.message}")
+      Result.new(success: false, error: "Traccar에서 차량을 노선에 배정하지 못했습니다: #{e.message}")
     end
 
     # 운행 종료 시 호출. device가 없으면 뺄 것이 없으므로 스킵(성공 취급).
@@ -28,7 +28,7 @@ class TraccarDeviceGroup
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarDeviceGroup] clear #{bus.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "group 해제 실패: #{e.message}")
+      Result.new(success: false, error: "Traccar에서 차량의 노선 배정을 풀지 못했습니다: #{e.message}")
     end
 
     private

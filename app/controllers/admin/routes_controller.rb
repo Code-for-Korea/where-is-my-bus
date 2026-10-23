@@ -50,7 +50,7 @@ module Admin
     def sync_group
       result = RouteRegistration.update(@route, {})
       if result.success?
-        redirect_to admin_route_path(@route), notice: "Traccar group 동기화에 성공했습니다."
+        redirect_to admin_route_path(@route), notice: "Traccar 노선 동기화에 성공했습니다."
       else
         redirect_to admin_route_path(@route), alert: result.error
       end

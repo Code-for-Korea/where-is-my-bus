@@ -8,13 +8,13 @@ class TraccarRouteStopLink
     # route_stop 생성 시 호출. group 또는 geofence가 아직 없으면 연결할 수 없으므로 실패.
     def link(route_stop)
       ids = ids_for(route_stop)
-      return Result.new(success: false, error: "group 연결 실패: 노선 group 또는 정류장 geofence가 없습니다") unless ids
+      return Result.new(success: false, error: "Traccar 노선 연결 실패: Traccar 노선 또는 정류장 영역이 없습니다") unless ids
 
       request(:post, "/api/permissions", ids)
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarRouteStopLink] link #{route_stop.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "geofence 연결 실패: #{e.message}")
+      Result.new(success: false, error: "정류장 영역 연결 실패: #{e.message}")
     end
 
     # route_stop 삭제 시 호출. 연결 대상이 이미 없으면 스킵(성공 취급).
@@ -26,7 +26,7 @@ class TraccarRouteStopLink
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarRouteStopLink] unlink #{route_stop.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "geofence 연결 해제 실패: #{e.message}")
+      Result.new(success: false, error: "정류장 영역 연결 해제 실패: #{e.message}")
     end
 
     private

@@ -45,7 +45,7 @@ class Admin::RoutesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
-    assert_select "li", text: /group 동기화 실패/
+    assert_select "li", text: /Traccar 노선 동기화 실패/
   end
 
   test "create shows validation errors for a duplicate name" do

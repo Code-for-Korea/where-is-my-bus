@@ -36,7 +36,7 @@ class Admin::StopsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
-    assert_select "li", text: /geofence 동기화 실패/
+    assert_select "li", text: /정류장 영역 동기화 실패/
   end
 
   test "create rejects out-of-range coordinates without calling Traccar" do

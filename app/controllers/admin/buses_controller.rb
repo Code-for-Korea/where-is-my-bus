@@ -50,7 +50,7 @@ module Admin
     def sync_device
       result = BusRegistration.update(@bus, {})
       if result.success?
-        redirect_to admin_bus_path(@bus), notice: "device 동기화에 성공했습니다."
+        redirect_to admin_bus_path(@bus), notice: "Traccar 차량 동기화에 성공했습니다."
       else
         redirect_to admin_bus_path(@bus), alert: result.error
       end

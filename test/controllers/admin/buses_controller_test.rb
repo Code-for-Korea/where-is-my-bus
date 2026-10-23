@@ -84,7 +84,7 @@ class Admin::BusesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
-    assert_select "li", text: /device 동기화 실패/
+    assert_select "li", text: /Traccar 차량 동기화 실패/
   end
 
   test "update changes the plate and syncs the device and its group" do

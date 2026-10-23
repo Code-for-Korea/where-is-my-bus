@@ -44,7 +44,7 @@ module Admin
     def sync_geofence
       result = StopRegistration.update(@stop, {})
       if result.success?
-        redirect_to admin_stop_path(@stop), notice: "geofence 동기화에 성공했습니다."
+        redirect_to admin_stop_path(@stop), notice: "정류장 영역 동기화에 성공했습니다."
       else
         redirect_to admin_stop_path(@stop), alert: result.error
       end

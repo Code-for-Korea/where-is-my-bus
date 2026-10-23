@@ -82,7 +82,7 @@ class BusRegistrationTest < ActiveSupport::TestCase
     result = BusRegistration.update(bus, route_id: routes(:one).id)
 
     assert result.failure?
-    assert_match(/group 이동 실패/, result.error)
+    assert_match(/Traccar에서 차량을 노선에 배정하지 못했습니다/, result.error)
     assert_equal routes(:two), bus.reload.route
   end
 

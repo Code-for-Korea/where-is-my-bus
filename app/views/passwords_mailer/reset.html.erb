@@ -1,6 +1,6 @@
 <p>
-  You can reset your password on
-  <%= link_to "this password reset page", edit_password_url(@user.password_reset_token) %>.
+  아래 링크에서 비밀번호를 재설정할 수 있습니다.
+  <%= link_to "비밀번호 재설정 페이지", edit_password_url(@user.password_reset_token) %>
 
-  This link will expire in <%= distance_of_time_in_words(0, @user.password_reset_token_expires_in) %>.
+  이 링크는 <%= (@user.password_reset_token_expires_in / 60).round %>분 후에 만료됩니다.
 </p>

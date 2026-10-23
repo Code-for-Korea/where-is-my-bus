@@ -49,6 +49,7 @@ class StopVisitRecorder
     return ignored(:already_inside) if trip.stop_visits.open.exists?(stop_id: stop.id)
 
     visit = trip.stop_visits.create!(stop: stop, entered_at: event_time, entered_event_id: event_key)
+    log_recorded("enter", trip, stop)
     Result.new(status: :recorded, visit: visit)
   end
 
@@ -60,7 +61,12 @@ class StopVisitRecorder
     return ignored(:no_open_visit) unless visit
 
     visit.update!(exited_at: event_time, exited_event_id: event_key)
+    log_recorded("exit", trip, stop)
     Result.new(status: :recorded, visit: visit)
+  end
+
+  def log_recorded(kind, trip, stop)
+    Rails.logger.info("[StopVisitRecorder] recorded #{kind} trip=#{trip.id} bus=#{trip.bus.license_plate} stop=#{stop.name.inspect} at=#{event_time.iso8601(3)}")
   end
 
   def ignored(reason)

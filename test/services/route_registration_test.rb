@@ -34,7 +34,7 @@ class RouteRegistrationTest < ActiveSupport::TestCase
       result = RouteRegistration.create(name: "3번 노선")
 
       assert result.failure?
-      assert_match(/group 동기화 실패/, result.error)
+      assert_match(/Traccar 노선 동기화 실패/, result.error)
       assert result.record.new_record?
     end
   end

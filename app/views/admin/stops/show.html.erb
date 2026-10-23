@@ -22,7 +22,7 @@
     <% end %>
   </div>
   <div>
-    <div class="text-xs text-gray-400">Traccar geofence</div>
+    <div class="text-xs text-gray-400">Traccar 정류장 영역</div>
     <div class="flex items-center gap-3">
       <div class="font-medium font-mono"><%= @stop.traccar_geofence_id || "—" %></div>
       <%= button_to "재동기화", sync_geofence_admin_stop_path(@stop), method: :post,

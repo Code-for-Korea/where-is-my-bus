@@ -40,7 +40,7 @@ class TraccarGeofenceSync
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarGeofenceSync] #{stop.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "geofence 동기화 실패: #{e.message}")
+      Result.new(success: false, error: "정류장 영역 동기화 실패: #{e.message}")
     end
 
     # stop 삭제 시 호출. geofence가 없으면 스킵(성공 취급).
@@ -51,7 +51,7 @@ class TraccarGeofenceSync
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarGeofenceSync] destroy #{stop.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "geofence 삭제 실패: #{e.message}")
+      Result.new(success: false, error: "정류장 영역 삭제 실패: #{e.message}")
     end
 
     private

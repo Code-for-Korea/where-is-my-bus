@@ -16,7 +16,7 @@ class TraccarGroupSync
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarGroupSync] #{route.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "group 동기화 실패: #{e.message}")
+      Result.new(success: false, error: "Traccar 노선 동기화 실패: #{e.message}")
     end
 
     # route 삭제 시 호출. group이 없으면 스킵(성공 취급).
@@ -27,7 +27,7 @@ class TraccarGroupSync
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarGroupSync] destroy #{route.id}: #{e.class} #{e.message}")
-      Result.new(success: false, error: "group 삭제 실패: #{e.message}")
+      Result.new(success: false, error: "Traccar 노선 삭제 실패: #{e.message}")
     end
 
     private
