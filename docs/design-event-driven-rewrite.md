@@ -2,7 +2,7 @@
 
 - 목표: `docs/product_requirements.md`의 MVP 3개를 만족하는 최소 구조로 데이터 모델을 처음부터 다시 짓고, Rails 앱과 Traccar 서버를 Docker로 로컬에서 실행한다.
 - 범위: 팀원에게 로컬에서 보여주는 데모. 운영 배포, 다국어, ETA는 제외한다.
-- 상태: **결정 완료, 미검증 가정은 구현 첫 단계에서 확인.**
+- 상태: **결정 완료, Traccar 동작 가정은 실측으로 검증 완료 (6절).**
 - 이번 범위에서 일부러 단순하게 둔 부분과 미룬 문제는 `docs/future-improvements.md`에 모은다.
 
 ## 1. 확정된 결정
@@ -126,7 +126,7 @@ erDiagram
 ### 설계 메모
 
 - **노선 방향**: 왕복·순환은 모델링하지 않는다. 방향이 다르면 노선을 따로 만든다(예: "1번 상행", "1번 하행"). 같은 정류장을 두 노선이 공유하므로 정류장 중복 등록은 필요 없다.
-- **`stop_visits`의 이벤트 ID**: 진입과 이탈은 Traccar에서 별도 이벤트라 ID 컬럼이 둘이다. 실제 이벤트 페이로드를 받아 필드를 확인한 뒤 확정한다(4절 미검증 가정 1).
+- **`stop_visits`의 이벤트 ID**: 진입과 이탈은 Traccar에서 별도 이벤트라 컬럼이 둘이다. 값은 `"<event.id>@<eventTime>"` 형식의 문자열이다 (6절).
 - **`gps_logs` 제거**: 좌표 이력은 Traccar가 보관한다. 지도가 필요해지면 버스에 마지막 좌표 컬럼을 두는 식으로 추가한다.
 - **`buses.status` 제거**: 활성/비활성 개념은 현재 요구사항에 없다.
 
@@ -150,9 +150,9 @@ erDiagram
 ### 이벤트 수신
 
 1. Traccar가 Geofence 진입·이탈 이벤트를 Rails로 포워딩 (`X-Ingest-Token` 인증).
-2. Rails는 기기 → 버스, Geofence → 정류장을 찾고 그 버스의 진행 중인 운행을 조회한다.
+2. Rails는 `device.uniqueId`로 버스를, `event.geofenceId`로 정류장을 찾고 그 버스의 진행 중인 운행을 조회한다. `event.type`이 `geofenceEnter`·`geofenceExit`가 아니면 무시한다.
 3. 아래 경우는 기록하지 않고 로그만 남긴다: 알 수 없는 기기·Geofence, 진행 중인 운행 없음, 정류장이 운행 노선에 속하지 않음.
-4. 진입이면 방문 기록을 만들고, 이탈이면 같은 운행·정류장의 열린 방문 기록을 닫는다. 이벤트 ID가 이미 있으면 무시한다.
+4. 진입이면 방문 기록을 만들고, 이탈이면 같은 운행·정류장의 열린 방문 기록을 닫는다. 기록 시각은 `event.eventTime`(위치의 측정 시각)을 쓴다. 중복 방지 키는 `event.id`와 `eventTime`을 합친 값이다 (Traccar DB가 초기화되면 ID가 1부터 다시 시작해 ID만으로는 충돌하기 때문). 키가 이미 있으면 무시한다.
 
 ### 승객 화면
 
@@ -177,13 +177,38 @@ erDiagram
 - 시뮬레이터: 스크립트가 지정한 버스 ID로 Traccar 5055 포트에 정류장 좌표를 순서대로 보내 운행을 재현한다. 운행 시작·종료는 같은 스크립트가 API로 호출한다.
 - 시드: 노선 1~2개, 정류장 5~6개(한 정류장은 두 노선 공유), 버스 2대, `operator` 계정 1개.
 
-## 6. 미검증 가정 (구현 첫 단계에서 확인)
+## 6. Traccar 동작 검증 결과
 
-1. **이벤트 페이로드**: 공식 문서에는 `event.forward` JSON의 필드 구성이 없다. 실제 이벤트를 받아서 이벤트 ID, 기기 ID, Geofence ID의 필드명을 확인한다.
-2. **`web.serviceAccountToken`**: 이 토큰으로 `/api/*` 호출이 되는지 확인한다. 안 되면 첫 관리자 계정을 API로 만드는 초기화 단계를 둔다.
-3. **그룹 이동 시점**: 기기의 `groupId`를 바꾼 직후부터 새 그룹의 Geofence 이벤트가 오는지 확인한다.
-4. **Geofence 판정**: 시뮬레이터가 보내는 좌표 간격에서 30m Geofence 진입·이탈이 안정적으로 발생하는지 확인한다.
-5. **권한 연결·해제 API**: `POST /api/permissions`로 이미 연결된 쌍을 다시 연결하면 어떻게 응답하는지, `DELETE /api/permissions`가 요청 본문(JSON)을 받아 해제하는지 확인한다. 둘 다 `TraccarRouteStopLink`가 전제한다.
+`traccar/traccar:6` 이미지(Docker)를 띄워 실제로 확인했다 (2026-10-23). 실험은 임시 환경에서 했고, 스크립트는 7단계의 compose·시뮬레이터에 반영한다.
+
+| # | 가정 | 결과 |
+|---|---|---|
+| 1 | 이벤트 페이로드 형식 | 확인. 아래 표 |
+| 2 | `web.serviceAccountToken`으로 API 호출 | 확인. `Authorization: Bearer <토큰>`으로 `/api/*`가 호출되고 사용자 생성이 필요 없다. 단 `/api/reports/*`는 이 토큰으로 결과가 비어 있다 (앱은 쓰지 않음). 현재 `TraccarApiClient`는 기본 인증만 지원하므로 토큰 방식 추가가 필요하다 (7단계) |
+| 3 | 기기 그룹 이동이 즉시 반영 | 확인. `groupId`를 0으로 바꾸면 이벤트가 끊기고, 다시 넣으면 바로 다음 위치부터 이벤트가 온다 |
+| 4 | 30m Geofence 판정 | 확인. 80m 간격 좌표로 접근해 안으로 들어가면 진입 1건, 나가면 이탈 1건. 안에서 9m 움직인 위치는 이벤트가 없다 |
+| 5 | 권한 연결·해제 API | 확인. `POST /api/permissions`는 같은 쌍을 다시 보내도 `204`(오류 아님), `DELETE /api/permissions`는 JSON 본문을 받아 `204`로 해제하며 해제 후 이벤트가 끊기고 재연결하면 재개된다 |
+
+### 이벤트 페이로드 (`event.forward`, JSON)
+
+`event.forward.header`에 적은 값이 요청 헤더로 그대로 전달된다 (예: `X-Ingest-Token`). 본문은 `event`, `position`, `device`, `geofence` 네 객체다.
+
+| 필드 | 의미 | 사용 |
+|---|---|---|
+| `event.id` | Traccar DB의 이벤트 ID (정수, 증가) | 중복 방지 키의 일부 |
+| `event.type` | `geofenceEnter` / `geofenceExit` | 둘 외에는 무시 |
+| `event.eventTime` | 위치의 측정 시각 (UTC, ISO 8601) | `entered_at`·`exited_at`, 중복 방지 키의 일부 |
+| `event.geofenceId` | Geofence ID | `stops.traccar_geofence_id`로 정류장 조회 |
+| `event.deviceId`, `device.id` | Traccar 기기 ID | 참고용 |
+| `device.uniqueId` | 기기 고유 ID | `buses.traccar_unique_id`로 버스 조회 |
+| `device.groupId` | 기기의 현재 그룹 ID | 노선 그룹과 일치하는지 교차 검증에 사용 가능 |
+| `position.geofenceIds` | 그 위치가 속한 Geofence 목록 (이탈 시 `null`) | 참고용 |
+
+### 운영상 알게 된 점
+
+- **위치 시각이 뒤로 가면 이벤트가 만들어지지 않는다.** 직전 위치보다 과거 시각의 위치는 건너뛴 것으로 관측됐다. 시뮬레이터는 시각을 항상 앞으로만 보내야 한다. 실제 기기가 오프라인 상태에서 쌓아 둔 위치를 늦게 보내면 그 이벤트를 놓칠 수 있다 (`docs/future-improvements.md` 18번).
+- **이벤트 ID는 Traccar DB가 초기화되면 1부터 다시 시작한다.** Rails DB는 그대로인데 Traccar만 초기화하면 ID가 충돌하므로, 중복 방지 키를 ID와 시각의 조합으로 정했다 (19번).
+- **필터링은 Rails의 몫이다.** Traccar는 `geofenceEnter`·`geofenceExit` 외의 이벤트도 같은 주소로 보낼 수 있다. 이번 실험에서는 두 종류만 관측됐다.
 
 ## 7. 구현 순서
 
