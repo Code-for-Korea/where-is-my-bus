@@ -2,7 +2,7 @@
 
 <div class="flex items-center justify-between mb-5">
   <p class="text-sm text-gray-500">총 <%= @buses.size %>대</p>
-  <%= link_to "차량 추가", new_admin_bus_path(area_id: params[:area_id]),
+  <%= link_to "차량 추가", new_admin_bus_path,
         class: "inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
 </div>
 
@@ -10,20 +10,30 @@
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-500 text-left">
       <tr>
-        <th class="px-5 py-3 font-medium">운행지역</th>
         <th class="px-5 py-3 font-medium">번호판</th>
-        <th class="px-5 py-3 font-medium w-36">최종수정일자</th>
+        <th class="px-5 py-3 font-medium w-24">번호</th>
+        <th class="px-5 py-3 font-medium">운행</th>
+        <th class="px-5 py-3 font-medium w-28">앱 등록</th>
+        <th class="px-5 py-3 font-medium w-28">Traccar</th>
         <th class="px-5 py-3 font-medium w-32 text-right">관리</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
       <% @buses.each do |bus| %>
         <tr class="hover:bg-gray-50">
-          <td class="px-5 py-3 text-gray-500"><%= bus.area.full_name %></td>
           <td class="px-5 py-3 font-medium">
             <%= link_to bus.license_plate, admin_bus_path(bus), class: "text-indigo-600 hover:underline" %>
           </td>
-          <td class="px-5 py-3 text-gray-500"><%= bus.updated_at.strftime("%Y-%m-%d %H:%M") %></td>
+          <td class="px-5 py-3 text-gray-500"><%= bus.bus_number.presence || "—" %></td>
+          <td class="px-5 py-3">
+            <% if bus.active_trip %>
+              <span class="text-green-600"><%= bus.active_trip.route.name %> 운행 중</span>
+            <% else %>
+              <span class="text-gray-400">운행 안 함</span>
+            <% end %>
+          </td>
+          <td class="px-5 py-3 text-gray-500"><%= bus.pin_registered_at ? "등록됨" : "미등록" %></td>
+          <td class="px-5 py-3 text-gray-500"><%= bus.traccar_device_id ? "연동됨" : "미연동" %></td>
           <td class="px-5 py-3 text-right space-x-3">
             <%= link_to "수정", edit_admin_bus_path(bus), class: "text-gray-500 hover:text-gray-900" %>
             <%= button_to "삭제", admin_bus_path(bus), method: :delete,
@@ -33,7 +43,7 @@
         </tr>
       <% end %>
       <% if @buses.empty? %>
-        <tr><td colspan="4" class="px-5 py-10 text-center text-gray-400">등록된 차량이 없습니다.</td></tr>
+        <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">등록된 차량이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

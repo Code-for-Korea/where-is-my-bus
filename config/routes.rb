@@ -19,11 +19,9 @@ Rails.application.routes.draw do
   namespace :admin do
     root "dashboard#index"
 
-    resources :regions
-    resources :areas
     resources :routes do
       member { post :sync_group }
-      resources :route_buses, only: %i[create destroy], controller: "route_buses"
+      resources :route_stops, only: %i[create destroy]
     end
     resources :stops do
       member { post :sync_geofence }

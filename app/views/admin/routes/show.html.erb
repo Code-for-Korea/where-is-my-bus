@@ -1,72 +1,81 @@
-<% content_for :page_title, "#{@route.area.full_name} · #{@route.name}" %>
+<% content_for :page_title, @route.name %>
 
-<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4">
-  <div>
-    <div class="text-xs text-gray-400">운행지역</div>
-    <div class="font-medium"><%= @route.area.full_name %></div>
-  </div>
-  <div>
-    <div class="text-xs text-gray-400">노선명</div>
-    <div class="font-medium"><%= @route.name %></div>
-  </div>
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl space-y-4">
   <div class="flex gap-8">
     <div>
-      <div class="text-xs text-gray-400">배차간격</div>
-      <div class="font-medium"><%= @route.headway_minutes ? "#{@route.headway_minutes}분" : "—" %></div>
+      <div class="text-xs text-gray-400">노선명</div>
+      <div class="font-medium"><%= @route.name %></div>
     </div>
     <div>
-      <div class="text-xs text-gray-400">추천 수</div>
-      <div class="font-medium"><%= number_with_delimiter(@route.likes_count) %></div>
-    </div>
-    <div>
-      <div class="text-xs text-gray-400">정류장 수</div>
-      <div class="font-medium">
-        <%= link_to "#{@route.stops_count}개", admin_stops_path(route_id: @route.id), class: "text-indigo-600 hover:underline" %>
+      <div class="text-xs text-gray-400">Traccar group</div>
+      <div class="flex items-center gap-3">
+        <div class="font-medium font-mono"><%= @route.traccar_group_id || "—" %></div>
+        <%= button_to "재동기화", sync_group_admin_route_path(@route), method: :post,
+              class: "text-xs text-indigo-600 underline cursor-pointer" %>
       </div>
     </div>
     <div>
       <div class="text-xs text-gray-400">최종수정일자</div>
-      <div class="font-medium"><%= @route.updated_at.strftime("%Y-%m-%d %H:%M") %></div>
+      <div class="font-medium"><%= @route.updated_at.in_time_zone.strftime("%Y-%m-%d %H:%M") %></div>
     </div>
   </div>
 
   <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
-    <%= link_to "정류장 관리", admin_stops_path(route_id: @route.id),
-          class: "px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200" %>
     <%= link_to "수정", edit_admin_route_path(@route),
           class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
     <%= link_to "목록", admin_routes_path, class: "text-sm text-gray-500 hover:text-gray-900" %>
   </div>
 </div>
 
-<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4 mt-6">
-  <div class="flex items-center justify-between">
-    <h2 class="text-sm font-semibold text-gray-900">배차 차량</h2>
-    <%= button_to "Traccar group 재동기화", sync_group_admin_route_path(@route), method: :post,
-          class: "text-xs text-indigo-600 underline cursor-pointer" %>
-  </div>
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl space-y-4 mt-6">
+  <h2 class="text-sm font-semibold text-gray-900">정류장 (정차 순서)</h2>
 
-  <% if @route.route_buses.empty? %>
-    <p class="text-sm text-gray-400">배정된 차량이 없습니다.</p>
+  <% if @route_stops.empty? %>
+    <p class="text-sm text-gray-400">노선에 추가된 정류장이 없습니다.</p>
   <% else %>
-    <ul class="divide-y divide-gray-100">
-      <% @route.route_buses.includes(:bus).each do |route_bus| %>
+    <ol class="divide-y divide-gray-100">
+      <% @route_stops.each do |route_stop| %>
         <li class="flex items-center justify-between py-2">
-          <div>
-            <div class="font-medium text-sm"><%= route_bus.bus.display_number %></div>
-            <div class="text-xs text-gray-400"><%= route_bus.bus.license_plate %></div>
+          <div class="flex items-center gap-3">
+            <span class="w-8 text-center text-xs text-gray-400"><%= route_stop.sequence %></span>
+            <%= link_to route_stop.stop.name, admin_stop_path(route_stop.stop), class: "font-medium text-sm hover:underline" %>
           </div>
-          <%= button_to "해제", admin_route_route_bus_path(@route, route_bus), method: :delete,
-                form: { data: { turbo_confirm: "배차를 해제하시겠습니까?" }, class: "inline" },
+          <%= button_to "제거", admin_route_route_stop_path(@route, route_stop), method: :delete,
+                form: { data: { turbo_confirm: "노선에서 제거하시겠습니까?" }, class: "inline" },
                 class: "text-red-500 hover:text-red-700 text-sm" %>
         </li>
       <% end %>
-    </ul>
+    </ol>
   <% end %>
 
-  <%= form_with url: admin_route_route_buses_path(@route), method: :post, class: "flex items-center gap-3 pt-2 border-t border-gray-100" do |f| %>
-    <%= f.collection_select :bus_id, @candidate_buses, :id, :display_number, { prompt: "차량 선택" },
-          class: "flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 text-sm" %>
-    <%= f.submit "추가", class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
+  <% if @candidate_stops.any? %>
+    <%= form_with url: admin_route_route_stops_path(@route), method: :post, class: "flex items-center gap-3 pt-3 border-t border-gray-100" do |f| %>
+      <%= f.number_field :sequence, value: @next_sequence, min: 1, "aria-label": "정차 순서",
+            class: "w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+      <%= f.collection_select :stop_id, @candidate_stops, :id, :name, { prompt: "정류장 선택" },
+            class: "flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+      <%= f.submit "추가", class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
+    <% end %>
+    <p class="text-xs text-gray-400">정차 순서를 바꾸려면 정류장을 제거한 뒤 원하는 순서로 다시 추가하세요.</p>
+  <% else %>
+    <p class="pt-3 border-t border-gray-100 text-sm text-gray-400">
+      추가할 수 있는 정류장이 없습니다. <%= link_to "정류장 추가", new_admin_stop_path, class: "text-indigo-600 underline" %>
+    </p>
+  <% end %>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl space-y-3 mt-6">
+  <h2 class="text-sm font-semibold text-gray-900">운행 중인 버스</h2>
+  <% if @active_trips.empty? %>
+    <p class="text-sm text-gray-400">이 노선으로 운행 중인 버스가 없습니다.</p>
+  <% else %>
+    <ul class="divide-y divide-gray-100">
+      <% @active_trips.each do |trip| %>
+        <li class="flex items-center justify-between py-2 text-sm">
+          <%= link_to trip.bus.license_plate, admin_bus_path(trip.bus), class: "font-medium text-indigo-600 hover:underline" %>
+          <span class="text-gray-400"><%= trip.started_at.in_time_zone.strftime("%m-%d %H:%M") %> 시작</span>
+        </li>
+      <% end %>
+    </ul>
   <% end %>
 </div>

@@ -1,0 +1,8 @@
+<% if record.errors.any? %>
+  <div class="rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm">
+    <p class="font-medium mb-1"><%= record.errors.count %>개의 오류가 있습니다.</p>
+    <ul class="list-disc list-inside">
+      <% record.errors.full_messages.each do |msg| %><li><%= msg %></li><% end %>
+    </ul>
+  </div>
+<% end %>

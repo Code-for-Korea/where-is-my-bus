@@ -2,39 +2,41 @@
 
 <div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4">
   <div>
-    <div class="text-xs text-gray-400">노선</div>
-    <div class="font-medium"><%= @stop.route.area.full_name %> · <%= @stop.route.name %></div>
-  </div>
-  <div>
     <div class="text-xs text-gray-400">정류장명</div>
     <div class="font-medium"><%= @stop.name %></div>
   </div>
-  <div class="flex gap-8">
-    <div>
-      <div class="text-xs text-gray-400">순서</div>
-      <div class="font-medium"><%= @stop.sequence %></div>
-    </div>
-    <div>
-      <div class="text-xs text-gray-400">좌표</div>
-      <div class="font-medium">
-        <% if @stop.coordinates? %>
-          <span class="font-mono text-sm"><%= @stop.lat %>, <%= @stop.lng %></span>
-        <% else %>
-          <span class="text-amber-600 text-sm">미등록</span>
+  <div>
+    <div class="text-xs text-gray-400">좌표 (위도, 경도)</div>
+    <div class="font-medium font-mono"><%= @stop.lat.to_f %>, <%= @stop.lng.to_f %></div>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">정차하는 노선</div>
+    <% if @stop.routes.empty? %>
+      <div class="text-gray-400 text-sm">아직 어느 노선에도 추가되지 않았습니다.</div>
+    <% else %>
+      <div class="flex flex-wrap gap-2 mt-1">
+        <% @stop.routes.each do |route| %>
+          <%= link_to route.name, admin_route_path(route), class: "px-2 py-1 rounded bg-gray-100 text-sm text-gray-700 hover:bg-gray-200" %>
         <% end %>
       </div>
+    <% end %>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">Traccar geofence</div>
+    <div class="flex items-center gap-3">
+      <div class="font-medium font-mono"><%= @stop.traccar_geofence_id || "—" %></div>
+      <%= button_to "재동기화", sync_geofence_admin_stop_path(@stop), method: :post,
+            class: "text-xs text-indigo-600 underline cursor-pointer" %>
     </div>
-    <div>
-      <div class="text-xs text-gray-400">최종수정일자</div>
-      <div class="font-medium"><%= @stop.updated_at.strftime("%Y-%m-%d %H:%M") %></div>
-    </div>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">최종수정일자</div>
+    <div class="font-medium"><%= @stop.updated_at.in_time_zone.strftime("%Y-%m-%d %H:%M") %></div>
   </div>
 
   <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
     <%= link_to "수정", edit_admin_stop_path(@stop),
           class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
-    <%= link_to "목록", admin_stops_path(route_id: @stop.route_id), class: "text-sm text-gray-500 hover:text-gray-900" %>
-    <%= button_to "Traccar 재동기화", sync_geofence_admin_stop_path(@stop), method: :post,
-          class: "text-xs text-indigo-600 underline cursor-pointer" %>
+    <%= link_to "목록", admin_stops_path, class: "text-sm text-gray-500 hover:text-gray-900" %>
   </div>
 </div>

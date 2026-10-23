@@ -2,12 +2,23 @@
 
 <div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4">
   <div>
-    <div class="text-xs text-gray-400">운행지역</div>
-    <div class="font-medium"><%= @bus.area.full_name %></div>
-  </div>
-  <div>
     <div class="text-xs text-gray-400">번호판</div>
     <div class="font-medium"><%= @bus.license_plate %></div>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">버스 번호</div>
+    <div class="font-medium"><%= @bus.bus_number.presence || "—" %></div>
+  </div>
+  <div>
+    <div class="text-xs text-gray-400">운행</div>
+    <% if (trip = @bus.active_trip) %>
+      <div class="font-medium text-green-600">
+        <%= link_to trip.route.name, admin_route_path(trip.route), class: "hover:underline" %> 운행 중
+        <span class="text-gray-400 font-normal">(<%= trip.started_at.in_time_zone.strftime("%m-%d %H:%M") %> 시작)</span>
+      </div>
+    <% else %>
+      <div class="font-medium text-gray-400">운행 중이 아닙니다</div>
+    <% end %>
   </div>
   <div>
     <div class="text-xs text-gray-400">PIN</div>
@@ -20,7 +31,7 @@
     <p class="mt-1 text-xs text-gray-400">유출 등으로 무효화가 필요하면 재발급하세요 — 운전자는 새 PIN으로 재등록해야 합니다.</p>
     <p class="mt-1 text-xs">
       <% if @bus.pin_registered_at.present? %>
-        <span class="text-gray-500">등록됨 (<%= @bus.pin_registered_at.strftime("%Y-%m-%d %H:%M") %>) — 이 PIN은 다른 기기에서 재사용할 수 없습니다.</span>
+        <span class="text-gray-500">등록됨 (<%= @bus.pin_registered_at.in_time_zone.strftime("%Y-%m-%d %H:%M") %>) — 이 PIN은 다른 기기에서 재사용할 수 없습니다.</span>
       <% else %>
         <span class="text-amber-600">미등록 — 이 PIN으로 아직 어떤 기기도 등록하지 않았습니다.</span>
       <% end %>
@@ -44,7 +55,7 @@
   </div>
   <div>
     <div class="text-xs text-gray-400">최종수정일자</div>
-    <div class="font-medium"><%= @bus.updated_at.strftime("%Y-%m-%d %H:%M") %></div>
+    <div class="font-medium"><%= @bus.updated_at.in_time_zone.strftime("%Y-%m-%d %H:%M") %></div>
   </div>
 
   <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
