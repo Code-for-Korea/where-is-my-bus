@@ -1,0 +1,60 @@
+{
+  "event": {
+    "id": 2,
+    "attributes": {},
+    "deviceId": 1,
+    "type": "geofenceExit",
+    "eventTime": "2026-10-23T08:12:55.000+00:00",
+    "positionId": 11,
+    "geofenceId": 1,
+    "maintenanceId": 0
+  },
+  "position": {
+    "id": 11,
+    "attributes": {
+      "distance": 78.45571960277789,
+      "totalDistance": 564.7731681175051,
+      "motion": true
+    },
+    "deviceId": 1,
+    "protocol": "osmand",
+    "serverTime": "2026-10-23T08:12:23.324+00:00",
+    "deviceTime": "2026-10-23T08:12:55.000+00:00",
+    "fixTime": "2026-10-23T08:12:55.000+00:00",
+    "valid": true,
+    "latitude": 34.9738,
+    "longitude": 128.3222,
+    "altitude": 0.0,
+    "speed": 10.0,
+    "course": 0.0,
+    "address": null,
+    "accuracy": 0.0,
+    "network": null,
+    "geofenceIds": null
+  },
+  "device": {
+    "id": 1,
+    "attributes": {},
+    "groupId": 1,
+    "calendarId": 0,
+    "name": "lab bus",
+    "uniqueId": "labdevice01",
+    "status": "online",
+    "lastUpdate": "2026-10-23T08:12:25.368+00:00",
+    "positionId": 6,
+    "phone": null,
+    "model": null,
+    "contact": null,
+    "category": null,
+    "disabled": false,
+    "expirationTime": null
+  },
+  "geofence": {
+    "id": 1,
+    "attributes": {},
+    "calendarId": 0,
+    "name": "lab-stop",
+    "description": null,
+    "area": "POLYGON((34.97296525332376 128.32203555872252, 34.97296525332376 128.3223644412775, 34.97323474667625 128.3223644412775, 34.97323474667625 128.32203555872252, 34.97296525332376 128.32203555872252))"
+  }
+}

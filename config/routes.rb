@@ -11,6 +11,7 @@ Rails.application.routes.draw do
     post "traccar/register",  to: "traccar#register"
     post "traccar/positions", to: "traccar#positions"
     get  "traccar/routes",    to: "traccar#routes"
+    post "traccar/events",    to: "traccar_events#create"
   end
 
   # 관리자

@@ -24,6 +24,21 @@ module AdminAuthenticationHelper
   end
 end
 
+module TraccarEventHelper
+  # Traccar event.forward가 보내는 JSON과 같은 모양(docs/design-event-driven-rewrite.md 6절)의 페이로드.
+  def traccar_event(type: "geofenceEnter", id: 1, at: 5.minutes.ago, unique_id: "bus-one-fixture", geofence_id: 203)
+    {
+      event: { id: id, type: type, eventTime: at.utc.iso8601(3), deviceId: 1, geofenceId: geofence_id, positionId: 9 },
+      device: { id: 1, uniqueId: unique_id, groupId: 101 },
+      geofence: { id: geofence_id }
+    }
+  end
+end
+
+class ActiveSupport::TestCase
+  include TraccarEventHelper
+end
+
 class ActionDispatch::IntegrationTest
   include AdminAuthenticationHelper
 end
