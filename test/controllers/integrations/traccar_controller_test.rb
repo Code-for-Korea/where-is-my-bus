@@ -69,6 +69,13 @@ class Integrations::TraccarControllerTest < ActionDispatch::IntegrationTest
     assert_equal trips(:active_one).id, body.dig("activeTrip", "id")
   end
 
+  test "bus tells the app which stops are before, at and after the bus" do
+    get integrations_traccar_bus_path, params: { deviceId: buses(:one).traccar_unique_id }
+
+    assert_equal({ "previous" => "고성터미널", "current" => "고성시장", "next" => "고성병원" },
+                 response.parsed_body.dig("activeTrip", "position"))
+  end
+
   test "bus reports no active trip for a bus that is not running" do
     get integrations_traccar_bus_path, params: { deviceId: buses(:two).traccar_unique_id }
 

@@ -11,6 +11,7 @@ class Integrations::TripsControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_equal routes(:two).id, response.parsed_body.dig("trip", "routeId")
     assert_equal "2번 노선", response.parsed_body.dig("trip", "routeName")
+    assert_equal({ "previous" => nil, "current" => nil, "next" => "고성터미널" }, response.parsed_body.dig("trip", "position"))
     assert bus.reload.active_trip.present?
   end
 
