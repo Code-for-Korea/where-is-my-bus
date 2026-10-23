@@ -1,5 +1,6 @@
-# 정류장(Stop) 등록/수정 시 Traccar geofence를 생성/갱신하고, 그 정류장이 속한 노선(Route)의
-# group에 연결한다(device 개별 연결이 아니라 group 연결 — group에 배정된 모든 버스에 전파됨).
+# 정류장(Stop) 등록/수정 시 Traccar geofence를 생성/갱신한다.
+# 어느 노선 group이 이 geofence의 이벤트를 받을지는 노선별 정차(RouteStop)가 정하므로
+# 그룹 연결은 여기서 하지 않는다 (TraccarRouteStopLink).
 class TraccarGeofenceSync
   include TraccarApiClient
 
@@ -25,27 +26,17 @@ class TraccarGeofenceSync
       "POLYGON((#{corners.map { |c| c.join(' ') }.join(', ')}))"
     end
 
-    # stop 생성/수정 시 호출. 좌표가 없으면 스킵(성공 취급).
+    # stop 생성/수정 시 호출. geofence가 없으면 생성 후 stop.traccar_geofence_id 저장, 있으면 이름·영역 갱신.
     def call(stop)
-      return Result.new(success: true) unless stop.coordinates?
-
-      route = stop.route
-      if route.traccar_group_id.blank?
-        group_result = TraccarGroupSync.call(route)
-        return group_result if group_result.failure?
-      end
-
       wkt = rectangle_wkt(lat: stop.lat.to_f, lng: stop.lng.to_f)
-      name = stop.name
 
       if stop.traccar_geofence_id.present?
-        update_geofence(stop.traccar_geofence_id, name, wkt)
+        update_geofence(stop.traccar_geofence_id, stop.name, wkt)
       else
-        geofence_id = create_geofence(name, wkt)
+        geofence_id = create_geofence(stop.name, wkt)
         stop.update!(traccar_geofence_id: geofence_id)
       end
 
-      link_group(route.traccar_group_id, stop.traccar_geofence_id)
       Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarGeofenceSync] #{stop.id}: #{e.class} #{e.message}")
@@ -72,10 +63,6 @@ class TraccarGeofenceSync
 
     def update_geofence(id, name, wkt)
       request(:put, "/api/geofences/#{id}", { id: id, name: name, area: wkt })
-    end
-
-    def link_group(group_id, geofence_id)
-      request(:post, "/api/permissions", { groupId: group_id, geofenceId: geofence_id })
     end
   end
 end

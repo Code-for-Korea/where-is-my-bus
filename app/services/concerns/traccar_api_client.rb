@@ -3,7 +3,7 @@
 require "net/http"
 require "json"
 
-# Traccar 서비스 객체(TraccarGroupSync/TraccarGroupMembership/TraccarGeofenceSync) 공통 HTTP 클라이언트.
+# Traccar 서비스 객체(TraccarGroupSync/TraccarGeofenceSync/TraccarRouteStopLink/TraccarDeviceGroup/TraccarDeviceSync) 공통 HTTP 클라이언트.
 # Result 패턴, credentials 조회, Net::HTTP 기반 request 헬퍼, 테스트용 stub_credentials를 제공한다.
 module TraccarApiClient
   extend ActiveSupport::Concern

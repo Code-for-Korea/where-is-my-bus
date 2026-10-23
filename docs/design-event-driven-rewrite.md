@@ -183,6 +183,7 @@ erDiagram
 2. **`web.serviceAccountToken`**: 이 토큰으로 `/api/*` 호출이 되는지 확인한다. 안 되면 첫 관리자 계정을 API로 만드는 초기화 단계를 둔다.
 3. **그룹 이동 시점**: 기기의 `groupId`를 바꾼 직후부터 새 그룹의 Geofence 이벤트가 오는지 확인한다.
 4. **Geofence 판정**: 시뮬레이터가 보내는 좌표 간격에서 30m Geofence 진입·이탈이 안정적으로 발생하는지 확인한다.
+5. **권한 연결·해제 API**: `POST /api/permissions`로 이미 연결된 쌍을 다시 연결하면 어떻게 응답하는지, `DELETE /api/permissions`가 요청 본문(JSON)을 받아 해제하는지 확인한다. 둘 다 `TraccarRouteStopLink`가 전제한다.
 
 ## 7. 구현 순서
 

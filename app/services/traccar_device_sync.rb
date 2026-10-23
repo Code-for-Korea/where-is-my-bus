@@ -1,5 +1,5 @@
 # 버스(Bus) 단위 Traccar device를 생성/갱신/삭제한다.
-# device가 있어야 노선 group에 연결(TraccarGroupMembership)될 수 있다.
+# device가 있어야 운행 시작 때 노선 group으로 이동(TraccarDeviceGroup)할 수 있다.
 class TraccarDeviceSync
   include TraccarApiClient
 
