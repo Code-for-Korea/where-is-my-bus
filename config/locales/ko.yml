@@ -1,6 +1,96 @@
 ko:
   layout:
-    title: "내 버스는 언제 올까?"
+    title: "내 버스는 언제올까? | 로컬버스"
+
+  pages:
+    index:
+      hero_alt: "로컬버스"
+      headline: "내 버스는 언제올까?"
+      subheadline: "버스가 언제 올지... 막연히 기다려야하는<br>시골버스의 불편함을 해결하고 싶었습니다."
+      learn_more: "자세히 &gt;&gt;"
+      cta_button: "버스는 지금 어디?"
+      service_preparing: "서비스 준비 중"
+      powered_by: "powered by"
+      partners_together: "함께 하고 있어요."
+      nia_name: "NIA"
+      nia_full: "한국지능정보사회진흥원"
+      molit: "🏛 국토교통부"
+
+    about:
+      title: "내 버스는 언제올까?"
+      hero_alt: "로컬버스"
+      mission: "우리는 버스가 언제 올지... 막연히 기다려야하는 시골버스의 불편함을 기술로 해결하고 싶었습니다."
+      quote_text: "\"버스 도착시간? 우린 그런 거 몰라… 대충 언제 '즈음' 오겠거니 하고 미리 나와서 기다리는 거지\""
+      quote_source: "지역의 어르신이 막연히 버스를 기다린다는 기사를 접했습니다."
+      problem_stat: "전국 229개 기초자치단체 중 <strong class=\"text-gray-800\">138곳(60.2%)이 소멸위험지역</strong>(통계청 주민등록인구 기반 분석, 2026년 2월 기준)이고, 이 중 상당수 지역에 버스정보시스템(BIS)이 없습니다. 경남 10개 군이 힘을 합쳐 통합 BIS를 구축해도 33억 원, 유지비만 연간 1억 원 이상(2020년 기준). 인구 수천 명의 소읍·면 단위 지역이 감당할 수 있는 규모가 아닙니다."
+      problem_cycle: "정보가 없으니 버스를 안 타고, 이용률이 떨어지면 노선이 줄고, 노선이 줄면 더 불편해지는 악순환입니다. 찾아온 관광객도 정류장에서 막막해지면 다시 오지 않습니다."
+      tech_intro: "<strong class=\"font-bold text-indigo-800\">로컬버스 알리미</strong>는 별도 단말기도, 수억 원짜리 인프라도 필요 없습니다."
+      tech_box_title: "스마트폰과 QR 스티커로 버스 정보를 만듭니다"
+      tech_step1: "오픈소스 CMS로<br>노선 관리"
+      tech_step2: "버스 앱으로<br>위치 전송"
+      tech_step3: "QR 웹으로<br>승객 확인"
+      tech_detail: "정류장 표지판의 QR을 찍으면 \"다음 버스 18분 후\"를 바로 확인할 수 있습니다. 앱 설치도, 회원가입도 필요 없습니다."
+      tech_outro: "<strong class=\"font-bold text-indigo-800\">로컬버스 알리미</strong>는 버스 정보가 없는 지방 소도시 어디서든 빠르게 도입할 수 있습니다. 코드는 오픈소스로 공개되어, 다른 지자체에 그대로 가져다 쓸 수 있도록 설계되었습니다."
+      coverage_title_html: "현재 <strong>%{routes_count}개 노선</strong>, <strong>%{stops_count}개 정류장</strong>의 정보를 제공합니다."
+      region_route_suffix: "(정류장 %{count}곳)"
+      check_routes_button: "버스 노선 확인"
+      caution_title: "(주의)"
+      caution_body: "이 서비스는 지자체 버스서비스(BIS)에 데이터가 등록되지 않은 지역의 버스 정보를 제공하고 있습니다."
+      partners_together: "함께 하고 있어요."
+      nia_name: "NIA"
+      nia_full: "한국지능정보사회진흥원"
+      molit: "🏛 국토교통부"
+      footer_makers: "만든 사람들"
+      footer_driver: "운전사이에요!"
+      footer_terms: "이용약관"
+
+  # 정류장 → (노선 선택) → 버스 위치. 문구는 origin/main의 화면과 같은 어조를 유지한다.
+  stops:
+    show:
+      title: "내 버스는 언제 올까?"
+      stop_label: "내 정류장"
+      pick_route: "기다리는 버스를 골라 주세요."
+      no_routes: "이 정류장에 서는 노선이 없습니다."
+      running_count: "운행 중 %{count}대"
+      not_running: "운행 중인 버스 없음"
+
+  arrivals:
+    show:
+      title: "내 버스는 언제 올까?"
+      stop_label: "내 정류장"
+      bus_location_label: "%{route} 버스는 지금 어디?"
+      see_detail: "자세히보기"
+    status:
+      no_bus_line1: "운행 중인 버스가"
+      no_bus_line2: "없습니다."
+      arrived_line1: "지금 정류장에"
+      arrived_line2: "도착했습니다."
+      stops_left_line1: "%{count}정거장 전에"
+      stops_left_line2: "있습니다."
+      unknown_line1: "위치를 확인하는"
+      unknown_line2: "중입니다."
+      passed_line1: "이 정류장을"
+      passed_line2: "지나갔습니다."
+      at_stop: "%{stop} 정차 중"
+      left_stop: "%{stop} 출발"
+      short_arriving: "정류장에 정차 중"
+      short_stops_left: "%{count}정거장 전"
+      short_unknown: "위치 확인 중"
+      short_passed: "이미 지나감"
+    detail:
+      stops_count: "총 %{count}개 정류장"
+      running_count: "운행 중 %{count}대"
+      here_badge: "여기"
+
+  shared:
+    bus_selector_sheet:
+      title: "버스 정보 확인"
+      coverage_html: "현재 <strong>%{stops_count}개 정류장</strong>, <strong>%{routes_count}개 노선</strong>의 정보를 제공합니다."
+      select_prompt: "정류장과 버스 노선을 선택해주세요."
+      stop_placeholder: "정류장 선택"
+      route_placeholder: "노선 선택"
+      confirm_button: "버스 노선 확인"
+      select_error: "정류장과 노선을 선택해주세요."
 
   # rails-i18n 없이 쓰는 최소 한국어 검증 메시지. 형식은 "속성명: 메시지".
   errors:

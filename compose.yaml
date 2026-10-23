@@ -21,7 +21,7 @@ services:
     depends_on:
       - traccar
     ports:
-      - "3000:3000"
+      - "${RAILS_PORT:-3000}:3000"   # 호스트의 3000번이 이미 쓰이면 RAILS_PORT=3300 처럼 바꾼다
     environment:
       RAILS_ENV: development
       TRACCAR_API_BASE_URL: http://traccar:8082

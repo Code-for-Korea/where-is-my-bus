@@ -35,7 +35,9 @@ Rails.application.routes.draw do
 
   # 승객 웹: 정류장 → (노선 선택) → 그 노선 버스의 위치
   root "pages#index"
+  get "about", to: "pages#about"
   resources :stops, only: :show
-  get "stops/:stop_id/routes/:route_id",       to: "arrivals#show",  as: :stop_route_arrivals
-  get "stops/:stop_id/routes/:route_id/buses", to: "arrivals#buses", as: :stop_route_buses
+  get "stops/:stop_id/routes/:route_id",        to: "arrivals#show",   as: :stop_route_arrivals
+  get "stops/:stop_id/routes/:route_id/status", to: "arrivals#status", as: :stop_route_status
+  get "stops/:stop_id/routes/:route_id/detail", to: "arrivals#detail", as: :stop_route_detail
 end

@@ -1,7 +1,9 @@
 class StopsController < ApplicationController
   allow_unauthenticated_access
+  layout "service"
+  before_action :load_selector_data
 
-  # 정류장에 서는 노선이 하나뿐이면 노선 선택을 건너뛰고 바로 버스 위치로 보낸다.
+  # 정류장에 서는 노선이 하나뿐이면 노선 선택을 건너뛰고 바로 버스 위치로 보낸다 (정류장 QR이 여기로 온다).
   def show
     @stop = Stop.find(params[:id])
     @routes = @stop.routes.ordered.to_a

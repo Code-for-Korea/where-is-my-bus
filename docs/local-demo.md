@@ -6,7 +6,7 @@ Rails 앱과 Traccar 서버를 Docker로 띄우고, 폰 없이 시뮬레이터�
 ## 준비물
 
 - Docker Desktop (Compose 포함)
-- 포트 `3000`(Rails), `8082`(Traccar 웹·API), `5055`(Traccar 위치 수신)이 비어 있어야 한다
+- 포트 `3000`(Rails), `8082`(Traccar 웹·API), `5055`(Traccar 위치 수신)이 비어 있어야 한다. Rails 포트가 이미 쓰이고 있으면 `RAILS_PORT=3300 docker compose up -d`처럼 다른 포트로 띄우고, 아래 주소의 `3000`을 그 포트로 바꿔 읽는다 (문제 해결 참고)
 
 ## 실행
 
@@ -24,6 +24,15 @@ docker compose up -d --build          # 첫 실행은 이미지 빌드와 시드
 | http://localhost:3000 | 승객 화면 |
 | http://localhost:3000/admin | 관리자 화면 (시드가 출력한 계정으로 로그인) |
 | http://localhost:8082 | Traccar 웹 UI |
+
+## 승객 화면 구성
+
+`origin/main`의 디자인(폰 프레임, 히어로 이미지, 회색 정류장 패널 + 파란 도착 패널, 노선 진행 바, 자세히보기 모달, 바텀시트 선택)을 그대로 따른다. 달라진 점:
+
+- 선택 시트가 "지역 → 노선 → 정류장"이 아니라 **"정류장 → 노선"**이다 (지역 계층이 없다).
+- 파란 패널의 큰 글씨가 "약 N분 후 도착예정"(ETA)이 아니라 **"N정거장 전에 있습니다"**다. 진행 바는 남은 정류장 수로 움직인다.
+- 좋아요 버튼과 언어 전환(KO/EN)은 없다.
+- 정류장에 노선이 하나뿐이면 노선 선택을 건너뛰고, 여러 개면 노선 선택 화면(`/stops/:id`)을 거친다. 정류장 QR은 이 주소를 쓰면 된다.
 
 ## 시연 순서
 
@@ -73,6 +82,7 @@ TRACCAR_SERVER_URL=http://<PC의 LAN 주소>:5055 docker compose up -d
 
 ## 문제 해결
 
+- **주소가 이 앱이 아닌 다른 화면을 보여준다 (언어 전환 KO/EN이 보이는 옛 디자인 등)**: 호스트 3000번을 이 컨테이너 말고 다른 프로세스(예: PC에서 직접 띄운 `bin/rails server`)도 듣고 있을 수 있다. `localhost`가 그쪽으로 연결되면 컨테이너 코드가 아니라 그 서버의 화면이 나온다. `lsof -nP -iTCP:3000 -sTCP:LISTEN`으로 확인하고, 다른 서버를 끄거나 `RAILS_PORT`로 포트를 바꾼다.
 - **승객 화면에 "위치 확인 중"에서 안 넘어간다**: Traccar가 이벤트를 못 보내는 경우다. `docker compose logs traccar`와 `docker compose logs rails`에서 `/integrations/traccar/events` 요청이 오는지 본다.
 - **시뮬레이터를 중간에 끊었다**: 운행이 열린 채 남는다. 같은 명령을 다시 실행하면 먼저 종료하고 새로 시작한다. 직접 닫으려면 `curl -X POST localhost:3000/integrations/traccar/trips/end -d deviceId=<deviceId>`.
 - **전송 간격을 1초보다 짧게 하지 않는다**: 위치 시각은 1초 단위로 항상 앞으로만 가야 한다. 더 자주 보내면 시각이 실제 시간보다 앞서가서, 곧바로 다시 실행했을 때 첫 정류장 구간의 위치를 Traccar가 과거로 보고 건너뛴다 (그 정류장 방문이 기록되지 않는다). 그래서 시뮬레이터는 1초 미만을 거부한다. 시연 시간을 줄이려면 정차 시간(`dwell`)을 줄인다. 예: `demo:drive[1번,1번 노선,1,2]`

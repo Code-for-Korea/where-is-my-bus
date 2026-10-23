@@ -1,28 +1,79 @@
-<% content_for :title, "내 버스는 언제 올까?" %>
+<div data-controller="bus-selector"
+     data-bus-selector-auto-open-value="<%= params[:open] == "1" %>"
+     data-bus-selector-select-error-message-value="<%= t("shared.bus_selector_sheet.select_error") %>">
 
-<div class="px-5 py-8" data-controller="filter">
-  <h1 class="text-2xl font-bold text-gray-900">내 버스는 언제 올까?</h1>
-  <p class="mt-1 text-sm text-gray-500">기다리는 정류장을 골라 주세요.</p>
+  <div class="flex flex-col min-h-screen px-6 pt-16 pb-8">
 
-  <input type="search" placeholder="정류장 검색" autocomplete="off"
-         data-action="input->filter#apply"
-         class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-indigo-500 focus:ring-indigo-500">
+    <%# 버스 이미지 %>
+    <div class="-mx-6 mb-6 bg-white" style="mix-blend-mode: multiply;">
+      <img src="/bus_hero.png?v=2" alt="<%= t("pages.index.hero_alt") %>"
+           class="w-full block"
+           style="filter: brightness(1.1);">
+    </div>
 
-  <ul class="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200 overflow-hidden">
-    <% @stops.each do |stop| %>
-      <li data-filter-target="item" data-text="<%= stop.name %>">
-        <%= link_to stop_path(stop), class: "flex items-center justify-between px-4 py-4 hover:bg-gray-50" do %>
-          <span class="font-medium text-gray-900"><%= stop.name %></span>
-          <span class="text-xs text-gray-400"><%= stop.routes.map(&:name).join(" · ") %></span>
-        <% end %>
-      </li>
+    <%# 헤드카피 %>
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-900 mb-3"><%= t("pages.index.headline") %></h1>
+      <p class="text-base font-semibold text-gray-700 leading-snug mb-3">
+        <%= t("pages.index.subheadline").html_safe %>
+      </p>
+      <a href="<%= about_path %>"
+         class="inline-block text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+        <%= t("pages.index.learn_more").html_safe %>
+      </a>
+    </div>
+
+    <%# CTA 버튼 — 정류장·노선 선택 바텀시트를 연다 %>
+    <% if @selector_stops.any? %>
+      <button data-action="click->bus-selector#open"
+              class="block w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
+                     text-white text-xl font-bold py-5 rounded-2xl transition-colors text-center">
+        <%= t("pages.index.cta_button") %>
+      </button>
+    <% else %>
+      <button disabled
+              class="block w-full bg-gray-300 text-white text-xl font-bold py-5 rounded-2xl cursor-not-allowed">
+        <%= t("pages.index.service_preparing") %>
+      </button>
     <% end %>
-  </ul>
 
-  <% if @stops.empty? %>
-    <p class="mt-8 text-center text-sm text-gray-400">아직 노선에 등록된 정류장이 없습니다.</p>
-  <% end %>
-  <p class="hidden mt-8 text-center text-sm text-gray-400" data-filter-target="empty">검색 결과가 없습니다.</p>
+    <%# 파트너 로고 %>
+    <div class="mt-auto pt-12">
+      <p class="text-center text-xs text-gray-400 mb-4"><%= t("pages.index.powered_by") %></p>
+      <div class="flex justify-center mb-6">
+        <img src="/codeforkorea.webp" alt="CODE FOR KOREA" class="h-8 w-auto opacity-80 codeforkorea-logo">
+      </div>
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-center text-xs text-gray-400 mb-3"><%= t("pages.index.partners_together") %></p>
+        <div class="flex justify-center items-center gap-6">
+          <div class="text-center">
+            <p class="text-xs font-bold text-gray-600"><%= t("pages.index.nia_name") %></p>
+            <p class="text-xs text-gray-400"><%= t("pages.index.nia_full") %></p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs font-bold text-gray-600"><%= t("pages.index.molit") %></p>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  <p class="mt-10 text-center text-xs text-gray-300"><%= link_to "관리자", admin_root_path, class: "hover:text-gray-500" %></p>
+  </div>
+
+  <%# 정류장·노선 선택 바텀시트 %>
+  <div data-bus-selector-target="overlay"
+       class="fixed inset-0 z-50 hidden">
+
+    <div class="absolute inset-0 bg-black/40"
+         data-action="click->bus-selector#close"></div>
+
+    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm
+                bg-white rounded-t-3xl px-6 pt-6 pb-10 shadow-xl">
+
+      <%= render "shared/bus_selector_sheet",
+                 stops: @selector_stops, routes: @selector_routes,
+                 current_stop_id: nil, current_route_id: nil,
+                 close_action: "click->bus-selector#close" %>
+    </div>
+  </div>
+
 </div>

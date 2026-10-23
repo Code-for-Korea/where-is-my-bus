@@ -1,8 +1,13 @@
 class PagesController < ApplicationController
   allow_unauthenticated_access
+  layout "service"
+  before_action :load_selector_data
 
-  # 승객 첫 화면: 기다리는 정류장을 고른다. 어느 노선에도 속하지 않은 정류장은 보여줄 버스가 없으므로 뺀다.
+  # 승객 첫 화면. 버튼을 누르면 정류장·노선 선택 바텀시트가 열린다.
   def index
-    @stops = Stop.joins(:route_stops).distinct.ordered.includes(:routes)
+  end
+
+  def about
+    @routes = @selector_routes
   end
 end
