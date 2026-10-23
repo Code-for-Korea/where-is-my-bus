@@ -1,0 +1,29 @@
+one_terminal:
+  route: one
+  stop: terminal
+  sequence: 1
+
+one_market:
+  route: one
+  stop: market
+  sequence: 2
+
+one_hospital:
+  route: one
+  stop: hospital
+  sequence: 3
+
+two_terminal:
+  route: two
+  stop: terminal
+  sequence: 1
+
+two_hospital:
+  route: two
+  stop: hospital
+  sequence: 2
+
+two_school:
+  route: two
+  stop: school
+  sequence: 3

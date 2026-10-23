@@ -1,23 +1,24 @@
-one:
-  route: one
-  name: 정류장1
-  sequence: 1
-  lat: 35.100000
-  lng: 128.100000
-  avg_travel_seconds: 120
+terminal:
+  name: 고성터미널
+  lat: 34.973100
+  lng: 128.322200
+  traccar_geofence_id: 201
 
-two:
-  route: one
-  name: 정류장2
-  sequence: 2
-  lat: 35.101000
-  lng: 128.101000
-  avg_travel_seconds: 120
+market:
+  name: 고성시장
+  lat: 34.975000
+  lng: 128.325000
+  traccar_geofence_id: 202
 
-three:
-  route: one
-  name: 정류장3
-  sequence: 3
-  lat: 35.102000
-  lng: 128.102000
-  avg_travel_seconds: 120
+# 1번·2번 노선이 함께 서는 정류장
+hospital:
+  name: 고성병원
+  lat: 34.978000
+  lng: 128.330000
+  traccar_geofence_id: 203
+
+school:
+  name: 고성고등학교
+  lat: 34.981000
+  lng: 128.335000
+  traccar_geofence_id: 204
