@@ -1,7 +1,7 @@
 namespace :demo do
-  desc "운전자 앱 대신 버스 한 대가 노선을 한 바퀴 도는 것을 흉내낸다. 예: bin/rails 'demo:drive[1번,1번 노선]'"
-  task :drive, %i[bus route interval dwell] => :environment do |_task, args|
-    abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),노선명,전송간격초,정차초]'" if args[:bus].blank? || args[:route].blank?
+  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 한 바퀴 도는 것을 흉내낸다. 예: bin/rails 'demo:drive[1번]'"
+  task :drive, %i[bus interval dwell] => :environment do |_task, args|
+    abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초]'" if args[:bus].blank?
 
     $stdout.sync = true # 파이프·파일로 보낼 때도 진행 상황이 바로 보이게
 
@@ -15,7 +15,6 @@ namespace :demo do
 
     Demo::BusSimulator.new(
       device_id: bus.traccar_unique_id,
-      route_name: args[:route],
       rails_url: ENV.fetch("DEMO_RAILS_URL", "http://localhost:3000"),
       osmand_url: ENV.fetch("TRACCAR_OSMAND_URL", "http://localhost:5055"),
       interval: interval,

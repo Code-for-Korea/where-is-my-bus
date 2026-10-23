@@ -10,18 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_151932) do
   create_table "buses", force: :cascade do |t|
     t.string "bus_number"
     t.datetime "created_at", null: false
     t.string "license_plate", null: false
     t.string "pin", null: false
     t.datetime "pin_registered_at"
+    t.integer "route_id"
     t.integer "traccar_device_id"
     t.string "traccar_unique_id", null: false
     t.datetime "updated_at", null: false
     t.index ["license_plate"], name: "index_buses_on_license_plate", unique: true
     t.index ["pin"], name: "index_buses_on_pin", unique: true
+    t.index ["route_id"], name: "index_buses_on_route_id"
     t.index ["traccar_device_id"], name: "index_buses_on_traccar_device_id", unique: true
     t.index ["traccar_unique_id"], name: "index_buses_on_traccar_unique_id", unique: true
   end
@@ -104,6 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_000001) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
+  add_foreign_key "buses", "routes"
   add_foreign_key "route_stops", "routes"
   add_foreign_key "route_stops", "stops"
   add_foreign_key "sessions", "users"

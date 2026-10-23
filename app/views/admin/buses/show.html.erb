@@ -10,6 +10,14 @@
     <div class="font-medium"><%= @bus.bus_number.presence || "—" %></div>
   </div>
   <div>
+    <div class="text-xs text-gray-400">배정 노선</div>
+    <% if @bus.route %>
+      <div class="font-medium"><%= link_to @bus.route.name, admin_route_path(@bus.route), class: "text-indigo-600 hover:underline" %></div>
+    <% else %>
+      <div class="font-medium text-amber-600">배정된 노선이 없습니다 — 노선을 배정해야 운전자가 운행을 시작할 수 있습니다.</div>
+    <% end %>
+  </div>
+  <div>
     <div class="text-xs text-gray-400">운행</div>
     <% if (trip = @bus.active_trip) %>
       <div class="font-medium text-green-600">

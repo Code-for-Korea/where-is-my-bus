@@ -45,6 +45,12 @@ module TraccarApiStubs
     end
   end
 
+  # TraccarDeviceSync의 기기 이름·식별자 갱신(PUT). stub_device_group_move보다 먼저 선언해야 한다
+  # (나중에 선언한 스텁이 먼저 맞는지 검사되므로 groupId가 있는 PUT은 그쪽으로 간다).
+  def stub_device_update(device_id)
+    stub_request(:put, "#{TRACCAR_API}/api/devices/#{device_id}").to_return(status: 200, body: "")
+  end
+
   # TraccarDeviceGroup의 "GET device → groupId 바꿔 PUT" 흐름을 스텁한다. PUT 스텁을 돌려줘 호출 여부를 확인할 수 있다.
   def stub_device_group_move(device_id, to_group_id:)
     stub_request(:get, "#{TRACCAR_API}/api/devices/#{device_id}")

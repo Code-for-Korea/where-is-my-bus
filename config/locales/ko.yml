@@ -122,6 +122,7 @@ ko:
       route:
         name: "노선명"
         trips: "운행 기록"
+        buses: "배정된 차량"
       stop:
         name: "정류장명"
         lat: "위도"
@@ -136,6 +137,7 @@ ko:
         license_plate: "번호판"
         bus_number: "버스 번호"
         pin: "PIN"
+        route: "배정 노선"
         trips: "운행 기록"
         base: "차량"
       trip:

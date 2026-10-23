@@ -4,7 +4,7 @@ class BusRegistrationTest < ActiveSupport::TestCase
   JSON_HEADERS = { "Content-Type" => "application/json" }.freeze
 
   setup do
-    TraccarDeviceSync.stub_credentials(base_url: "http://traccar.test", email: "admin@test.com", password: "secret")
+    stub_traccar_credentials(TraccarDeviceSync, TraccarDeviceGroup)
   end
 
   test "create saves the bus and creates its Traccar device with the generated unique id" do
@@ -54,5 +54,52 @@ class BusRegistrationTest < ActiveSupport::TestCase
     assert result.success?
     assert_not Bus.exists?(bus.id)
     assert_requested delete
+  end
+
+  test "create with a route moves the new device into the route's group" do
+    stub_request(:post, "http://traccar.test/api/devices").to_return(status: 200, body: { id: 66 }.to_json, headers: JSON_HEADERS)
+    move = stub_device_group_move(66, to_group_id: routes(:one).traccar_group_id)
+
+    result = BusRegistration.create(license_plate: "경남70가0001", route_id: routes(:one).id)
+
+    assert result.success?
+    assert_requested move
+  end
+
+  test "create without a route leaves the device out of every group" do
+    stub_request(:post, "http://traccar.test/api/devices").to_return(status: 200, body: { id: 66 }.to_json, headers: JSON_HEADERS)
+
+    BusRegistration.create(license_plate: "경남70가0001")
+
+    assert_not_requested :get, %r{/api/devices/66}
+  end
+
+  test "changing the route rolls back when the group cannot be moved" do
+    bus = buses(:two)
+    stub_device_update(bus.traccar_device_id)
+    stub_request(:get, "http://traccar.test/api/devices/#{bus.traccar_device_id}").to_return(status: 500, body: "boom")
+
+    result = BusRegistration.update(bus, route_id: routes(:one).id)
+
+    assert result.failure?
+    assert_match(/group 이동 실패/, result.error)
+    assert_equal routes(:two), bus.reload.route
+  end
+
+  test "a running bus cannot be reassigned and Traccar is not called" do
+    result = BusRegistration.update(buses(:one), route_id: routes(:two).id)
+
+    assert result.failure?
+    assert_match(/운행 중에는 바꿀 수 없습니다/, result.error)
+    assert_not_requested :any, %r{traccar.test}
+  end
+
+  test "a resync of an assigned bus re-puts it in its group to repair drift" do
+    bus = buses(:two)
+    stub_device_update(bus.traccar_device_id)
+    move = stub_device_group_move(bus.traccar_device_id, to_group_id: routes(:two).traccar_group_id)
+
+    assert BusRegistration.update(bus, {}).success?
+    assert_requested move
   end
 end

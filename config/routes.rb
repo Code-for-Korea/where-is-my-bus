@@ -9,7 +9,7 @@ Rails.application.routes.draw do
   # Traccar 위치 포워딩 수신 (머신 간)
   namespace :integrations do
     post "traccar/register",    to: "traccar#register"
-    get  "traccar/routes",      to: "traccar#routes"
+    get  "traccar/bus",         to: "traccar#bus"
     post "traccar/events",      to: "traccar_events#create"
     post "traccar/trips/start", to: "trips#start"
     post "traccar/trips/end",   to: "trips#finish"
@@ -22,6 +22,7 @@ Rails.application.routes.draw do
     resources :routes do
       member { post :sync_group }
       resources :route_stops, only: %i[create destroy]
+      resources :bus_assignments, only: %i[create destroy]
     end
     resources :stops do
       member { post :sync_geofence }

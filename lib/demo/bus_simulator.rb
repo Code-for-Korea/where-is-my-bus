@@ -3,7 +3,7 @@ require "json"
 
 module Demo
   # 운전자 앱 대신 버스 한 대가 노선을 한 바퀴 도는 것을 흉내낸다. 앱이 하는 일을 그대로 따른다:
-  #   1) 운행 시작 API 호출 (노선 선택)
+  #   1) 운행 시작 API 호출 (노선은 차량에 배정된 노선)
   #   2) Traccar의 위치 수신 포트(OsmAnd 프로토콜)로 좌표를 계속 전송
   #   3) 운행 종료 API 호출
   # 정류장 Geofence는 30m 정사각형이므로 좌표를 STEP_METERS(15m) 간격으로 보내 영역 안에 반드시 한 번은 들어가게 한다.
@@ -15,10 +15,9 @@ module Demo
 
     Point = Struct.new(:lat, :lng, :speed, :label, keyword_init: true)
 
-    def initialize(device_id:, route_name:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
+    def initialize(device_id:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
                    interval: 1.0, dwell: 6, settle: 3.0, out: $stdout)
       @device_id = device_id
-      @route_name = route_name
       @rails_url = rails_url
       @osmand_url = osmand_url
       @interval = interval
@@ -29,8 +28,10 @@ module Demo
     end
 
     def run
-      route = find_route
-      end_trip if fetch_info["activeTrip"]
+      info = fetch_info
+      route = info["route"] ||
+              raise(ArgumentError, "이 차량에는 배정된 노선이 없습니다. 관리자 화면에서 노선을 배정하세요.")
+      end_trip if info["activeTrip"]
       start_trip(route)
       begin
         build_path(route["stops"]).each { |point| send_position(point) }
@@ -42,18 +43,12 @@ module Demo
 
     private
 
-    def find_route
-      routes = fetch_info["routes"]
-      routes.find { |route| route["name"] == @route_name } ||
-        raise(ArgumentError, "노선 '#{@route_name}'이 없습니다 (있는 노선: #{routes.map { |r| r["name"] }.join(", ")})")
-    end
-
     def fetch_info
-      get_json("/integrations/traccar/routes?deviceId=#{@device_id}")
+      get_json("/integrations/traccar/bus?deviceId=#{@device_id}")
     end
 
     def start_trip(route)
-      response = post_json("/integrations/traccar/trips/start", deviceId: @device_id, routeId: route["id"])
+      response = post_json("/integrations/traccar/trips/start", deviceId: @device_id)
       raise "운행 시작 실패: #{response}" unless response["trip"]
 
       @out.puts "운행 시작: #{route["name"]} (운행 ##{response["trip"]["id"]})"
@@ -61,7 +56,7 @@ module Demo
 
     def end_trip
       response = post_json("/integrations/traccar/trips/end", deviceId: @device_id)
-      @out.puts "운행 종료#{response["warning"] ? " (경고: #{response["warning"]})" : ""}"
+      @out.puts "운행 종료" if response["ended"]
     end
 
     # 첫 정류장 100m 앞에서 출발해 정류장을 차례로 지나고, 마지막 정류장을 80m 지나쳐 끝난다.

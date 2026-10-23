@@ -64,18 +64,35 @@
   <% end %>
 </div>
 
-<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl space-y-3 mt-6">
-  <h2 class="text-sm font-semibold text-gray-900">운행 중인 버스</h2>
-  <% if @active_trips.empty? %>
-    <p class="text-sm text-gray-400">이 노선으로 운행 중인 버스가 없습니다.</p>
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl space-y-4 mt-6">
+  <h2 class="text-sm font-semibold text-gray-900">배정 차량</h2>
+
+  <% if @buses.empty? %>
+    <p class="text-sm text-gray-400">이 노선에 배정된 차량이 없습니다.</p>
   <% else %>
     <ul class="divide-y divide-gray-100">
-      <% @active_trips.each do |trip| %>
-        <li class="flex items-center justify-between py-2 text-sm">
-          <%= link_to trip.bus.license_plate, admin_bus_path(trip.bus), class: "font-medium text-indigo-600 hover:underline" %>
-          <span class="text-gray-400"><%= trip.started_at.in_time_zone.strftime("%m-%d %H:%M") %> 시작</span>
+      <% @buses.each do |bus| %>
+        <li class="flex items-center justify-between py-2">
+          <div class="flex items-center gap-3">
+            <%= link_to bus.license_plate, admin_bus_path(bus), class: "font-medium text-sm text-indigo-600 hover:underline" %>
+            <% if (trip = bus.active_trip) %>
+              <span class="text-xs text-green-600">운행 중 (<%= trip.started_at.in_time_zone.strftime("%m-%d %H:%M") %> 시작)</span>
+            <% end %>
+          </div>
+          <%= button_to "배정 해제", admin_route_bus_assignment_path(@route, bus), method: :delete,
+                form: { data: { turbo_confirm: "배정을 해제하시겠습니까?" }, class: "inline" },
+                class: "text-red-500 hover:text-red-700 text-sm" %>
         </li>
       <% end %>
     </ul>
+  <% end %>
+
+  <% if @candidate_buses.any? %>
+    <%= form_with url: admin_route_bus_assignments_path(@route), method: :post, class: "flex items-center gap-3 pt-3 border-t border-gray-100" do |f| %>
+      <%= f.collection_select :bus_id, @candidate_buses, :id, :assignment_label, { prompt: "차량 선택" },
+            class: "flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+      <%= f.submit "배정", class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 cursor-pointer" %>
+    <% end %>
+    <p class="text-xs text-gray-400">다른 노선에 배정된 차량을 고르면 그 노선에서 이 노선으로 옮겨집니다. 운행 중인 차량은 배정을 바꿀 수 없습니다.</p>
   <% end %>
 </div>

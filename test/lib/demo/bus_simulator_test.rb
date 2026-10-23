@@ -11,16 +11,16 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
 
   setup do
     @positions = []
-    stub_request(:get, %r{#{RAILS}/integrations/traccar/routes})
-      .to_return(body: { busNumber: "1", activeTrip: nil, routes: [ { id: 1, name: "시험 노선", stops: STOPS } ] }.to_json)
+    stub_request(:get, %r{#{RAILS}/integrations/traccar/bus})
+      .to_return(body: { busNumber: "1", activeTrip: nil, route: { id: 1, name: "시험 노선", stops: STOPS } }.to_json)
     @start = stub_request(:post, "#{RAILS}/integrations/traccar/trips/start").to_return(body: { trip: { id: 9 } }.to_json)
     @finish = stub_request(:post, "#{RAILS}/integrations/traccar/trips/end").to_return(body: { ended: true }.to_json)
     stub_request(:get, %r{#{OSMAND}/\?}).with { |req| @positions << URI.decode_www_form(req.uri.query).to_h && true }
                                          .to_return(status: 200)
   end
 
-  def simulate(route_name: "시험 노선")
-    Demo::BusSimulator.new(device_id: "dev1", route_name: route_name, rails_url: RAILS, osmand_url: OSMAND,
+  def simulate
+    Demo::BusSimulator.new(device_id: "dev1", rails_url: RAILS, osmand_url: OSMAND,
                            interval: 0.001, dwell: 0.002, settle: 0, out: StringIO.new).run
   end
 
@@ -86,19 +86,27 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
   end
 
   test "ends a leftover trip before starting a new one" do
-    stub_request(:get, %r{#{RAILS}/integrations/traccar/routes})
-      .to_return(body: { busNumber: "1", activeTrip: { id: 3 }, routes: [ { id: 1, name: "시험 노선", stops: STOPS } ] }.to_json)
+    stub_request(:get, %r{#{RAILS}/integrations/traccar/bus})
+      .to_return(body: { busNumber: "1", activeTrip: { id: 3 }, route: { id: 1, name: "시험 노선", stops: STOPS } }.to_json)
 
     simulate
 
     assert_requested @finish, times: 2
   end
 
-  test "reports the available routes when the requested one does not exist" do
-    error = assert_raises(ArgumentError) { simulate(route_name: "없는 노선") }
+  test "refuses to drive when the bus has no assigned route" do
+    stub_request(:get, %r{#{RAILS}/integrations/traccar/bus})
+      .to_return(body: { busNumber: "1", activeTrip: nil, route: nil }.to_json)
 
-    assert_match(/없는 노선/, error.message)
-    assert_match(/시험 노선/, error.message)
+    error = assert_raises(ArgumentError) { simulate }
+
+    assert_match(/배정된 노선이 없습니다/, error.message)
     assert_not_requested :post, "#{RAILS}/integrations/traccar/trips/start"
+  end
+
+  test "starts the trip without sending a route — the server uses the assigned one" do
+    simulate
+
+    assert_requested :post, "#{RAILS}/integrations/traccar/trips/start", body: { "deviceId" => "dev1" }
   end
 end

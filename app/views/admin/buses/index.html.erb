@@ -12,6 +12,7 @@
       <tr>
         <th class="px-5 py-3 font-medium">번호판</th>
         <th class="px-5 py-3 font-medium w-24">번호</th>
+        <th class="px-5 py-3 font-medium">배정 노선</th>
         <th class="px-5 py-3 font-medium">운행</th>
         <th class="px-5 py-3 font-medium w-28">앱 등록</th>
         <th class="px-5 py-3 font-medium w-28">Traccar</th>
@@ -25,9 +26,16 @@
             <%= link_to bus.license_plate, admin_bus_path(bus), class: "text-indigo-600 hover:underline" %>
           </td>
           <td class="px-5 py-3 text-gray-500"><%= bus.bus_number.presence || "—" %></td>
+          <td class="px-5 py-3 text-gray-600">
+            <% if bus.route %>
+              <%= link_to bus.route.name, admin_route_path(bus.route), class: "hover:underline" %>
+            <% else %>
+              <span class="text-amber-600">미배정</span>
+            <% end %>
+          </td>
           <td class="px-5 py-3">
             <% if bus.active_trip %>
-              <span class="text-green-600"><%= bus.active_trip.route.name %> 운행 중</span>
+              <span class="text-green-600">운행 중</span>
             <% else %>
               <span class="text-gray-400">운행 안 함</span>
             <% end %>
@@ -43,7 +51,7 @@
         </tr>
       <% end %>
       <% if @buses.empty? %>
-        <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">등록된 차량이 없습니다.</td></tr>
+        <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">등록된 차량이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

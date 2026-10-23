@@ -43,4 +43,27 @@ class BusTest < ActiveSupport::TestCase
     assert_not bus.destroy
     assert bus.errors.of_kind?(:base, :"restrict_dependent_destroy.has_many")
   end
+
+  test "belongs to at most one route and may have none" do
+    assert_equal routes(:one), buses(:one).route
+    assert Bus.new(license_plate: "A", route: nil).valid?
+  end
+
+  test "the route cannot change while a trip is running" do
+    bus = buses(:one)
+
+    assert_not bus.update(route: routes(:two))
+    assert_includes bus.errors[:route], "은 운행 중에는 바꿀 수 없습니다"
+  end
+
+  test "the route can change once the trip has ended" do
+    trips(:active_one).finish!
+
+    assert buses(:one).reload.update(route: routes(:two))
+  end
+
+  test "assignment_label shows where the bus is assigned" do
+    assert_equal "경남70가5678 (현재: 2번 노선)", buses(:two).assignment_label
+    assert_equal "A (미배정)", Bus.new(license_plate: "A").assignment_label
+  end
 end

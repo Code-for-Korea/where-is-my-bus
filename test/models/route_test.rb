@@ -29,4 +29,12 @@ class RouteTest < ActiveSupport::TestCase
     assert_not routes(:one).destroy
     assert Route.exists?(routes(:one).id)
   end
+
+  test "cannot be destroyed while buses are assigned to it" do
+    route = Route.create!(name: "임시 노선")
+    Bus.create!(license_plate: "경남70가0003", route: route)
+
+    assert_not route.destroy
+    assert_includes route.errors[:base].join, "배정된 차량"
+  end
 end

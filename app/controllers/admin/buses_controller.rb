@@ -3,7 +3,7 @@ module Admin
     before_action :set_bus, only: %i[show edit update destroy regenerate_pin sync_device]
 
     def index
-      @buses = Bus.ordered.includes(active_trip: :route)
+      @buses = Bus.ordered.includes(:route, :active_trip)
     end
 
     def show
@@ -63,7 +63,7 @@ module Admin
     end
 
     def bus_params
-      params.require(:bus).permit(:license_plate, :bus_number)
+      params.require(:bus).permit(:license_plate, :bus_number, :route_id)
     end
   end
 end

@@ -21,9 +21,10 @@ ROUTES = {
   "2번 노선" => %w[고성터미널 고성병원 고성군청 고성보건소]
 }.freeze
 
+# 차량마다 노선 하나를 배정한다. 운전자는 운행을 시작할 때 노선을 고르지 않고 이 노선으로 운행한다.
 BUSES = [
-  { license_plate: "경남70가1001", bus_number: "1번" },
-  { license_plate: "경남70가1002", bus_number: "2번" }
+  { license_plate: "경남70가1001", bus_number: "1번", route: "1번 노선" },
+  { license_plate: "경남70가1002", bus_number: "2번", route: "2번 노선" }
 ].freeze
 
 # 등록 서비스를 실행하고, Traccar 연동 실패(아직 기동 중일 수 있음)는 잠시 후 다시 시도한다.
@@ -65,7 +66,15 @@ end
 
 puts "== 차량"
 buses = BUSES.map do |attrs|
-  Bus.find_by(license_plate: attrs[:license_plate]) || provision!("차량 #{attrs[:license_plate]}") { BusRegistration.create(attrs) }
+  route = Route.find_by!(name: attrs[:route])
+  bus = Bus.find_by(license_plate: attrs[:license_plate])
+  if bus.nil?
+    provision!("차량 #{attrs[:license_plate]}") { BusRegistration.create(attrs.slice(:license_plate, :bus_number).merge(route_id: route.id)) }
+  elsif bus.route_id != route.id
+    provision!("차량 #{attrs[:license_plate]} 노선 배정") { BusRegistration.update(bus, route_id: route.id) }
+  else
+    bus
+  end
 end
 
 puts <<~SUMMARY
@@ -74,7 +83,7 @@ puts <<~SUMMARY
     관리자 로그인  #{OPERATOR_EMAIL} / #{OPERATOR_PASSWORD}   (http://localhost:3000/admin)
     승객 화면      http://localhost:3000
   차량:
-  #{buses.map { |bus| "  #{bus.license_plate} (#{bus.bus_number})  PIN #{bus.pin}  deviceId #{bus.traccar_unique_id}" }.join("\n")}
+  #{buses.map { |bus| "  #{bus.license_plate} (#{bus.bus_number}) → #{bus.route.name}  PIN #{bus.pin}  deviceId #{bus.traccar_unique_id}" }.join("\n")}
 
-  운행 시뮬레이션:  docker compose exec rails bin/rails "demo:drive[1번,1번 노선]"
+  운행 시뮬레이션:  docker compose exec rails bin/rails "demo:drive[1번]"
 SUMMARY

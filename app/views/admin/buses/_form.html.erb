@@ -13,6 +13,13 @@
           class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
   </div>
 
+  <div>
+    <%= f.label :route_id, "배정 노선", class: "block text-sm font-medium text-gray-700 mb-1" %>
+    <%= f.collection_select :route_id, Route.ordered, :id, :name, { include_blank: "배정 안 함" },
+          class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+    <p class="mt-1 text-xs text-gray-400">운전자가 운행을 시작하면 이 노선으로 운행합니다. 운행 중에는 노선을 바꿀 수 없습니다.</p>
+  </div>
+
   <% if bus.new_record? %>
     <p class="text-xs text-gray-400">저장하면 운전자 앱 등록용 PIN과 단말 식별자가 자동으로 만들어지고, Traccar 서버에 device가 함께 생성됩니다.</p>
   <% end %>

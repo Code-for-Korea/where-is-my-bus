@@ -27,27 +27,32 @@ module Integrations
       return render json: { error: "pin_already_used" }, status: :conflict if consumed.zero?
 
       Rails.cache.delete(register_rate_limit_key)
-      render json: { traccarServerUrl: traccar_server_url, deviceId: bus.traccar_unique_id }
+      render json: { traccarServerUrl: traccar_server_url, deviceId: bus.traccar_unique_id }.merge(bus_summary(bus))
     end
 
-    # GET /integrations/traccar/routes?deviceId=...
-    # 운행 시작 화면용: 버스 번호, 진행 중인 운행(있으면), 선택 가능한 전체 노선과 정류장.
-    def routes
+    # GET /integrations/traccar/bus?deviceId=...
+    # 앱 메인 화면용: 이 차량의 번호, 관리자가 배정한 노선(정류장 포함), 진행 중인 운행(있으면).
+    def bus
       bus = Bus.find_by(traccar_unique_id: params[:deviceId].to_s)
       return render json: { error: "unknown_device" }, status: :not_found if bus.nil?
 
-      routes = Route.ordered.includes(route_stops: :stop)
-      render json: {
-        busNumber: bus.bus_number.to_s.delete("번"),
-        activeTrip: TripSerializer.call(bus.active_trip),
-        routes: routes.map do |route|
-          { id: route.id, name: route.name,
-            stops: route.route_stops.map { |rs| { name: rs.stop.name, lat: rs.stop.lat.to_f, lng: rs.stop.lng.to_f } } }
-        end
-      }
+      render json: bus_summary(bus).merge(activeTrip: TripSerializer.call(bus.active_trip))
     end
 
     private
+
+    # 배정된 노선이 없으면 route는 null이다 — 앱은 "배정된 노선이 없습니다"를 안내한다.
+    def bus_summary(bus)
+      route = bus.route
+      {
+        busNumber: bus.bus_number.to_s.delete("번"),
+        licensePlate: bus.license_plate,
+        route: route && {
+          id: route.id, name: route.name,
+          stops: route.route_stops.includes(:stop).map { |rs| { name: rs.stop.name, lat: rs.stop.lat.to_f, lng: rs.stop.lng.to_f } }
+        }
+      }
+    end
 
     # 운전자 앱이 위치를 직접 전송할 Traccar 서버(OsmAnd 수신) 주소. 환경변수가 credentials보다 우선한다.
     # 로컬 기본값은 localhost — 같은 Wi-Fi의 실제 폰으로 시험하려면 TRACCAR_SERVER_URL을 PC의 LAN 주소로 지정한다.

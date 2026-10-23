@@ -38,28 +38,56 @@ class Integrations::TraccarControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
-  test "routes lists every route with its stops in order, and the running trip" do
-    get integrations_traccar_routes_path, params: { deviceId: buses(:one).traccar_unique_id }
+  test "register also returns the assigned route so the app can show it" do
+    post integrations_traccar_register_path, params: { pin: buses(:one).pin }
+
+    body = response.parsed_body
+    assert_equal "1", body["busNumber"]
+    assert_equal "경남70가1234", body["licensePlate"]
+    assert_equal "1번 노선", body.dig("route", "name")
+    assert_equal %w[고성터미널 고성시장 고성병원], body.dig("route", "stops").map { |s| s["name"] }
+  end
+
+  test "register reports a null route for a bus that has no assignment yet" do
+    buses(:one).update_columns(route_id: nil)
+
+    post integrations_traccar_register_path, params: { pin: buses(:one).pin }
+
+    assert_response :ok
+    assert_nil response.parsed_body["route"]
+  end
+
+  test "bus returns the assigned route with its stops in order, and the running trip" do
+    get integrations_traccar_bus_path, params: { deviceId: buses(:one).traccar_unique_id }
 
     assert_response :ok
     body = response.parsed_body
     assert_equal "1", body["busNumber"]
+    assert_equal routes(:one).id, body.dig("route", "id")
+    assert_equal %w[고성터미널 고성시장 고성병원], body.dig("route", "stops").map { |s| s["name"] }
+    assert_in_delta 34.9731, body.dig("route", "stops").first["lat"], 1e-6
     assert_equal trips(:active_one).id, body.dig("activeTrip", "id")
-    assert_equal routes(:one).id, body.dig("activeTrip", "routeId")
-    assert_equal [ "1번 노선", "2번 노선" ], body["routes"].map { |r| r["name"] }
-    assert_equal %w[고성터미널 고성시장 고성병원], body["routes"].first["stops"].map { |s| s["name"] }
-    assert_in_delta 34.9731, body["routes"].first["stops"].first["lat"], 1e-6
   end
 
-  test "routes reports no active trip for a bus that is not running" do
-    get integrations_traccar_routes_path, params: { deviceId: buses(:two).traccar_unique_id }
+  test "bus reports no active trip for a bus that is not running" do
+    get integrations_traccar_bus_path, params: { deviceId: buses(:two).traccar_unique_id }
 
     assert_response :ok
     assert_nil response.parsed_body["activeTrip"]
+    assert_equal "2번 노선", response.parsed_body.dig("route", "name")
   end
 
-  test "routes returns 404 for an unknown device" do
-    get integrations_traccar_routes_path, params: { deviceId: "nobody" }
+  test "bus returns a null route when nothing is assigned" do
+    buses(:two).update_columns(route_id: nil)
+
+    get integrations_traccar_bus_path, params: { deviceId: buses(:two).traccar_unique_id }
+
+    assert_response :ok
+    assert_nil response.parsed_body["route"]
+  end
+
+  test "bus returns 404 for an unknown device" do
+    get integrations_traccar_bus_path, params: { deviceId: "nobody" }
 
     assert_response :not_found
     assert_equal "unknown_device", response.parsed_body["error"]

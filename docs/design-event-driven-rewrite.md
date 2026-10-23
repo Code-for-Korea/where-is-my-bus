@@ -10,13 +10,14 @@
 
 | 항목 | 결정 |
 |---|---|
-| 제거 | 시·도/운행지역 계층, 좋아요, 다국어, `PinCode`, `gps_logs`, 노선-버스 배차(`route_buses`), ETA 계산 |
+| 제거 | 시·도/운행지역 계층, 좋아요, 다국어, `PinCode`, `gps_logs`, 노선-버스 N:N 배차(`route_buses`), ETA 계산 |
 | 마이그레이션 | 기존 것을 모두 지우고 새 초기 스키마로 시작 |
 | 정류장 | 물리적 정류장 1개를 여러 노선이 공유할 수 있음 |
-| 운행 | 운전자가 앱에서 노선을 골라 시작·종료. 버스당 진행 중인 운행은 DB 제약으로 하나 |
+| 차량-노선 | **관리자가 차량 하나에 노선 하나를 배정**한다 (`buses.route_id`, 2026-10-24 합의). 운전자는 노선을 고르지 않고 배정된 노선으로 운행한다. 차량은 노선 하나에만 배정되며 다른 노선에 배정하면 옮겨진다. 운행 중에는 배정을 바꾸거나 풀 수 없다 |
+| 운행 | 운전자가 앱에서 시작·종료(노선은 배정된 것). 배정된 노선이 없으면 시작할 수 없다. 버스당 진행 중인 운행은 DB 제약으로 하나 |
 | 운전자 인증 | 지금의 PIN 등록 그대로 (운전자 계정 없음) |
-| Traccar 그룹 | 노선당 기기 그룹 1개. 운행 시작에 기기를 그 노선 그룹으로 이동, 종료에 해제 |
-| Traccar 실패 시 | 기존 정책대로 Rails 변경도 하지 않음 (운행 시작 실패). 단 **운행 종료는 예외**: Rails에서 먼저 닫고 Traccar 그룹 해제 실패는 로그만 남김 (남은 그룹 소속은 다음 운행 시작 때 덮어써지고, 그 사이 이벤트는 진행 중인 운행이 없어 무시됨) |
+| Traccar 그룹 | 노선당 기기 그룹 1개. **관리자가 차량을 노선에 배정할 때** 기기를 그 노선 그룹으로 옮기고, 배정을 풀면 그룹에서 뺀다. 운행 시작·종료는 Traccar를 부르지 않는다 |
+| Traccar 실패 시 | 관리자의 등록·수정·삭제·배정은 Traccar 반영이 실패하면 Rails 변경도 취소(완전 롤백). **운전자의 운행 시작·종료는 Traccar와 무관**하므로 Traccar 장애에도 동작한다 (개선점 9·10번 해소) |
 | 운행 시작·종료 API 인증 | `deviceId`로 식별 (지금 방식 유지). 등록 시 별도 토큰 발급은 후속 과제 |
 | 관리자 역할 | 기존 `operator`/`member` 구분 유지 (관리자 화면은 `operator`만) |
 | `driver_app` | **이번 버전에서는 수정하지 않는다.** 서버 API는 앱이 쓸 수 있게 준비돼 있고(4절), 시뮬레이터가 앱의 역할을 대신한다. 앱 수정은 `docs/future-improvements.md` 21번 |
@@ -35,6 +36,7 @@
 erDiagram
     routes ||--o{ route_stops : "route_id"
     stops  ||--o{ route_stops : "stop_id"
+    routes ||--o{ buses : "route_id (배정)"
     buses  ||--o{ trips : "bus_id"
     routes ||--o{ trips : "route_id"
     trips  ||--o{ stop_visits : "trip_id"
@@ -69,6 +71,7 @@ erDiagram
         integer id PK "버스 ID"
         string license_plate UK "차량 번호판"
         string bus_number "표시용 번호"
+        integer route_id FK "배정된 노선 (nil이면 미배정)"
         string pin UK "운전자 앱 등록용 PIN"
         datetime pin_registered_at "PIN 사용 시각"
         string traccar_unique_id UK "Traccar 기기 고유 ID"
@@ -138,15 +141,16 @@ erDiagram
 1. 노선 생성 → Traccar 기기 그룹 생성 → `routes.traccar_group_id` 저장.
 2. 정류장 생성 → Traccar Geofence 생성(정류장 중심 30m 정사각형, 기존 서비스) → `stops.traccar_geofence_id` 저장.
 3. 노선에 정류장 추가·제거(`route_stops`) → 그 Geofence를 노선 그룹에 연결·해제. 한 정류장이 여러 노선에 속하면 Geofence 하나를 여러 그룹에 연결한다.
-4. 버스 생성 → `traccar_unique_id`·PIN 자동 발급 → Traccar 기기 생성 → `traccar_device_id` 저장.
-5. 위 변경은 모두 Traccar 호출이 실패하면 Rails도 롤백한다 (기존 정책).
+4. 버스 생성 → `traccar_unique_id`·PIN 자동 발급 → Traccar 기기 생성 → `traccar_device_id` 저장. 노선을 함께 배정하면 기기를 그 노선 그룹으로 옮긴다.
+5. 차량에 노선 배정·변경·해제(노선 화면 또는 차량 화면) → Traccar 기기를 새 노선 그룹으로 옮기거나 그룹에서 뺀다. 운행 중인 차량은 거부한다.
+6. 위 변경은 모두 Traccar 호출이 실패하면 Rails도 롤백한다 (기존 정책).
 
 ### 운전자 (driver_app) — 앱 화면 수정은 이번 범위 밖이며 시뮬레이터가 같은 호출을 대신한다
 
-1. 최초 1회: PIN 등록 → `traccarServerUrl`, `deviceId` 수신 (기존 API 유지).
-2. 운행 시작: 전체 노선 목록 조회 → 노선 선택 → 시작 요청. Rails는 한 트랜잭션에서 운행을 만들고 Traccar 기기를 해당 노선 그룹으로 옮긴다. 실패하면 둘 다 취소한다.
-3. 운행 중: `traccar_client_sdk`가 Traccar로 GPS를 전송 (기존 방식).
-4. 운행 종료: 운행을 먼저 닫고 기기를 그룹에서 뺀다. 그룹 해제가 실패해도 종료는 성공으로 처리하고 로그만 남긴다.
+1. 최초 1회: PIN 등록 → `traccarServerUrl`, `deviceId`와 **배정된 노선**(없으면 `null`) 수신.
+2. 운행 시작: 시작 요청 → Rails가 차량에 배정된 노선으로 운행을 만든다. 노선을 고르지 않으며, 배정된 노선이 없으면 `422`. Traccar를 부르지 않는다.
+3. 운행 중: `traccar_client_sdk`가 Traccar로 GPS를 전송 (기존 방식). 기기는 배정 때 이미 그 노선의 그룹에 들어 있다.
+4. 운행 종료: 운행을 닫고 열린 방문 기록도 종료 시각으로 닫는다. Traccar를 부르지 않는다.
 
 ### 이벤트 수신
 
@@ -170,13 +174,13 @@ erDiagram
 
 | 메서드·경로 | 호출자 | 요청 | 응답 |
 |---|---|---|---|
-| `POST /integrations/traccar/register` | 앱 (최초 1회) | `pin` | `200 { traccarServerUrl, deviceId }`. 잘못된 PIN `401`, 사용된 PIN `409`, 시도 초과 `429` |
-| `GET /integrations/traccar/routes` | 앱 (운행 시작 화면) | `deviceId` | `200 { busNumber, activeTrip, routes: [{ id, name, stops: [{ name, lat, lng }] }] }`. `activeTrip`은 진행 중인 운행이 없으면 `null`. 알 수 없는 기기 `404` |
-| `POST /integrations/traccar/trips/start` | 앱 | `deviceId`, `routeId` | `200 { trip: { id, routeId, routeName, startedAt } }`. 같은 노선으로 이미 운행 중이면 같은 응답(멱등). 다른 노선으로 운행 중이면 `409 { error: "trip_already_active", trip }`. Traccar 실패 `502 { error: "traccar_unavailable" }`(운행은 만들어지지 않음). 알 수 없는 노선·기기 `404` |
-| `POST /integrations/traccar/trips/end` | 앱 | `deviceId` | `200 { ended: true\|false, warning? }`. 진행 중인 운행이 없어도 `200`(멱등). Traccar 그룹 해제가 실패하면 `warning: "group_clear_failed"` |
+| `POST /integrations/traccar/register` | 앱 (최초 1회) | `pin` | `200 { traccarServerUrl, deviceId, busNumber, licensePlate, route }`. `route`는 배정된 노선 `{ id, name, stops: [{ name, lat, lng }] }`이고 미배정이면 `null`. 잘못된 PIN `401`, 사용된 PIN `409`, 시도 초과 `429` |
+| `GET /integrations/traccar/bus` | 앱 (메인 화면) | `deviceId` | `200 { busNumber, licensePlate, route, activeTrip }`. `activeTrip`은 진행 중인 운행이 없으면 `null`. 알 수 없는 기기 `404` |
+| `POST /integrations/traccar/trips/start` | 앱 | `deviceId` | `200 { trip: { id, routeId, routeName, startedAt } }`. 이미 운행 중이면 같은 응답(멱등). 배정된 노선이 없으면 `422 { error: "no_route_assigned" }`. 알 수 없는 기기 `404`. 노선은 서버가 정하므로 `routeId`를 보내도 무시한다 |
+| `POST /integrations/traccar/trips/end` | 앱 | `deviceId` | `200 { ended: true\|false }`. 진행 중인 운행이 없어도 `200`(멱등) |
 | `POST /integrations/traccar/events` | Traccar 서버 | Traccar 이벤트 JSON (`X-Ingest-Token`) | `200 { status: "recorded"\|"ignored", reason? }`. 토큰 오류 `401` |
 
-기존 `POST /integrations/traccar/positions`(위치 수신)는 제거했다. 앱의 GPS는 Traccar로 직접 전송되고 Rails는 좌표를 저장하지 않는다. `routes` 응답에서 `nextStop`(ETA)이 사라진 것이 앱에 대한 변경점이다.
+기존 `POST /integrations/traccar/positions`(위치 수신)는 제거했다. 앱의 GPS는 Traccar로 직접 전송되고 Rails는 좌표를 저장하지 않는다. 앱에 대한 변경점: 옛 `routes`(전체 노선 목록, `nextStop`)는 `bus`(이 차량의 배정 노선)로 바뀌었고, 운행 시작에서 노선 선택이 사라졌다.
 
 ## 5. Docker 구성
 
@@ -189,7 +193,7 @@ erDiagram
   - `web.serviceAccountToken`으로 Rails용 API 토큰 지정(별도 계정 생성 단계 생략).
 - Rails → Traccar API는 `http://traccar:8082` 사용. 접속 정보는 환경변수로 받는다.
 - 기존 운영용 `Dockerfile`은 건드리지 않고 개발용 설정을 별도 파일로 둔다.
-- 시뮬레이터: 스크립트가 지정한 버스 ID로 Traccar 5055 포트에 정류장 좌표를 순서대로 보내 운행을 재현한다. 운행 시작·종료는 같은 스크립트가 API로 호출한다.
+- 시뮬레이터: 스크립트가 지정한 버스(`demo:drive[1번]`)의 배정 노선 정류장 좌표를 Traccar 5055 포트로 순서대로 보내 운행을 재현한다. 운행 시작·종료는 같은 스크립트가 API로 호출한다.
 - 시드: 노선 1~2개, 정류장 5~6개(한 정류장은 두 노선 공유), 버스 2대, `operator` 계정 1개.
 
 ## 6. Traccar 동작 검증 결과
@@ -232,7 +236,7 @@ erDiagram
 1. 새 스키마와 모델 (기존 마이그레이션·모델·불필요한 컨트롤러와 화면 제거).
 2. Traccar 동기화 서비스 수정 (그룹 이동 추가, 배차 연동 제거).
 3. 이벤트 수신 엔드포인트와 방문 기록 (미검증 가정 1 확인 포함).
-4. 운행 시작·종료 API.
+4. 운행 시작·종료 API (이후 차량-노선 고정 배정으로 변경: 노선 선택 제거, 배정 때 Traccar 그룹 이동).
 5. 관리자 화면 정리 (노선·정류장·노선별 정차·버스).
 6. 승객 화면.
 7. `docker-compose`, `traccar.xml`, 시드, 시뮬레이터 (미검증 가정 2~4 확인).

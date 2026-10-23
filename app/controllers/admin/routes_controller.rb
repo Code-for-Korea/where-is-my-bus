@@ -10,7 +10,8 @@ module Admin
       @route_stops = @route.route_stops.includes(:stop)
       @candidate_stops = Stop.where.not(id: @route.stop_ids).ordered
       @next_sequence = (@route_stops.map(&:sequence).max || 0) + 1
-      @active_trips = @route.trips.active.includes(:bus)
+      @buses = @route.buses.ordered.includes(:active_trip)
+      @candidate_buses = Bus.where.not(route_id: @route.id).or(Bus.where(route_id: nil)).ordered.includes(:route)
     end
 
     def new
