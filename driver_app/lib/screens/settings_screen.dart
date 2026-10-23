@@ -100,7 +100,7 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 2, 22, 14),
             child: Text(
-              '${AppStrings.locationValuesLabel} · ${AppStrings.fixedValuePill} HIGH · 30m · 30s',
+              '${AppStrings.locationValuesLabel} · ${AppStrings.fixedValuePill} HIGH · 15m · 10s',
               style: TextStyle(fontSize: 11, color: p.inkFaint),
             ),
           ),

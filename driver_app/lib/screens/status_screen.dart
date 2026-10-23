@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_colors.dart';
+import '../driver_registration.dart';
 import '../l10n/app_strings.dart';
 import '../tracking_controller.dart';
 import '../widgets/settings_row.dart';
@@ -45,8 +46,8 @@ class StatusScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _StatusCard(
-                      label: AppStrings.lastCoordLabel,
-                      value: tracking ? TrackingController.lastCoord : AppStrings.lastSentNever,
+                      label: AppStrings.routeLabel,
+                      value: DriverRegistration.routeName ?? AppStrings.lastSentNever,
                     ),
                   ),
                   const SizedBox(width: 10),
