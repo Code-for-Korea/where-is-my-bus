@@ -65,7 +65,10 @@ Rails DB와 Traccar DB는 **함께** 초기화해야 한다. 한쪽만 지우면
 TRACCAR_SERVER_URL=http://<PC의 LAN 주소>:5055 docker compose up -d
 ```
 
-앱의 `adminUrl`에는 `http://<PC의 LAN 주소>:3000`을 입력한다. (`driver_app` 화면은 아직 새 API에 맞춰 수정되지 않았다.)
+앱의 `adminUrl`에는 `http://<PC의 LAN 주소>:3000`을 입력한다.
+
+> **현재는 앱으로 운행을 시작할 수 없다.** `driver_app`이 새 운행 시작·종료 API를 아직 쓰지 않아서, 앱의 "운행 시작"은 서버에 운행을 만들지 않고 Geofence 이벤트도 기록되지 않는다.
+> 앱 수정은 `docs/future-improvements.md` 21번이다. 그때까지는 `demo:drive` 시뮬레이터로 시연한다.
 
 ## 문제 해결
 

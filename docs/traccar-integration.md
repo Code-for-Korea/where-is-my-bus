@@ -9,7 +9,7 @@ Rails가 그 이벤트를 받아 "버스가 어느 정류장에 있는가"를 �
 
 | 구성 요소 | 하는 일 |
 |---|---|
-| 운전자 앱 (`driver_app`) | PIN으로 기기 등록, 노선을 골라 운행 시작·종료, `traccar_client_sdk`로 GPS를 Traccar에 전송 |
+| 운전자 앱 (`driver_app`) | PIN으로 기기 등록, 노선을 골라 운행 시작·종료, `traccar_client_sdk`로 GPS를 Traccar에 전송. 새 API를 쓰도록 앱을 고치는 일은 아직 하지 않았다 (`docs/future-improvements.md` 21번) |
 | Traccar | 위치 수신, 기기가 속한 그룹의 Geofence 진입/이탈 판정, 이벤트를 Rails로 포워딩 |
 | Rails | 노선·정류장·차량 관리와 Traccar 자원 동기화, 운행 관리, 이벤트 → 방문 기록, 승객 화면 |
 
