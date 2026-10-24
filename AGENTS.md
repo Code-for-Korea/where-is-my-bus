@@ -143,7 +143,7 @@ bin/rubocop               # 스타일
 
 - Kamal (`config/deploy.yml`) — **현재 placeholder 상태**(서버 `192.168.0.1`, registry `localhost:5555`, service `web`). 실배포 전 주소 확정 필요.
 - `SOLID_QUEUE_IN_PUMA: true` — Solid Queue를 Puma 프로세스 안에서 구동(별도 worker 서버 없음).
-- `RAILS_MASTER_KEY`는 `.kamal/secrets`에서 주입. SQLite 파일은 Docker 볼륨으로 영속화.
+- `RAILS_MASTER_KEY`는 `.kamal/secrets`가 `config/credentials/production.key`에서 읽어 주입(운영 credentials는 `config/credentials/production.yml.enc`, 개발·테스트는 credentials 없이 `.env`). SQLite 파일은 Docker 볼륨으로 영속화.
 - GA4 Measurement ID `G-V5FQ7DHE99`는 production에서만 로드(`Rails.env.production?`).
 
 ## 알려진 함정·주의사항
