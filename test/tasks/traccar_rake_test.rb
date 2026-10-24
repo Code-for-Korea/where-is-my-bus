@@ -3,11 +3,14 @@ require "rake"
 
 class TraccarRakeTest < ActiveSupport::TestCase
   BASE_URL = "http://traccar.rake.test".freeze
+  SERVICES = [ TraccarGroupSync, TraccarGeofenceSync, TraccarDeviceSync, TraccarGroupMembership ].freeze
 
   setup do
     Rails.application.load_tasks unless Rake::Task.task_defined?("traccar:sync")
     @original_config = Rails.configuration.x.traccar
     Rails.configuration.x.traccar = ActiveSupport::OrderedOptions.new.merge!(api_base_url: BASE_URL, api_email: "a@test.com", api_password: "pw")
+    # 다른 서비스 테스트가 stub_credentials 로 클래스에 남긴 접속 정보가 설정보다 우선하므로 이 테스트의 주소로 맞춘다.
+    SERVICES.each { |service| service.stub_credentials(base_url: BASE_URL, email: "a@test.com", password: "pw") }
 
     # 생성 응답은 id가 필요하고, 수정·연결 응답은 본문을 보지 않으므로 하나의 응답으로 충분하다.
     @next_id = 100
