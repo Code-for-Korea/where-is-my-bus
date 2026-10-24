@@ -7,6 +7,14 @@ fi
 
 # Default to port 3000 if not specified
 export PORT="${PORT:-3000}"
+# foreman 프로세스마다 PORT 를 다르게 사용(web 3000, css 3100, ...) Rails 포트 전달한다(bin/traccar 사용)
+export RAILS_PORT="$PORT"
+
+# 로컬 Traccar(Procfile.dev 의 traccar 프로세스)는 Docker 컨테이너에서 호스트 Rails 로 위치 정보를 포워딩합니다.
+# 도커 컨테이너에서 접근할 수 있게 모든 인터페이스에 바인딩합니다. Traccar 를 쓰지 않으면(TRACCAR=0) 기본 바인딩을 유지한다.
+if [ "${TRACCAR:-1}" != "0" ] && command -v docker >/dev/null 2>&1; then
+  export BINDING="${BINDING:-0.0.0.0}"
+fi
 
 # Let the debug gem allow remote connections,
 # but avoid loading until `debugger` is called

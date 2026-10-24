@@ -76,40 +76,43 @@ Traccar 연동(admin 동기화, 위치 포워딩, 운전자 앱 등록)을 내�
 ```
 
 ```bash
-bin/traccar up                          # Traccar 기동 + 관리자 계정 생성 + .env에 Rails용 환경변수 기록
-bin/dev                                 # Rails 실행 (foreman이 .env를 자동으로 읽는다)
+bin/dev                                              # Rails + Tailwind + 로컬 Traccar(Docker)를 함께 실행, 종료하면 Traccar도 정지
 # admin에서 지역·운행지역·노선·정류장·버스 등록 후 배차
 bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 전송
 ```
 
+`bin/dev`는 `Procfile.dev`의 `traccar` 프로세스(`bin/traccar dev`)로 Traccar를 띄웁니다. Docker를 쓸 수 없으면 경고만 하고 Rails는 그대로 실행되며, Traccar가 필요 없으면 `TRACCAR=0 bin/dev`로 건너뜁니다. 환경변수·`.env` 설정은 필요 없습니다(아래 기본값 참고).
+
 | 명령 | 설명 |
 |---|---|
-| `bin/traccar [up]` | 기동(이미 있으면 재시작). `traccar.xml`을 매번 새로 생성 |
+| `bin/traccar [up]` | Traccar만 따로 기동(이미 있으면 재시작). `traccar.xml`을 매번 새로 생성 |
 | `bin/traccar down` / `status` / `logs` | 정지·삭제(데이터 유지) / 상태 / 로그 |
 | `bin/traccar reset` | 컨테이너와 데이터 삭제 후 재기동 |
+| `bin/traccar dev` | `Procfile.dev`용 foreground 모드(기동 → 로그 → 종료 시 정지) |
 | `bin/traccar-bus` | 배차된 노선의 정류장 좌표를 따라 이동하며 :5055로 OsmAnd 요청 전송 (`--loop`, `--interval`, `--steps`, `--route "lat,lng;…"`) |
 
 | 항목 | 값 |
 |---|---|
-| Traccar 콘솔·API | <http://localhost:8082> (`admin@local.test` / `localbus`) |
+| Traccar 콘솔·API | <http://localhost:8082> (`admin@localbus.test` / `localbus`) |
 | 위치 수신(OsmAnd) | `http://localhost:5055` |
 | 포워딩 대상 | `http://host.docker.internal:3000/integrations/traccar/positions` (`X-Ingest-Token: dev-traccar-token`) |
 | 데이터 | `tmp/docker/volumes/traccar/` (내장 H2 파일 DB — SQLite 아님, git 제외) |
 | 이미지 | `traccar/traccar:6.14.4` — 내부 테스트 서버와 같은 버전(`TRACCAR_IMAGE`로 변경) |
 
-- `.env`의 `BINDING=0.0.0.0`(Rails를 모든 인터페이스에 바인딩)과 `RAILS_DEVELOPMENT_HOSTS=host.docker.internal`(Rails 호스트 차단 해제)이 없으면 Traccar → Rails 포워딩이 실패합니다(Traccar 로그 `forwarding failed ... 403`/연결 거부). `bin/dev`로 실행하면 자동으로 적용됩니다. `bin/rails runner`·`bin/rails console` 등은 `.env`를 읽지 않으므로 `set -a; source .env; set +a` 후 실행하세요. `.env`의 `# >>> bin/traccar` 구간만 `bin/traccar up`이 갱신하고 나머지 줄은 건드리지 않습니다. `.env`는 git에서 제외됩니다.
-- Rails가 읽는 값은 `TRACCAR_API_BASE_URL`/`TRACCAR_API_EMAIL`/`TRACCAR_API_PASSWORD`(admin 동기화), `TRACCAR_INGEST_TOKEN`(포워딩 인증), `TRACCAR_SERVER_URL`(운전자 앱 register 응답)입니다. **로컬(development/test)에서는 ENV만 읽고 Rails credentials는 무시**하므로 credentials에 외부 서버 값이 있어도 로컬 작업이 외부 서버를 건드리지 않습니다. 운영은 credentials → ENV 순서입니다(`app/services/traccar_settings.rb`).
-- 포워딩 포트는 `PORT`(기본 3000)를 따릅니다. Rails를 다른 포트로 띄우면 `PORT=3001 bin/traccar up`으로 다시 기동하세요.
-- 운전자 앱(`driver_app/`): 에뮬레이터는 호스트가 `10.0.2.2`이므로 `TRACCAR_SERVER_URL=http://10.0.2.2:5055`로 Rails를 띄우고 앱의 서버 주소도 `http://10.0.2.2:3000`을 씁니다. 실기기는 PC의 LAN IP를 씁니다. cleartext(http) 허용 설정은 `driver_app/ISSUE.md` 참고.
+- **Rails 설정은 개발 기본값으로 동작**합니다(`config/traccar.yml`, 환경별 규칙은 [`docs/traccar-integration.md`](docs/traccar-integration.md#traccar-설정-configtraccaryml)): `api_base_url` `http://localhost:8082`, 관리자 `admin@localbus.test`/`localbus`, `server_url` `http://localhost:5055`, `ingest_token` `dev-traccar-token`. `bin/traccar`와 같은 값이므로 한쪽을 바꾸면 둘 다 바꿉니다. 같은 이름의 ENV(`TRACCAR_API_BASE_URL`/`TRACCAR_API_EMAIL`/`TRACCAR_API_PASSWORD`/`TRACCAR_SERVER_URL`/`TRACCAR_INGEST_TOKEN`)로 덮어쓸 수 있습니다.
+- **로컬(development/test)은 Rails credentials를 읽지 않습니다.** 외부 서버 값이 credentials에 있어도 로컬 작업이 외부 서버를 건드리지 않습니다. 운영은 credentials → ENV 순서이고 기본값이 없습니다. test 환경에는 개발 기본값이 없어서 테스트가 로컬 Traccar에 접속하지 않습니다.
+- Traccar 컨테이너가 호스트의 Rails로 포워딩할 수 있도록 `bin/dev`가 Docker가 있을 때 `BINDING=0.0.0.0`으로 서버를 띄우고, `development.rb`가 `host.docker.internal` 호스트를 허용합니다. 이 때문에 개발 서버가 같은 네트워크에 열립니다. Traccar를 쓰지 않으면 `TRACCAR=0 bin/dev`로 기본 바인딩(로컬호스트)을 유지하세요.
+- 포워딩 포트는 `bin/dev`의 `PORT`(기본 3000)를 따릅니다(`RAILS_PORT`로 전달). `bin/traccar up`을 따로 쓸 때 Rails 포트가 다르면 `PORT=3001 bin/traccar up`으로 기동하세요.
+- 운전자 앱(`driver_app/`): 에뮬레이터는 호스트가 `10.0.2.2`이므로 `TRACCAR_SERVER_URL=http://10.0.2.2:5055 bin/dev`로 Rails를 띄우고 앱의 서버 주소도 `http://10.0.2.2:3000`을 씁니다. 실기기는 PC의 LAN IP를 씁니다. cleartext(http) 허용 설정은 `driver_app/ISSUE.md` 참고.
 - `bin/traccar reset`으로 Traccar 데이터를 지우면 Rails에 저장된 `traccar_group_id`/`traccar_geofence_id`/`traccar_device_id`가 어긋납니다. 로컬 DB도 함께 초기화(`bin/rails db:reset`)하세요.
 
 <details>
 <summary>문제 해결</summary>
 
 - `Docker 데몬에 연결할 수 없습니다` — Docker Desktop을 실행하거나 재시작하세요.
-- Traccar 로그(`bin/traccar logs`)에 `Position forwarding failed` — `403`은 호스트 차단(`RAILS_DEVELOPMENT_HOSTS`), `404`는 `forward.type` 설정 문제, 연결 거부는 `BINDING` 누락입니다.
-- 포워딩이 `401`(Rails 로그) — Traccar의 `X-Ingest-Token`과 Rails `TRACCAR_INGEST_TOKEN`이 다릅니다. `bin/traccar up`을 실행해 `.env`가 기록됐는지, Rails를 `bin/dev`로 띄웠는지 확인하세요.
-- admin에서 버스·노선 등록이 `422`(`CredentialsMissing`) — 로컬은 ENV만 읽습니다. `bin/traccar up`으로 `.env`를 만들고 Rails를 `bin/dev`로 실행했는지 확인하세요.
+- Traccar 로그(`bin/traccar logs`)에 `Position forwarding failed` — `403`은 호스트 차단(`config.hosts`의 `host.docker.internal`), `404`는 `forward.type` 설정 문제, 연결 거부는 Rails가 `0.0.0.0`에 바인딩되지 않았거나(`bin/dev`로 실행했는지, `TRACCAR=0`이 아닌지) 포워딩 포트가 다른 경우입니다.
+- 포워딩이 `401`(Rails 로그) — Traccar의 `X-Ingest-Token`과 Rails `TRACCAR_INGEST_TOKEN`이 다릅니다. `TRACCAR_INGEST_TOKEN` ENV를 따로 설정하지 않았는지 확인하세요.
+- admin에서 버스·노선 등록이 `422` — 로컬 Traccar가 떠 있는지(`bin/traccar status`), `TRACCAR_API_*` ENV를 따로 설정했다면 값이 맞는지 확인하세요.
 - 위치가 승객 화면에 안 나옴 — Traccar 콘솔 Devices에 버스의 `traccar_unique_id`가 있는지, 시뮬레이터의 `--device` 값이 같은지 확인하세요. seed 버스(`goseong-1-demo`)는 admin에서 단말 동기화를 해야 Traccar에 생깁니다.
 - 포트 충돌 — `bin/traccar`가 8082/5055를 쓰는 다른 컨테이너는 정지시킵니다. 컨테이너가 아닌 프로세스가 점유 중이면 `lsof -i :8082`로 확인하세요.
 - 로그 — `bin/traccar logs`, 또는 `tmp/docker/volumes/traccar/logs/`.
@@ -156,7 +159,7 @@ bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 
 - register PIN을 1회용으로 처리(유출돼도 같은 PIN으로 다른 기기가 추가 등록 불가) + 동시 요청 경쟁 상태 방지
 - admin 차량 등록 시 Traccar 연동 실패로 롤백되면 재시도가 막히던 버그 수정
 
-⚠️ **임시 설정 남아있음** — 내부 테스트 Traccar 서버(비공개 도메인)로 로컬 기본값이 임시 고정돼 있습니다. 실배포 서버 주소 확정되면 원복 필요 — 원복 대상 전체 목록은 [`driver_app/ISSUE.md`](driver_app/ISSUE.md) 상단 "임시 설정 (원복 필요)" 섹션 참고.
+⚠️ **임시 설정 남아있음** — 운전자 앱(Android)의 cleartext(HTTP) 허용이 내부 테스트 서버 도메인에만 걸려 있습니다. 실배포 서버 주소 확정되면 원복 필요 — 원복 대상은 [`driver_app/ISSUE.md`](driver_app/ISSUE.md) 상단 "임시 설정 (원복 필요)" 섹션 참고. (Rails의 `traccar_server_url` 개발 기본값은 로컬 Traccar(`http://localhost:5055`)로 바뀌어 더 이상 내부 서버에 고정돼 있지 않습니다.)
 
 ---
 

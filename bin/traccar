@@ -1,11 +1,13 @@
 #!/bin/bash
-# 로컬 개발용 Traccar 서버를 Docker로 띄운다(mix4의 bin/minio·bin/msdb 방식).
+# 로컬 개발용 Traccar 서버를 도커 컨네이터 사용합니다.
 #
-#   bin/traccar [up]   기동(이미 있으면 재시작) + 관리자 계정 보장 + Rails용 ENV 기록
+#   bin/traccar [up]   기동(이미 있으면 재시작)하고 관리자 계정 설정
 #   bin/traccar down   컨테이너 정지·삭제(데이터는 유지)
 #   bin/traccar status 컨테이너·API 상태
 #   bin/traccar logs   로그 follow
 #   bin/traccar reset  컨테이너·데이터 삭제 후 새로 기동
+#   bin/traccar dev    Procfile.dev 용(foreground): 기동 -> 로그 follow -> 종료 시 컨테이너 정지.
+#                      Docker 를 쓸 수 없거나 TRACCAR=0 이면 건너뛰고 대기(foreman 의 다른 프로세스 유지).
 #
 # 구조: 폰/시뮬레이터 -> :5055(OsmAnd) -> Traccar -> 포워딩 -> Rails /integrations/traccar/positions
 #       Rails(admin CRUD) -> :8082(REST API) -> Traccar
@@ -14,22 +16,21 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NAME="wimb-traccar"
-# 내부 테스트 서버(yehyunserver)와 같은 버전으로 고정한다. 바꾸려면 TRACCAR_IMAGE 로 지정.
 IMAGE="${TRACCAR_IMAGE:-traccar/traccar:6.14.4}"
 API_PORT=8082
 DEVICE_PORT=5055
-RAILS_PORT="${PORT:-3000}"
+RAILS_PORT="${RAILS_PORT:-${PORT:-3000}}"
 DATA_DIR="${ROOT}/tmp/docker/volumes/traccar"
-ENV_FILE="${ROOT}/.env"
 
-# 로컬 전용 값 — 비밀이 아니다(컨테이너는 localhost에만 열린다).
-ADMIN_EMAIL="${TRACCAR_API_EMAIL:-admin@local.test}"
+# 로컬 개발할 때 config/traccar.yml 같아야 합니다. 
+# TRACCAR_API_EMAIL 등 ENV 로 덮어쓰면 Rails 도 같은 ENV 를 사용하여야 합니다.
+ADMIN_EMAIL="${TRACCAR_API_EMAIL:-admin@localbus.test}"
 ADMIN_PASSWORD="${TRACCAR_API_PASSWORD:-localbus}"
-INGEST_TOKEN="${TRACCAR_INGEST_TOKEN:-dev-traccar-token}" # IntegrationsController 개발 기본값과 동일
+INGEST_TOKEN="${TRACCAR_INGEST_TOKEN:-dev-traccar-token}"
 
-# `docker info`는 데몬이 멈춰 있으면 무한 대기하므로 10초 안에 응답이 없으면 실패로 본다.
+# 10초 안에 응답이 없으면 실패.
 docker_ready() {
-  command -v docker >/dev/null 2>&1 || { echo "❌ docker 가 설치되어 있지 않습니다." >&2; return 1; }
+  command -v docker >/dev/null 2>&1 || { echo "docker is not installed" >&2; return 1; }
   docker info >/dev/null 2>&1 &
   local pid=$!
   for _ in $(seq 1 10); do
@@ -42,11 +43,10 @@ docker_ready() {
 
 require_docker() {
   docker_ready && return 0
-  echo "❌ Docker 데몬에 연결할 수 없습니다. Docker Desktop을 실행(또는 재시작)한 뒤 다시 시도하세요." >&2
+  echo "docker daemon is disconnected. run or restart docker desktop." >&2
   exit 1
 }
 
-# 포트를 점유한 다른 컨테이너는 정지한다(우리 컨테이너는 아래에서 재시작).
 stop_port_holders() {
   local id name
   for id in $(docker ps -q --filter "publish=${API_PORT}" --filter "publish=${DEVICE_PORT}"); do
@@ -59,8 +59,7 @@ stop_port_holders() {
 
 write_config() {
   mkdir -p "${DATA_DIR}/conf" "${DATA_DIR}/data" "${DATA_DIR}/logs"
-  # 이 파일은 매 기동마다 다시 생성한다(수동 편집 대상이 아니다). DB는 Traccar 내장 H2(파일).
-  # 최신 Traccar(6.x)는 forward.enable/forward.json 대신 forward.type=json 으로 JSON POST 포워딩을 켠다.
+  # 시작할 때 마다 이 파일을 새로 만듭니다. DB Traccar 내장 H2(파일).
   cat >"${DATA_DIR}/conf/traccar.xml" <<EOF
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
@@ -80,13 +79,12 @@ EOF
 }
 
 wait_for_api() {
-  # 컨테이너가 안 떴으면 영원히 기다리지 않고 끊는다.
   for _ in $(seq 1 90); do
     curl -fsS -o /dev/null "http://localhost:${API_PORT}/api/server" && return 0
     echo 'Wait traccar to startup...'
     sleep 1
   done
-  echo "❌ traccar(${API_PORT})가 90초 안에 뜨지 않았습니다. bin/traccar logs 를 확인하세요." >&2
+  echo "traccar(${API_PORT}) time over(90 seconds). check bin/traccar logs" >&2
   exit 1
 }
 
@@ -95,45 +93,20 @@ ensure_admin() {
   curl -sS -o /dev/null -X POST "http://localhost:${API_PORT}/api/users" \
     -H 'Content-Type: application/json' \
     -d "{\"name\":\"admin\",\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\"}" || true
-  # /api/server 는 인증 없이도 200 이라 인증이 필요한 /api/devices 로 계정을 확인한다.
+  # /api/server is always 200 OK. check if authentication with /api/devices 
   if curl -fsS -o /dev/null -u "${ADMIN_EMAIL}:${ADMIN_PASSWORD}" "http://localhost:${API_PORT}/api/devices"; then
     return 0
   fi
-  echo "⚠️  관리자 계정(${ADMIN_EMAIL})으로 로그인할 수 없습니다. 다른 계정으로 이미 초기화된 데이터일 수 있습니다." >&2
-  echo "   bin/traccar reset 으로 데이터를 지우거나, TRACCAR_API_EMAIL/TRACCAR_API_PASSWORD 를 기존 관리자 값으로 지정하세요." >&2
+  echo "(${ADMIN_EMAIL}) can not login." >&2
+  echo "   bin/traccar reset or set admin to TRACCAR_API_EMAIL/TRACCAR_API_PASSWORD" >&2
   return 1
 }
 
-# .env 에는 사용자의 다른 값이 있을 수 있어 통째로 덮어쓰지 않고, 아래 표식 사이 구간만 갱신한다.
-# bin/dev(foreman)가 .env 를 자동으로 읽어 Rails 에 전달한다.
-write_env() {
-  local begin="# >>> bin/traccar (자동 생성 구간 — bin/traccar up 이 갱신합니다)"
-  local end="# <<< bin/traccar"
-  local tmp="${ENV_FILE}.tmp"
-  touch "$ENV_FILE"
-  awk -v e="$end" 'index($0, "# >>> bin/traccar") == 1 { skip = 1 } !skip { print } $0 == e { skip = 0 }' "$ENV_FILE" >"$tmp"
-  cat >>"$tmp" <<EOF
-${begin}
-TRACCAR_API_BASE_URL=http://localhost:${API_PORT}
-TRACCAR_API_EMAIL=${ADMIN_EMAIL}
-TRACCAR_API_PASSWORD=${ADMIN_PASSWORD}
-TRACCAR_INGEST_TOKEN=${INGEST_TOKEN}
-TRACCAR_SERVER_URL=http://localhost:${DEVICE_PORT}
-# 컨테이너의 Traccar가 호스트의 Rails로 포워딩하려면 모든 인터페이스에 바인딩하고 호스트명을 허용해야 한다.
-BINDING=0.0.0.0
-RAILS_DEVELOPMENT_HOSTS=host.docker.internal
-${end}
-EOF
-  mv "$tmp" "$ENV_FILE"
-}
-
-print_env() {
-  write_env
+print_ready() {
   echo
-  echo "✅ Traccar 준비 완료  콘솔: http://localhost:${API_PORT}  (${ADMIN_EMAIL} / ${ADMIN_PASSWORD})"
-  echo "   Rails용 환경변수를 .env 에 기록했습니다. bin/dev 가 자동으로 읽습니다."
-  echo "   (bin/rails runner 등 직접 실행할 때는: set -a; source .env; set +a)"
-  echo "   (driver_app 에뮬레이터는 TRACCAR_SERVER_URL 호스트를 10.0.2.2 로 바꿉니다 — README 참고)"
+  echo "Traccar is ready.  console: http://localhost:${API_PORT}  (${ADMIN_EMAIL} / ${ADMIN_PASSWORD})"
+  echo "   Receive Position(OsmAnd): http://localhost:${DEVICE_PORT}  >  Fowarding: http://host.docker.internal:${RAILS_PORT}"
+  echo "   (driver_app: TRACCAR_SERVER_URL=http://10.0.2.2:${DEVICE_PORT})"
 }
 
 cmd_up() {
@@ -158,7 +131,7 @@ cmd_up() {
 
   wait_for_api
   ensure_admin
-  print_env
+  print_ready
 }
 
 cmd_down() {
@@ -172,7 +145,7 @@ cmd_status() {
   if curl -fsS -o /dev/null "http://localhost:${API_PORT}/api/server"; then
     echo "api: http://localhost:${API_PORT} OK"
   else
-    echo "api: http://localhost:${API_PORT} 응답 없음"
+    echo "api: http://localhost:${API_PORT} no response"
   fi
 }
 
@@ -185,8 +158,24 @@ cmd_reset() {
   require_docker
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   rm -rf "${DATA_DIR}"
-  echo "Traccar 데이터(${DATA_DIR})를 삭제했습니다. Rails의 traccar_*_id 도 어긋나므로 필요하면 db:reset 하세요."
+  echo "Traccar data(${DATA_DIR}) : deleted. db:reset if needed."
   cmd_up
+}
+
+idle() {
+  echo "$1"
+  exec tail -f /dev/null
+}
+
+cmd_dev() {
+  [[ "${TRACCAR:-1}" == "0" ]] && idle "TRACCAR=0 skip to boot local Traccar"
+  docker_ready || idle "  Docker was failed to skip boot local Traccar. befere restarting bin/dev, run Docker Desktop"
+  (cmd_up) || idle "  Booting local Traccar was failed."
+
+  trap 'echo "Stop ${NAME}"; docker stop -t 5 "$NAME" >/dev/null 2>&1; exit 0' TERM INT
+  docker logs -f --tail 0 "$NAME" &
+  wait $! || true
+  idle "   Traccar container is stopped. run bin/traccar up"
 }
 
 case "${1:-up}" in
@@ -195,5 +184,6 @@ case "${1:-up}" in
   status) cmd_status ;;
   logs)   cmd_logs ;;
   reset)  cmd_reset ;;
-  *) echo "사용법: bin/traccar [up|down|status|logs|reset]" >&2; exit 1 ;;
+  dev)    cmd_dev ;;
+  *) echo "usage: bin/traccar [up|down|status|logs|reset|dev]" >&2; exit 1 ;;
 esac

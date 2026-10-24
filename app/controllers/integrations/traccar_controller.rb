@@ -28,7 +28,7 @@ module Integrations
       return render json: { error: "pin_already_used" }, status: :conflict if consumed.zero?
 
       Rails.cache.delete(register_rate_limit_key)
-      render json: { traccarServerUrl: traccar_server_url, deviceId: bus.traccar_unique_id }
+      render json: { traccarServerUrl: Rails.configuration.x.traccar.server_url, deviceId: bus.traccar_unique_id }
     end
 
     # GET /integrations/traccar/routes?deviceId=...
@@ -78,22 +78,10 @@ module Integrations
 
     def authenticate_ingest!
       provided = request.headers["X-Ingest-Token"].to_s
-      expected = ingest_token
+      expected = Rails.configuration.x.traccar.ingest_token
       return if expected.present? && ActiveSupport::SecurityUtils.secure_compare(provided, expected)
 
       head :unauthorized
-    end
-
-    def ingest_token
-      TraccarSettings.fetch(:ingest_token, "TRACCAR_INGEST_TOKEN") ||
-        (Rails.env.local? ? "dev-traccar-token" : nil)
-    end
-
-    # 배포(지역/국가)별 Traccar 서버 주소 — 운전자 앱이 위치를 직접 전송할 대상.
-    # ponytail: 로컬 기본값은 실제 배포 전까지 기존 테스트 서버로 임시 고정. ENV(로컬)/credentials(운영)가 있으면 그쪽이 우선.
-    def traccar_server_url
-      TraccarSettings.fetch(:server_url, "TRACCAR_SERVER_URL") ||
-        (Rails.env.local? ? "http://yehyunserver.iptime.org:5055" : nil)
     end
 
     def register_rate_limit_key

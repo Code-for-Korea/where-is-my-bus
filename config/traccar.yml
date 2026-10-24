@@ -1,0 +1,16 @@
+development:
+  api_base_url: <%= ENV.fetch("TRACCAR_API_BASE_URL", "http://localhost:8082").to_json %>
+  api_email: <%= ENV.fetch("TRACCAR_API_EMAIL", "admin@localbus.test").to_json %>
+  api_password: <%= ENV.fetch("TRACCAR_API_PASSWORD", "localbus").to_json %>
+  server_url: <%= ENV.fetch("TRACCAR_SERVER_URL", "http://localhost:5055").to_json %>
+  ingest_token: <%= ENV.fetch("TRACCAR_INGEST_TOKEN", "dev-traccar-token").to_json %>
+
+test:
+  ingest_token: "dev-traccar-token"
+
+production:
+  api_base_url: <%= (Rails.application.credentials.dig(:traccar, :api_base_url) || ENV["TRACCAR_API_BASE_URL"]).to_json %>
+  api_email: <%= (Rails.application.credentials.dig(:traccar, :api_email) || ENV["TRACCAR_API_EMAIL"]).to_json %>
+  api_password: <%= (Rails.application.credentials.dig(:traccar, :api_password) || ENV["TRACCAR_API_PASSWORD"]).to_json %>
+  server_url: <%= (Rails.application.credentials.dig(:traccar, :server_url) || ENV["TRACCAR_SERVER_URL"]).to_json %>
+  ingest_token: <%= (Rails.application.credentials.dig(:traccar, :ingest_token) || ENV["TRACCAR_INGEST_TOKEN"]).to_json %>

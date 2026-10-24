@@ -80,10 +80,10 @@ app/
 | `GET /integrations/traccar/routes?deviceId=` | driver_app 메인화면용. `busNumber/routeName/stops/nextStop` 묶음. ETA는 `RouteProgress` 공유 |
 
 - **PIN은 1회용**: 성공 시 조건부 UPDATE(`pin_registered_at` 찍기)로 원자적 소모. 기기분실/교체는 admin "PIN 재발급"(`Bus#regenerate_pin!`)이 `pin_registered_at`도 초기화.
-- **Traccar 설정 출처(`TraccarSettings.fetch`, `app/services/traccar_settings.rb`)**: **로컬(`Rails.env.local?` = development/test)은 ENV만 읽고 credentials는 무시**(외부 서버 오접속 방지), **운영은 credentials → ENV** 순서. 경로별 차이는 다음과 같다:
-  - 수신 컨트롤러(`Integrations::TraccarController`)의 `ingest_token`·`server_url`: `TraccarSettings.fetch`(`:ingest_token`/`:server_url`) → 개발 기본값(`Rails.env.local?`일 때만). 운영 미설정 시: `ingest_token`은 모든 positions가 `401`(**fail-closed**, 수신 전면 중단), `server_url`은 register 응답의 `traccarServerUrl`이 `nil`.
-  - sync 서비스(`TraccarApiClient`)의 `api_base_url`/`api_email`/`api_password`: `TraccarSettings.fetch`로 읽는다(개발 기본값 없음 — 로컬은 `bin/traccar up`이 `.env`에 기록한 `TRACCAR_API_*` ENV 사용, README "로컬 Traccar 서버"). 미설정 시 `CredentialsMissing` → `failure?` Result로 반환되어, Route/Stop/Bus의 일반 create/update는 validation 실패와 동일한 `422`로, **RouteBus 생성은 redirect + flash alert**로 처리된다. 단, **예기치 않은 예외까지 500을 막는 것은 아니다**.
-- ⚠️ `traccar_server_url` 개발 기본값은 내부 테스트 서버(`yehyunserver.iptime.org`)로 임시 고정 — 원복 목록은 `driver_app/ISSUE.md` "임시 설정" 섹션.
+- **Traccar 설정 출처(`config/traccar.yml` → `Rails.configuration.x.traccar`, `config/initializers/traccar.rb`)**: **로컬(development/test)은 ENV → 로컬 기본값 순서로 읽고 credentials는 읽지 않는다**(외부 서버 오접속 방지; 기본값은 development에서만 `bin/traccar`와 같은 값, test는 `ingest_token`뿐), **운영은 credentials → ENV**(기본값 없음) 순서. 값은 부팅 시 한 번 읽는다. 경로별 차이는 다음과 같다:
+  - 수신 컨트롤러(`Integrations::TraccarController`)의 `ingest_token`·`server_url`: `Rails.configuration.x.traccar`(`ingest_token`/`server_url`). 운영 미설정 시: `ingest_token`은 모든 positions가 `401`(**fail-closed**, 수신 전면 중단), `server_url`은 register 응답의 `traccarServerUrl`이 `nil`.
+  - sync 서비스(`TraccarApiClient`)의 `api_base_url`/`api_email`/`api_password`: `Rails.configuration.x.traccar`에서 읽는다(로컬은 `bin/traccar`와 같은 개발 기본값 — `.env` 불필요, README "로컬 Traccar 서버"). 미설정 시 `CredentialsMissing` → `failure?` Result로 반환되어, Route/Stop/Bus의 일반 create/update는 validation 실패와 동일한 `422`로, **RouteBus 생성은 redirect + flash alert**로 처리된다. 단, **예기치 않은 예외까지 500을 막는 것은 아니다**.
+- `traccar_server_url` 개발 기본값은 로컬 Traccar(`http://localhost:5055`, `config/traccar.yml`)다. 내부 테스트 서버를 쓰려면 `TRACCAR_SERVER_URL` ENV로 지정 — 남은 임시 설정(Android cleartext)은 `driver_app/ISSUE.md` "임시 설정" 섹션.
 
 ### Admin CRUD ↔ Traccar 정합성 (완전 롤백 정책)
 
@@ -130,14 +130,14 @@ bin/rails test test/services/traccar_group_sync_test.rb  # 단일 파일
 bin/setup                 # 초기 세팅
 bin/traccar up            # 로컬 Traccar(Docker) 기동 — `bin/traccar-bus`로 가짜 버스 위치 전송
 bin/rails db:prepare      # 스키마 생성 + 시드 (고성군 고성↔통영 1번 노선 데모 — idempotent, find_or_create_by!)
-bin/dev                   # 서버(web) + Tailwind watch(css) 동시 실행 (Procfile.dev)
+bin/dev                   # 서버(web) + Tailwind watch(css) + 로컬 Traccar(traccar) 동시 실행 (Procfile.dev, TRACCAR=0 으로 Traccar 제외)
 bin/rails test            # 테스트
 bin/ci                    # rubocop + gem/importmap audit + brakeman (CI와 동일, 테스트 제외)
 bin/rubocop               # 스타일
 ```
 
 - 시드 PIN `1234`, 데모 `traccar_unique_id: "goseong-1-demo"` — `db/seeds.rb` 참고.
-- `bin/dev`는 `Procfile.dev` 그대로: `web: bin/rails server`, `css: bin/rails tailwindcss:watch`.
+- `bin/dev`는 `Procfile.dev` 그대로: `web: bin/rails server`, `css: bin/rails tailwindcss:watch`, `traccar: bin/traccar dev`.
 
 ## 배포
 
@@ -149,7 +149,7 @@ bin/rubocop               # 스타일
 ## 알려진 함정·주의사항
 
 1. **PinCode는 레거시 모델, 인증 미사용** — PIN은 `Bus.pin`. 새 기능에서 `PinCode`를 건드리지 말 것.
-2. **임시 설정 원복 대기** — `driver_app/ISSUE.md` 상단 "임시 설정 (원복 필요)" 섹션: Rails `traccar_server_url` 로컬 기본값, Android cleartext `network_security_config.xml`.
+2. **임시 설정 원복 대기** — `driver_app/ISSUE.md` 상단 "임시 설정 (원복 필요)" 섹션: Android cleartext `network_security_config.xml`(Rails `traccar_server_url` 개발 기본값은 로컬 Traccar로 변경되어 원복 대상에서 제외).
 3. **ETA/버스 선택 중복 구현 금지** — `RouteProgress`/`RouteBusSelector` 재사용.
 4. **positions는 401 예외를 제외하고 항상 200-ack** — 토큰 인증 실패는 `401`, 그 외(알 수 없는 단말·좌표 누락)는 `200` ack. 검증 실패를 4xx로 반환하면 Traccar 포워딩 재시도 폭주.
 5. **`buses.pin` unique 전역 인덱스** — register API가 PIN만으로 버스를 특정하므로 필수. 변경 시 주의.

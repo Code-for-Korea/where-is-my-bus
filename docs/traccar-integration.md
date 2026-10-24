@@ -44,13 +44,13 @@ PIN 인증으로 대신 받아오는 구조다. `deviceId`는 Traccar 쪽에서 
   `SnackBar`로 노출된다(`driver_app/lib/api_client.dart`).
 - `PinCode` 모델과 테이블은 존재하지만 **현재 등록 API의 PIN 인증에는 사용하지 않는다**(레거시) — 실제
   PIN 인증은 `Bus.pin` 컬럼으로 이뤄진다. `has_many :pin_codes` 연관과 `db/seeds.rb`의 데모
-  레코드 생성만 남아 있으므로, 새 기능에서 `PinCode`를 참조·확장하지 않는다.
+  레코드 생성만 남아 있으므로, 새 기능에서 `PinCode`를 참조 확장하지 않는다.
 
 ## Rails 수신 측 (구현 완료 — Phase 1)
 
 - **모델**: `buses.traccar_unique_id`(단말 식별자, unique) / `buses.traccar_device_id`(Traccar 내부 device id, 프로비저닝용).
 - **엔드포인트**: `POST /integrations/traccar/positions` (`Integrations::TraccarController < ActionController::API`)
-  - `X-Ingest-Token` 헤더로 인증(타이밍 안전 비교). 토큰 출처: `TraccarSettings.fetch`(로컬은 `ENV["TRACCAR_INGEST_TOKEN"]`만, 운영은 `credentials[:traccar][:ingest_token]` → ENV) → 개발 기본값 `dev-traccar-token`(로컬 한정). 운영에서 미설정 시 **fail-closed**.
+  - `X-Ingest-Token` 헤더로 인증(타이밍 안전 비교). 토큰 출처: `config/traccar.yml`(`Rails.configuration.x.traccar.ingest_token`) 로컬에서 ENV 개발 기본값 `dev-traccar-token`(credentials 읽지 않음), 운영은 `credentials[:traccar][:ingest_token]` -> ENV. 운영에서 미설정하면  **fail-closed**.
   - payload `device.uniqueId` → `Bus` 조회. 그 버스의 **열린 Trip**(없으면 생성)에 `GpsLog`(lat/lng/recorded_at) 적재.
   - 알 수 없는 단말·좌표 누락은 `200`(ack)로 무시 → 포워딩 재시도 폭주 방지.
 - 기존 `Trip`/`GpsLog`/`stops#arrival` 로직을 그대로 재사용한다. (시드의 가짜 GPS가 진짜 위치로 대체될 뿐)
@@ -65,14 +65,36 @@ PIN 인증으로 대신 받아오는 구조다. `deviceId`는 Traccar 쪽에서 
 ```
 
 위에 있는 설정은 과거 버전입니다. Traccar 6.14.4·6.16.0(둘 다 이미지에서 확인)에는 `forward.enable`·`forward.json`이
-없고 **`forward.type`**(`json` 등)으로 대체됐다 — 그대로 쓰면 JSON POST가 아니라 GET으로 전달돼 Rails에서
-404 에러 페이지 이동합니다. 최신 버전은 아래와 같이 씁니다(로컬 `bin/traccar`가 생성하는 설정).
+없고 **`forward.type`**(`json` 등)으로 바꿉니다.
+그대로 쓰면 JSON POST가 아니라 GET으로 전달돼 Rails에서 404 에러 페이지 이동합니다. 
+최신 버전은 아래와 같이 씁니다(로컬 `bin/traccar` 생성하는 설정).
 
 ```xml
 <entry key='forward.type'>json</entry>
 <entry key='forward.url'>https://<오리진>/integrations/traccar/positions</entry>
 <entry key='forward.header'>X-Ingest-Token: <비밀토큰></entry>
 ```
+
+### Traccar 설정 (`config/traccar.yml`)
+
+Rails가 쓰는 Traccar 값은 `config/traccar.yml`의 환경별 섹션에 모여 있고, `config/initializers/traccar.rb`가 로컬/테스트/운영 환경에서 `Rails.configuration.x.traccar`로 사용합니다. 부팅할 때 읽으므로 ENV를 바꾸면 서버를 재시작해야 합니다.
+
+| 키 | 용도 | 읽는 곳 |
+|---|---|---|
+| `api_base_url`·`api_email`·`api_password` | admin CRUD 동기화가 접속할 Traccar REST API | `TraccarApiClient` |
+| `server_url` | register 응답(`traccarServerUrl`)으로 운전자 앱에 내려주는 위치 수신(OsmAnd) 주소 | `Integrations::TraccarController` |
+| `ingest_token` | Traccar 포워딩이 positions 수신 시 보내는 `X-Ingest-Token` | `Integrations::TraccarController` |
+
+| 환경 | 값의 출처 |
+|---|---|
+| development | ENV -> 로컬 기본값. 기본값은 `bin/traccar`가 띄우는 로컬 Traccar와 같다(`localhost:8082`/`:5055`, `admin@localbus.test`/`localbus`, `dev-traccar-token`) 둘이 같아야 합니다 |
+| test | `ingest_token`만 기본값. `api_*`·`server_url`은 비어 있어 로컬 Traccar가 켜져 있어도 실제로 접속하지 않습니다(서비스 테스트 `stub_credentials` 사용) |
+| production | `credentials[:traccar]` -> ENV, 기본값 없음. `ingest_token`이 없으면 모든 positions가 `401`(fail-closed), `server_url`이 없으면 `traccarServerUrl`이 `nil`, `api_*`가 없으면 `CredentialsMissing` |
+
+- **로컬은 credentials를 사용하지 않았습니다.** 외부 서버 값이 credentials에 있어도 로컬 작업이 외부 Traccar를 사용하지 않습니다.(production credentials는 `config/credentials/production.yml.enc`에만 있어 개발/테스트는 읽을 credentials 없습니다)
+- ENV 이름: `TRACCAR_API_BASE_URL`·`TRACCAR_API_EMAIL`·`TRACCAR_API_PASSWORD`·`TRACCAR_SERVER_URL`·`TRACCAR_INGEST_TOKEN`. 예: 에뮬레이터 `TRACCAR_SERVER_URL=http://10.0.2.2:5055 bin/dev`.
+- ERB 출력은 `.to_json`으로 감싸 값에 `#`·`: ` 같은 문자가 있어도 YAML이 깨지지 않습니다.
+- 테스트는 `test/services/traccar_config_test.rb`(`config_for(:traccar, env: ...)`로 환경별 규칙 검증).
 
 ## Admin geofence/group 자동화 (구현 완료 — 노선 배차 연동)
 
@@ -149,9 +171,7 @@ permission은 `sync_geofence` 재실행으로 복원하고, device 재생성 후
 
 - 수신 엔드포인트: 공유 토큰 헤더 필수(+가능하면 Traccar 호스트 IP 제한·rate limit).
 - `traccar_unique_id`는 추측 불가능해야 함 — OsmAnd는 id만 알면 위치 주입 가능하므로 스푸핑 방지의 핵심.
-- Traccar 설정(`ingest_token`·`server_url`·API 매니저 자격증명)은 `TraccarSettings.fetch`가 읽는다: **로컬
-  (development/test)은 ENV만**(credentials 무시 — 외부 서버 오접속 방지), **운영은 credentials → ENV**.
-  개발 기본값은 `ingest_token`·`server_url`에만 있다(커밋 금지).
+- 토큰/API 자격증명 서버 주소 출처와 환경별 규칙은 [Traccar 설정](#traccar-설정-configtraccaryml) 참고(커밋 금지).
 
 ## 단계별 로드맵
 
