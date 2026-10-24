@@ -77,7 +77,8 @@ Traccar 연동(admin 동기화, 위치 포워딩, 운전자 앱 등록)을 내�
 
 ```bash
 bin/dev                                              # Rails + Tailwind + 로컬 Traccar(Docker)를 함께 실행, 종료하면 Traccar도 정지
-# admin에서 지역·운행지역·노선·정류장·버스 등록 후 배차
+# admin에서 지역·운행지역·노선·정류장·버스 등록 후 배차(admin 화면에서 만들면 Traccar에 자동 반영)
+bin/rails traccar:sync                                # 시드 데이터(노선·정류장·버스·배차)를 Traccar에 한 번에 동기화
 bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 전송
 ```
 
@@ -87,7 +88,8 @@ bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 
 |---|---|
 | `bin/traccar [up]` | Traccar만 따로 기동(이미 있으면 재시작). `traccar.xml`을 매번 새로 생성 |
 | `bin/traccar down` / `status` / `logs` | 정지·삭제(데이터 유지) / 상태 / 로그 |
-| `bin/traccar reset` | 컨테이너와 데이터 삭제 후 재기동 |
+| `bin/traccar reset` | 컨테이너와 데이터 삭제 후 재기동. Rails의 `traccar_*_id`도 함께 비운다(`traccar:reset_ids`) — 이후 `bin/rails traccar:sync`로 다시 만든다 |
+| `bin/rails traccar:sync` | Route → Stop → Bus → 배차(RouteBus)를 순서대로 Traccar에 동기화(여러 번 실행해도 중복 생성 없음, 운영 환경에서는 거부). 시작할 때 대상 Traccar 주소를 출력한다 |
 | `bin/traccar dev` | `Procfile.dev`용 foreground 모드(기동 → 로그 → 종료 시 정지) |
 | `bin/traccar-bus` | 배차된 노선의 정류장 좌표를 따라 이동하며 :5055로 OsmAnd 요청 전송 (`--loop`, `--interval`, `--steps`, `--route "lat,lng;…"`) |
 
@@ -104,7 +106,7 @@ bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 
 - Traccar 컨테이너가 호스트의 Rails로 포워딩할 수 있도록 `bin/dev`가 Docker가 있을 때 `BINDING=0.0.0.0`으로 서버를 띄우고, `development.rb`가 `host.docker.internal` 호스트를 허용합니다. 이 때문에 개발 서버가 같은 네트워크에 열립니다. Traccar를 쓰지 않으면 `TRACCAR=0 bin/dev`로 기본 바인딩(로컬호스트)을 유지하세요.
 - 포워딩 포트는 `bin/dev`의 `PORT`(기본 3000)를 따릅니다(`RAILS_PORT`로 전달). `bin/traccar up`을 따로 쓸 때 Rails 포트가 다르면 `PORT=3001 bin/traccar up`으로 기동하세요.
 - 운전자 앱(`driver_app/`): 에뮬레이터는 호스트가 `10.0.2.2`이므로 `TRACCAR_SERVER_URL=http://10.0.2.2:5055 bin/dev`로 Rails를 띄우고 앱의 서버 주소도 `http://10.0.2.2:3000`을 씁니다. 실기기는 PC의 LAN IP를 씁니다. cleartext(http) 허용 설정은 `driver_app/ISSUE.md` 참고.
-- `bin/traccar reset`으로 Traccar 데이터를 지우면 Rails에 저장된 `traccar_group_id`/`traccar_geofence_id`/`traccar_device_id`가 어긋납니다. 로컬 DB도 함께 초기화(`bin/rails db:reset`)하세요.
+- `bin/traccar reset`이 Rails의 `traccar_*_id`도 함께 비웁니다. Traccar 데이터를 `reset` 없이 직접 지운 경우에는 `bin/rails traccar:reset_ids` 후 `traccar:sync`를 실행하세요(Traccar에 데이터가 남아 있는 채로 `reset_ids`를 하면 중복·충돌되므로 쓰지 마세요).
 
 <details>
 <summary>문제 해결</summary>
@@ -113,7 +115,7 @@ bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 
 - Traccar 로그(`bin/traccar logs`)에 `Position forwarding failed` — `403`은 호스트 차단(`config.hosts`의 `host.docker.internal`), `404`는 `forward.type` 설정 문제, 연결 거부는 Rails가 `0.0.0.0`에 바인딩되지 않았거나(`bin/dev`로 실행했는지, `TRACCAR=0`이 아닌지) 포워딩 포트가 다른 경우입니다.
 - 포워딩이 `401`(Rails 로그) — Traccar의 `X-Ingest-Token`과 Rails `TRACCAR_INGEST_TOKEN`이 다릅니다. `TRACCAR_INGEST_TOKEN` ENV를 따로 설정하지 않았는지 확인하세요.
 - admin에서 버스·노선 등록이 `422` — 로컬 Traccar가 떠 있는지(`bin/traccar status`), `TRACCAR_API_*` ENV를 따로 설정했다면 값이 맞는지 확인하세요.
-- 위치가 승객 화면에 안 나옴 — Traccar 콘솔 Devices에 버스의 `traccar_unique_id`가 있는지, 시뮬레이터의 `--device` 값이 같은지 확인하세요. seed 버스(`goseong-1-demo`)는 admin에서 단말 동기화를 해야 Traccar에 생깁니다.
+- 위치가 승객 화면에 안 나옴 — Traccar 콘솔 Devices에 버스의 `traccar_unique_id`가 있는지, 시뮬레이터의 `--device` 값이 같은지 확인하세요. seed 버스(`goseong-1-demo`)는 `bin/rails traccar:sync`(또는 admin의 단말 동기화)를 해야 Traccar에 생깁니다.
 - 포트 충돌 — `bin/traccar`가 8082/5055를 쓰는 다른 컨테이너는 정지시킵니다. 컨테이너가 아닌 프로세스가 점유 중이면 `lsof -i :8082`로 확인하세요.
 - 로그 — `bin/traccar logs`, 또는 `tmp/docker/volumes/traccar/logs/`.
 

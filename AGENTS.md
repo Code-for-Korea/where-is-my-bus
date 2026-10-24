@@ -129,6 +129,7 @@ bin/rails test test/services/traccar_group_sync_test.rb  # 단일 파일
 ```bash
 bin/setup                 # 초기 세팅
 bin/traccar up            # 로컬 Traccar(Docker) 기동 — `bin/traccar-bus`로 가짜 버스 위치 전송
+bin/rails traccar:sync    # 시드 노선·정류장·버스·배차를 로컬 Traccar에 동기화(`traccar:reset_ids`는 `bin/traccar reset`이 호출)
 bin/rails db:prepare      # 스키마 생성 + 시드 (고성군 고성↔통영 1번 노선 데모 — idempotent, find_or_create_by!)
 bin/dev                   # 서버(web) + Tailwind watch(css) + 로컬 Traccar(traccar) 동시 실행 (Procfile.dev, TRACCAR=0 으로 Traccar 제외)
 bin/rails test            # 테스트

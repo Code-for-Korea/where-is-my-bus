@@ -158,7 +158,9 @@ cmd_reset() {
   require_docker
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   rm -rf "${DATA_DIR}"
-  echo "Traccar data(${DATA_DIR}) : deleted. db:reset if needed."
+  echo "Traccar data(${DATA_DIR}) : deleted."
+  # Rails 에 저장된 traccar_*_id 가 사라진 리소스를 가리키므로 함께 비운다(이후 bin/rails traccar:sync 로 다시 만든다).
+  (cd "$ROOT" && bin/rails traccar:reset_ids) || echo "traccar_*_id reset failed. run bin/rails traccar:reset_ids" >&2
   cmd_up
 }
 
