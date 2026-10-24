@@ -65,6 +65,57 @@ bin/dev                # 서버 + Tailwind watch 동시 실행
 - 회원가입: <http://localhost:3000/registration/new> — **첫 가입자가 운영자**가 됩니다
 - 관리자: <http://localhost:3000/admin> (운영자 로그인 필요)
 
+### 로컬 Traccar 서버
+
+Traccar 연동(admin 동기화, 위치 포워딩, 운전자 앱 등록)을 내부 테스트 서버 없이 로컬에서 확인하려면 Traccar를 Docker로 띄웁니다. 사전 준비: Docker Desktop, `curl`.
+
+```
+폰/시뮬레이터 ─▶ :5055 (OsmAnd) ─▶ Traccar ─ 포워딩 ─▶ Rails /integrations/traccar/positions
+                                       ▲
+                Rails admin CRUD ─ :8082 (REST API)
+```
+
+```bash
+bin/traccar up                          # Traccar 기동 + 관리자 계정 생성 + .env에 Rails용 환경변수 기록
+bin/dev                                 # Rails 실행 (foreman이 .env를 자동으로 읽는다)
+# admin에서 지역·운행지역·노선·정류장·버스 등록 후 배차
+bin/traccar-bus --device <버스의 traccar_unique_id>   # 가짜 버스 위치 전송
+```
+
+| 명령 | 설명 |
+|---|---|
+| `bin/traccar [up]` | 기동(이미 있으면 재시작). `traccar.xml`을 매번 새로 생성 |
+| `bin/traccar down` / `status` / `logs` | 정지·삭제(데이터 유지) / 상태 / 로그 |
+| `bin/traccar reset` | 컨테이너와 데이터 삭제 후 재기동 |
+| `bin/traccar-bus` | 배차된 노선의 정류장 좌표를 따라 이동하며 :5055로 OsmAnd 요청 전송 (`--loop`, `--interval`, `--steps`, `--route "lat,lng;…"`) |
+
+| 항목 | 값 |
+|---|---|
+| Traccar 콘솔·API | <http://localhost:8082> (`admin@local.test` / `localbus`) |
+| 위치 수신(OsmAnd) | `http://localhost:5055` |
+| 포워딩 대상 | `http://host.docker.internal:3000/integrations/traccar/positions` (`X-Ingest-Token: dev-traccar-token`) |
+| 데이터 | `tmp/docker/volumes/traccar/` (내장 H2 파일 DB — SQLite 아님, git 제외) |
+| 이미지 | `traccar/traccar:6.14.4` — 내부 테스트 서버와 같은 버전(`TRACCAR_IMAGE`로 변경) |
+
+- `.env`의 `BINDING=0.0.0.0`(Rails를 모든 인터페이스에 바인딩)과 `RAILS_DEVELOPMENT_HOSTS=host.docker.internal`(Rails 호스트 차단 해제)이 없으면 Traccar → Rails 포워딩이 실패합니다(Traccar 로그 `forwarding failed ... 403`/연결 거부). `bin/dev`로 실행하면 자동으로 적용됩니다. `bin/rails runner`·`bin/rails console` 등은 `.env`를 읽지 않으므로 `set -a; source .env; set +a` 후 실행하세요. `.env`의 `# >>> bin/traccar` 구간만 `bin/traccar up`이 갱신하고 나머지 줄은 건드리지 않습니다. `.env`는 git에서 제외됩니다.
+- Rails가 읽는 값은 `TRACCAR_API_BASE_URL`/`TRACCAR_API_EMAIL`/`TRACCAR_API_PASSWORD`(admin 동기화), `TRACCAR_INGEST_TOKEN`(포워딩 인증), `TRACCAR_SERVER_URL`(운전자 앱 register 응답)입니다. **로컬(development/test)에서는 ENV만 읽고 Rails credentials는 무시**하므로 credentials에 외부 서버 값이 있어도 로컬 작업이 외부 서버를 건드리지 않습니다. 운영은 credentials → ENV 순서입니다(`app/services/traccar_settings.rb`).
+- 포워딩 포트는 `PORT`(기본 3000)를 따릅니다. Rails를 다른 포트로 띄우면 `PORT=3001 bin/traccar up`으로 다시 기동하세요.
+- 운전자 앱(`driver_app/`): 에뮬레이터는 호스트가 `10.0.2.2`이므로 `TRACCAR_SERVER_URL=http://10.0.2.2:5055`로 Rails를 띄우고 앱의 서버 주소도 `http://10.0.2.2:3000`을 씁니다. 실기기는 PC의 LAN IP를 씁니다. cleartext(http) 허용 설정은 `driver_app/ISSUE.md` 참고.
+- `bin/traccar reset`으로 Traccar 데이터를 지우면 Rails에 저장된 `traccar_group_id`/`traccar_geofence_id`/`traccar_device_id`가 어긋납니다. 로컬 DB도 함께 초기화(`bin/rails db:reset`)하세요.
+
+<details>
+<summary>문제 해결</summary>
+
+- `Docker 데몬에 연결할 수 없습니다` — Docker Desktop을 실행하거나 재시작하세요.
+- Traccar 로그(`bin/traccar logs`)에 `Position forwarding failed` — `403`은 호스트 차단(`RAILS_DEVELOPMENT_HOSTS`), `404`는 `forward.type` 설정 문제, 연결 거부는 `BINDING` 누락입니다.
+- 포워딩이 `401`(Rails 로그) — Traccar의 `X-Ingest-Token`과 Rails `TRACCAR_INGEST_TOKEN`이 다릅니다. `bin/traccar up`을 실행해 `.env`가 기록됐는지, Rails를 `bin/dev`로 띄웠는지 확인하세요.
+- admin에서 버스·노선 등록이 `422`(`CredentialsMissing`) — 로컬은 ENV만 읽습니다. `bin/traccar up`으로 `.env`를 만들고 Rails를 `bin/dev`로 실행했는지 확인하세요.
+- 위치가 승객 화면에 안 나옴 — Traccar 콘솔 Devices에 버스의 `traccar_unique_id`가 있는지, 시뮬레이터의 `--device` 값이 같은지 확인하세요. seed 버스(`goseong-1-demo`)는 admin에서 단말 동기화를 해야 Traccar에 생깁니다.
+- 포트 충돌 — `bin/traccar`가 8082/5055를 쓰는 다른 컨테이너는 정지시킵니다. 컨테이너가 아닌 프로세스가 점유 중이면 `lsof -i :8082`로 확인하세요.
+- 로그 — `bin/traccar logs`, 또는 `tmp/docker/volumes/traccar/logs/`.
+
+</details>
+
 ---
 
 ## 주요 경로

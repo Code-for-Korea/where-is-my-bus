@@ -1,0 +1,83 @@
+#!/bin/bash
+# 가짜 버스를 노선 정류장 좌표를 따라 움직이며 로컬 Traccar(:5055)에 OsmAnd 형식으로 위치를 보낸다.
+# 실기기·driver_app 없이 Traccar -> Rails 포워딩 -> 승객 화면 ETA까지 확인하는 용도.
+#
+#   bin/traccar-bus [--device ID] [--route "lat,lng;lat,lng;..."] [--steps 10] [--interval 3] [--loop]
+#
+#   --device    Bus 의 traccar_unique_id (기본 goseong-1-demo). Traccar 에 이 device 가 있어야 한다
+#               (admin 에서 버스를 만들면 자동 프로비저닝, seed 버스는 admin 의 단말 동기화 필요).
+#   --route     좌표 목록. 없으면 그 버스가 배차된 첫 노선의 정류장 좌표(sequence 순)를 DB에서 읽는다.
+#   --steps     정류장 사이 보간 지점 수 (기본 10)
+#   --interval  전송 간격 초 (기본 3)
+#   --loop      끝나면 처음부터 반복
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEVICE="goseong-1-demo"
+ROUTE=""
+STEPS=10
+INTERVAL=3
+LOOP=false
+URL="${TRACCAR_DEVICE_URL:-http://localhost:5055}"
+
+while (($#)); do
+  case "$1" in
+    --device)   DEVICE="$2"; shift 2 ;;
+    --route)    ROUTE="$2"; shift 2 ;;
+    --steps)    STEPS="$2"; shift 2 ;;
+    --interval) INTERVAL="$2"; shift 2 ;;
+    --loop)     LOOP=true; shift ;;
+    -h|--help)  sed -n 2,13p "$0"; exit 0 ;;
+    *) echo "❌ 알 수 없는 옵션: $1" >&2; exit 1 ;;
+  esac
+done
+
+if [[ -z "$ROUTE" ]]; then
+  ROUTE="$(cd "$ROOT" && bin/rails runner '
+    bus = Bus.find_by(traccar_unique_id: ARGV[0]) or abort("Bus(traccar_unique_id=#{ARGV[0]}) 가 없습니다")
+    route = bus.routes.first or abort("이 버스에 배차된 노선이 없습니다")
+    points = route.stops.select(&:coordinates?).map { |s| "#{s.lat},#{s.lng}" }
+    abort("좌표가 있는 정류장이 2개 이상 필요합니다") if points.size < 2
+    puts points.join(";")
+  ' "$DEVICE")"
+fi
+
+IFS=';' read -r -a POINTS <<<"$ROUTE"
+if ((${#POINTS[@]} < 2)); then
+  echo "❌ 좌표가 2개 이상 필요합니다: $ROUTE" >&2
+  exit 1
+fi
+
+if ! curl -sS -o /dev/null --max-time 3 "$URL"; then
+  echo "❌ ${URL} 에 연결할 수 없습니다. bin/traccar up 으로 Traccar 를 먼저 띄우세요." >&2
+  exit 1
+fi
+
+send() { # $1=lat $2=lon $3=bearing
+  local code
+  code="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$URL" \
+    --data-urlencode "id=${DEVICE}" --data-urlencode "lat=$1" --data-urlencode "lon=$2" \
+    --data-urlencode "timestamp=$(date +%s)" --data-urlencode "speed=20" \
+    --data-urlencode "bearing=$3" --data-urlencode "accuracy=5")"
+  echo "$(date +%T) ${DEVICE} lat=$1 lon=$2 bearing=$3 -> HTTP ${code}"
+}
+
+echo "시뮬레이션 시작: ${DEVICE}, 지점 ${#POINTS[@]}개, 간격 ${INTERVAL}s (Ctrl+C 로 종료)"
+while true; do
+  for ((i = 0; i < ${#POINTS[@]} - 1; i++)); do
+    IFS=, read -r lat1 lon1 <<<"${POINTS[i]}"
+    IFS=, read -r lat2 lon2 <<<"${POINTS[i + 1]}"
+    for ((s = 0; s < STEPS; s++)); do
+      read -r lat lon bearing < <(awk -v a="$lat1" -v b="$lon1" -v c="$lat2" -v d="$lon2" -v s="$s" -v n="$STEPS" 'BEGIN {
+        t = s / n; pi = atan2(0, -1)
+        y = (d - b) * cos(a * pi / 180); x = c - a
+        brg = atan2(y, x) * 180 / pi; if (brg < 0) brg += 360
+        printf "%.6f %.6f %.0f\n", a + (c - a) * t, b + (d - b) * t, brg }')
+      send "$lat" "$lon" "$bearing"
+      sleep "$INTERVAL"
+    done
+  done
+  IFS=, read -r lat lon <<<"${POINTS[${#POINTS[@]} - 1]}"
+  send "$lat" "$lon" 0
+  $LOOP || break
+done

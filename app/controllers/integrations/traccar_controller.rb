@@ -85,16 +85,14 @@ module Integrations
     end
 
     def ingest_token
-      Rails.application.credentials.dig(:traccar, :ingest_token) ||
-        ENV["TRACCAR_INGEST_TOKEN"] ||
+      TraccarSettings.fetch(:ingest_token, "TRACCAR_INGEST_TOKEN") ||
         (Rails.env.local? ? "dev-traccar-token" : nil)
     end
 
     # 배포(지역/국가)별 Traccar 서버 주소 — 운전자 앱이 위치를 직접 전송할 대상.
-    # ponytail: 로컬 기본값은 실제 배포 전까지 기존 테스트 서버로 임시 고정. credentials/ENV 세팅되면 그쪽이 우선.
+    # ponytail: 로컬 기본값은 실제 배포 전까지 기존 테스트 서버로 임시 고정. ENV(로컬)/credentials(운영)가 있으면 그쪽이 우선.
     def traccar_server_url
-      Rails.application.credentials.dig(:traccar, :server_url) ||
-        ENV["TRACCAR_SERVER_URL"] ||
+      TraccarSettings.fetch(:server_url, "TRACCAR_SERVER_URL") ||
         (Rails.env.local? ? "http://yehyunserver.iptime.org:5055" : nil)
     end
 

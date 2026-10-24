@@ -50,7 +50,7 @@ PIN 인증으로 대신 받아오는 구조다. `deviceId`는 Traccar 쪽에서 
 
 - **모델**: `buses.traccar_unique_id`(단말 식별자, unique) / `buses.traccar_device_id`(Traccar 내부 device id, 프로비저닝용).
 - **엔드포인트**: `POST /integrations/traccar/positions` (`Integrations::TraccarController < ActionController::API`)
-  - `X-Ingest-Token` 헤더로 인증(타이밍 안전 비교). 토큰 출처: `credentials[:traccar][:ingest_token]` → `ENV["TRACCAR_INGEST_TOKEN"]` → 개발 기본값 `dev-traccar-token`. 운영에서 미설정 시 **fail-closed**.
+  - `X-Ingest-Token` 헤더로 인증(타이밍 안전 비교). 토큰 출처: `TraccarSettings.fetch`(로컬은 `ENV["TRACCAR_INGEST_TOKEN"]`만, 운영은 `credentials[:traccar][:ingest_token]` → ENV) → 개발 기본값 `dev-traccar-token`(로컬 한정). 운영에서 미설정 시 **fail-closed**.
   - payload `device.uniqueId` → `Bus` 조회. 그 버스의 **열린 Trip**(없으면 생성)에 `GpsLog`(lat/lng/recorded_at) 적재.
   - 알 수 없는 단말·좌표 누락은 `200`(ack)로 무시 → 포워딩 재시도 폭주 방지.
 - 기존 `Trip`/`GpsLog`/`stops#arrival` 로직을 그대로 재사용한다. (시드의 가짜 GPS가 진짜 위치로 대체될 뿐)
@@ -61,6 +61,16 @@ PIN 인증으로 대신 받아오는 구조다. `deviceId`는 Traccar 쪽에서 
 <entry key='forward.enable'>true</entry>
 <entry key='forward.url'>https://<오리진>/integrations/traccar/positions</entry>
 <entry key='forward.json'>true</entry>
+<entry key='forward.header'>X-Ingest-Token: <비밀토큰></entry>
+```
+
+위에 있는 설정은 과거 버전입니다. Traccar 6.14.4·6.16.0(둘 다 이미지에서 확인)에는 `forward.enable`·`forward.json`이
+없고 **`forward.type`**(`json` 등)으로 대체됐다 — 그대로 쓰면 JSON POST가 아니라 GET으로 전달돼 Rails에서
+404 에러 페이지 이동합니다. 최신 버전은 아래와 같이 씁니다(로컬 `bin/traccar`가 생성하는 설정).
+
+```xml
+<entry key='forward.type'>json</entry>
+<entry key='forward.url'>https://<오리진>/integrations/traccar/positions</entry>
 <entry key='forward.header'>X-Ingest-Token: <비밀토큰></entry>
 ```
 
@@ -139,16 +149,15 @@ permission은 `sync_geofence` 재실행으로 복원하고, device 재생성 후
 
 - 수신 엔드포인트: 공유 토큰 헤더 필수(+가능하면 Traccar 호스트 IP 제한·rate limit).
 - `traccar_unique_id`는 추측 불가능해야 함 — OsmAnd는 id만 알면 위치 주입 가능하므로 스푸핑 방지의 핵심.
-- 수신 컨트롤러의 `ingest_token`(및 `server_url`)은 Rails credentials → ENV
-  (`TRACCAR_INGEST_TOKEN` 등) → 개발 기본값 순서로 관리(커밋 금지). Traccar API 매니저 자격증명
-  (`TraccarApiClient`의 `api_base_url`/`api_email`/`api_password`)은 **credentials만** 읽는다 —
-  ENV fallback은 구현돼 있지 않다(커밋 금지).
+- Traccar 설정(`ingest_token`·`server_url`·API 매니저 자격증명)은 `TraccarSettings.fetch`가 읽는다: **로컬
+  (development/test)은 ENV만**(credentials 무시 — 외부 서버 오접속 방지), **운영은 credentials → ENV**.
+  개발 기본값은 `ingest_token`·`server_url`에만 있다(커밋 금지).
 
 ## 단계별 로드맵
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| 0 | Traccar Docker 기동 + 위치 수신 확인 | 운영 수동 |
+| 0 | Traccar Docker 기동 + 위치 수신 확인 | 운영 수동 (로컬은 `bin/traccar up` — README "로컬 Traccar 서버") |
 | 1 | Rails 수신 엔드포인트 + 모델 컬럼 + 포워딩 → GpsLog 적재 | **완료** |
 | 1.5 | Admin 정류장 등록 시 geofence 자동 생성 + 노선 단위 group 자동 연결(배차 시 device 자동 추가) | **완료** |
 | 2 | 차량 등록 시 Traccar 디바이스 자동 프로비저닝(REST API) + admin 단말 상태 표시 | **완료** |

@@ -80,9 +80,9 @@ app/
 | `GET /integrations/traccar/routes?deviceId=` | driver_app 메인화면용. `busNumber/routeName/stops/nextStop` 묶음. ETA는 `RouteProgress` 공유 |
 
 - **PIN은 1회용**: 성공 시 조건부 UPDATE(`pin_registered_at` 찍기)로 원자적 소모. 기기분실/교체는 admin "PIN 재발급"(`Bus#regenerate_pin!`)이 `pin_registered_at`도 초기화.
-- **credentials 접근은 경로별로 다르다**:
-  - 수신 컨트롤러(`Integrations::TraccarController`)의 `ingest_token`·`server_url`: `credentials[:traccar][:...]` → `ENV["TRACCAR_..."]` → 개발 기본값(`Rails.env.local?`일 때만). 운영 미설정 시: `ingest_token`은 모든 positions가 `401`(**fail-closed**, 수신 전면 중단), `server_url`은 register 응답의 `traccarServerUrl`이 `nil`.
-  - sync 서비스(`TraccarApiClient`)의 `api_base_url`/`api_email`/`api_password`: **credentials만** 읽는다(ENV fallback 없음 — 구현 미설정). 미설정 시 `CredentialsMissing` → `failure?` Result로 반환되어, Route/Stop/Bus의 일반 create/update는 validation 실패와 동일한 `422`로, **RouteBus 생성은 redirect + flash alert**로 처리된다. 단, **예기치 않은 예외까지 500을 막는 것은 아니다**.
+- **Traccar 설정 출처(`TraccarSettings.fetch`, `app/services/traccar_settings.rb`)**: **로컬(`Rails.env.local?` = development/test)은 ENV만 읽고 credentials는 무시**(외부 서버 오접속 방지), **운영은 credentials → ENV** 순서. 경로별 차이는 다음과 같다:
+  - 수신 컨트롤러(`Integrations::TraccarController`)의 `ingest_token`·`server_url`: `TraccarSettings.fetch`(`:ingest_token`/`:server_url`) → 개발 기본값(`Rails.env.local?`일 때만). 운영 미설정 시: `ingest_token`은 모든 positions가 `401`(**fail-closed**, 수신 전면 중단), `server_url`은 register 응답의 `traccarServerUrl`이 `nil`.
+  - sync 서비스(`TraccarApiClient`)의 `api_base_url`/`api_email`/`api_password`: `TraccarSettings.fetch`로 읽는다(개발 기본값 없음 — 로컬은 `bin/traccar up`이 `.env`에 기록한 `TRACCAR_API_*` ENV 사용, README "로컬 Traccar 서버"). 미설정 시 `CredentialsMissing` → `failure?` Result로 반환되어, Route/Stop/Bus의 일반 create/update는 validation 실패와 동일한 `422`로, **RouteBus 생성은 redirect + flash alert**로 처리된다. 단, **예기치 않은 예외까지 500을 막는 것은 아니다**.
 - ⚠️ `traccar_server_url` 개발 기본값은 내부 테스트 서버(`yehyunserver.iptime.org`)로 임시 고정 — 원복 목록은 `driver_app/ISSUE.md` "임시 설정" 섹션.
 
 ### Admin CRUD ↔ Traccar 정합성 (완전 롤백 정책)
@@ -128,6 +128,7 @@ bin/rails test test/services/traccar_group_sync_test.rb  # 단일 파일
 
 ```bash
 bin/setup                 # 초기 세팅
+bin/traccar up            # 로컬 Traccar(Docker) 기동 — `bin/traccar-bus`로 가짜 버스 위치 전송
 bin/rails db:prepare      # 스키마 생성 + 시드 (고성군 고성↔통영 1번 노선 데모 — idempotent, find_or_create_by!)
 bin/dev                   # 서버(web) + Tailwind watch(css) 동시 실행 (Procfile.dev)
 bin/rails test            # 테스트
