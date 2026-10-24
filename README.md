@@ -27,7 +27,7 @@ BIS(버스정보시스템)에 등록되지 않은 시골·도서 지역의 노�
 
 ## 기술 스택
 
-- **Ruby** 4.0.2 / **Rails** 8.1 (`.tool-versions`로 asdf 고정)
+- **Ruby** 4.0.9 / **Rails** 8.1 (`.tool-versions`로 asdf 고정)
 - **DB**: SQLite
 - **프론트**: Hotwire(Turbo/Stimulus) + importmap, **Tailwind CSS 4**
 - **인증**: Rails 8 내장 인증(세션 + `has_secure_password`)
@@ -55,7 +55,7 @@ User (member / operator)  — 첫 가입자는 자동으로 operator
 
 ## 시작하기
 
-사전 준비: [asdf](https://asdf-vm.com/)로 Ruby 4.0.2 설치(`.tool-versions` 참고)
+사전 준비: [asdf](https://asdf-vm.com/)로 Ruby 4.0.9 설치(`.tool-versions` 참고)
 
 ```bash
 bundle install

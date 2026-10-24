@@ -1,6 +1,6 @@
 # 로컬 데모용 개발 이미지. 소스는 compose에서 마운트하므로 여기서는 gem만 설치한다.
 # 운영용 이미지는 Dockerfile을 쓴다.
-ARG RUBY_VERSION=4.0.2
+ARG RUBY_VERSION=4.0.9
 FROM docker.io/library/ruby:$RUBY_VERSION-slim
 
 WORKDIR /rails
