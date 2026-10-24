@@ -9,7 +9,7 @@
 Rails 서버 주소가 확정되면서 register API 우회는 원복 완료(아래 "완료" 참고). 남은 항목은 실배포
 주소가 정해지기 전까지 유지되는 로컬/테스트 전용 설정.
 
-- **Rails** `traccar_server_url` 로컬 기본값(`app/controllers/integrations/traccar_controller.rb`) — 내부 테스트 Traccar 서버(비공개 도메인)로 임시 고정(원래는 `credentials[:traccar][:server_url]`/`ENV["TRACCAR_SERVER_URL"]` 우선). → 원복: 실배포 확정되면 credentials/ENV로 실제 값 주입, 이 로컬 기본값은 그대로 둬도 무해.
+- ~~**Rails** `traccar_server_url` 로컬 기본값~~ 로컬 Traccar(`http://localhost:5055`, `bin/traccar`)로 변경되어 원복 대상에서 제외. 내부 테스트 서버를 쓰려면 `TRACCAR_SERVER_URL` ENV로 지정.
 - **Android** `network_security_config.xml`(`driver_app/android/app/src/main/res/xml/`) — 위와 같은 내부 테스트 서버 도메인만 평문(cleartext) HTTP 허용. → 원복: 실배포가 https면 이 예외 자체를 제거.
 
 ## 미채택

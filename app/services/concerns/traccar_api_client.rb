@@ -34,11 +34,8 @@ module TraccarApiClient
     private
 
     def request(method, path, body = nil)
-      creds = @stubbed || {
-        base_url: Rails.application.credentials.dig(:traccar, :api_base_url),
-        email: Rails.application.credentials.dig(:traccar, :api_email),
-        password: Rails.application.credentials.dig(:traccar, :api_password)
-      }
+      config = Rails.configuration.x.traccar
+      creds = @stubbed || { base_url: config.api_base_url, email: config.api_email, password: config.api_password }
 
       raise CredentialsMissing, "Traccar API credentials가 설정되지 않았습니다" if creds[:base_url].blank?
 
