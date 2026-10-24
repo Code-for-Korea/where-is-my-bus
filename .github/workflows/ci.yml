@@ -9,7 +9,7 @@ on:
 
 jobs:
   scan_ruby:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -27,7 +27,7 @@ jobs:
         run: bin/bundler-audit
       
   scan_js:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -42,7 +42,7 @@ jobs:
         run: bin/importmap audit
 
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     env:
       RUBOCOP_CACHE_ROOT: tmp/rubocop
     steps:
