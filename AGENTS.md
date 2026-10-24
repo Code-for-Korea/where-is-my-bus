@@ -6,7 +6,7 @@
 
 | 경로 | 내용 |
 |---|---|
-| 루트 | 웹 애플리케이션 (Rails 8.1, Ruby 4.0.2 — `.tool-versions`/`.ruby-version` 고정) |
+| 루트 | 웹 애플리케이션 (Rails 8.1, Ruby 4.0.9 — `.tool-versions`/`.ruby-version` 고정) |
 | `driver_app/` | 버스 운전자용 Flutter 앱 (GPS 송신). **Rails와 별도로 빌드·배포되는 앱** — register/positions/routes API 계약으로 강결합 |
 | `docs/` | `traccar-integration.md` — Traccar 연동 설계·계약의 원본 문서 |
 | `driver_app/README.md` · `driver_app/ISSUE.md` | 운전자 앱 설정 근거·임시 설정(원복 필요) 목록 |
@@ -15,7 +15,7 @@
 
 ## 기술 스택
 
-- Rails 8.1 + Ruby 4.0.2, **SQLite**(prod도 파일 DB: `storage/production{,_cache,_queue,_cable}.sqlite3`)
+- Rails 8.1 + Ruby 4.0.9, **SQLite**(prod도 파일 DB: `storage/production{,_cache,_queue,_cable}.sqlite3`)
 - Hotwire(Turbo/Stimulus) + importmap + **Tailwind CSS 4** (`tailwindcss-rails ~> 4.4`)
 - 인증: Rails 8 내장(세션 쿠키 + `has_secure_password`, bcrypt) — Devise 없음
 - Solid Queue / Solid Cache / Solid Cable, Kamal + Thruster, Propshaft
