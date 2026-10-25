@@ -112,6 +112,13 @@ ko:
       too_long: "%{count}자 이하여야 합니다"
       confirmation: "%{attribute}와 일치하지 않습니다"
 
+  # f.submit 기본 문구 ("Create Stop" 같은 영어가 나오지 않게 한다)
+  helpers:
+    submit:
+      create: "등록"
+      update: "저장"
+      submit: "저장"
+
   activerecord:
     errors:
       messages:
