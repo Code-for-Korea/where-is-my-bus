@@ -204,7 +204,7 @@ class TrackingController {
   /// init()은 최초 "운행 시작" 탭에서 지연 호출 — 미리 부르면 버튼 누르기 전부터 GPS 센서가 켜짐.
   static Future<void> _startSdk() async {
     if (!_initialized) {
-      await _sdk.init(Config(
+      final config = Config(
         serverUrl: DriverRegistration.traccarServerUrl!,
         deviceId: DriverRegistration.deviceId!,
         // 정류장 영역(30m 정사각형) 안에 위치가 반드시 몇 번 찍히도록 SDK 기본값보다 촘촘하게 보낸다:
@@ -216,7 +216,11 @@ class TrackingController {
           heartbeatIntervalSeconds: 30,
           stopDetection: false, // true면 iOS 모션 권한이 딸려옴
         ),
-      ));
+      );
+      await _sdk.init(config);
+      // init()은 SDK에 저장된 설정이 이미 있으면 새 값을 무시한다 — 재등록·서버 변경 뒤에도 옛 주소·기기 ID로
+      // 전송하지 않도록 매번 덮어쓴다.
+      await _sdk.setConfig(config);
       _initialized = true;
     }
     await _sdk.start();

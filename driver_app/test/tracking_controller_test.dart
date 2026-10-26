@@ -32,6 +32,9 @@ class _FakeSdk extends TraccarClientSdk {
   Future<void> init(Config config) async => calls.add('init');
 
   @override
+  Future<void> setConfig(Config config) async => calls.add('setConfig');
+
+  @override
   Future<void> start() async {
     calls.add('start');
     if (failStart) throw Exception('permission denied');
@@ -91,7 +94,7 @@ void main() {
       await TrackingController.toggle();
 
       expect(server.requests, ['POST /integrations/traccar/trips/start']);
-      expect(sdk.calls, ['init', 'start']);
+      expect(sdk.calls, ['init', 'setConfig', 'start']);
       expect(TrackingController.isTracking.value, isTrue);
       expect(TrackingController.position.value!.next, '고성터미널');
       expect(TrackingController.lastError.value, isNull);
@@ -174,7 +177,7 @@ void main() {
 
       await TrackingController.syncWithServer();
 
-      expect(sdk.calls, ['init', 'start']);
+      expect(sdk.calls, ['init', 'setConfig', 'start']);
       expect(TrackingController.isTracking.value, isTrue);
       expect(TrackingController.position.value!.current, '고성시장');
       expect(server.count('/trips/start'), 0); // 새 운행을 만들지 않는다
