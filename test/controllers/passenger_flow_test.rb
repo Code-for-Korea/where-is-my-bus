@@ -14,6 +14,13 @@ class PassengerFlowTest < ActionDispatch::IntegrationTest
     assert_select "img[src='/codeforkorea.webp']"
   end
 
+  test "passenger pages load the Pretendard font" do
+    get root_path
+
+    assert_select "link[href*='pretendard']"
+    assert_select "style", text: /font-family: 'Pretendard Variable'/
+  end
+
   test "the selector sheet lists the stops and routes that have service" do
     Stop.create!(name: "외딴 정류장", lat: 35.0, lng: 128.0)
 
