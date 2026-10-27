@@ -9,6 +9,13 @@ module Admin
 
     private
 
+    # 등록 서비스(TraccarRegistration) 실패를 폼의 오류로 보여준다.
+    # 검증 오류는 레코드에 이미 담겨 있고, Traccar 실패는 base 오류로 추가한다.
+    def render_failure(template, result)
+      result.record.errors.add(:base, result.error) if result.record.errors.empty?
+      render template, status: :unprocessable_entity
+    end
+
     def require_operator
       return if Current.user&.operator?
 

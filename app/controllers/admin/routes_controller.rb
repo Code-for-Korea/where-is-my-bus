@@ -3,76 +3,57 @@ module Admin
     before_action :set_route, only: %i[show edit update destroy sync_group]
 
     def index
-      @routes = Route.includes(area: :region).all
-      @routes = @routes.where(area_id: params[:area_id]) if params[:area_id].present?
+      @routes = Route.ordered.includes(:route_stops)
     end
 
     def show
-      @candidate_buses = @route.area.buses.where.not(id: @route.buses.select(:id))
+      @route_stops = @route.route_stops.includes(:stop)
+      @candidate_stops = Stop.where.not(id: @route.stop_ids).ordered
+      @next_sequence = (@route_stops.map(&:sequence).max || 0) + 1
+      @buses = @route.buses.ordered.includes(:active_trip)
+      @candidate_buses = Bus.where.not(route_id: @route.id).or(Bus.where(route_id: nil)).ordered.includes(:route)
     end
 
     def new
-      @route = Route.new(area_id: params[:area_id])
+      @route = Route.new
     end
 
     def create
-      @route = Route.new(route_params)
-      success = false
+      result = RouteRegistration.create(route_params)
+      return redirect_to admin_route_path(result.record), notice: "노선이 등록되었습니다." if result.success?
 
-      ActiveRecord::Base.transaction do
-        raise ActiveRecord::Rollback unless @route.save
-
-        result = TraccarGroupSync.call(@route)
-        if result.failure?
-          @traccar_error = result.error
-          raise ActiveRecord::Rollback
-        end
-
-        success = true
-      end
-
-      if success
-        redirect_to admin_route_path(@route), notice: "노선이 등록되었습니다."
-      else
-        @route.errors.add(:base, "Traccar 연동 실패: #{@traccar_error}") if @traccar_error
-        render :new, status: :unprocessable_entity
-      end
+      @route = result.record
+      render_failure :new, result
     end
 
     def edit
     end
 
     def update
-      if @route.update(route_params)
-        redirect_to admin_route_path(@route), notice: "노선이 수정되었습니다."
-      else
-        render :edit, status: :unprocessable_entity
-      end
+      result = RouteRegistration.update(@route, route_params)
+      return redirect_to admin_route_path(@route), notice: "노선이 수정되었습니다." if result.success?
+
+      render_failure :edit, result
     end
 
     def destroy
-      # 정합성 정책: Traccar group 삭제가 성공해야만 Route를 삭제한다.
-      result = TraccarGroupSync.destroy(@route)
-      if result.failure?
-        redirect_to admin_route_path(@route), alert: "Traccar 연동 실패로 삭제할 수 없습니다: #{result.error}"
-        return
+      result = RouteRegistration.destroy(@route)
+      if result.success?
+        redirect_to admin_routes_path, notice: "노선이 삭제되었습니다.", status: :see_other
+      else
+        redirect_to admin_route_path(@route), alert: "삭제할 수 없습니다: #{result.error}", status: :see_other
       end
-
-      @route.destroy
-      redirect_to admin_routes_path, notice: "노선이 삭제되었습니다.", status: :see_other
     end
 
-    # 완전 롤백 정책 하에서는 동기화 실패한 채로 저장된 Route가 생기지 않으므로, 이 액션은
-    # "실패 재시도"가 아니라 Traccar 콘솔에서 수동으로 group을 지우는 등의 드리프트가 생겼을 때
-    # 다시 맞추는 "재동기화" 용도로 남겨둔다.
+    # 완전 롤백 정책 하에서는 동기화 실패한 채로 저장된 노선이 생기지 않으므로, 이 액션은
+    # Traccar 콘솔에서 group을 수동으로 지우는 등의 드리프트가 생겼을 때 다시 맞추는 "재동기화" 용도다.
     def sync_group
-      result = TraccarGroupSync.call(@route)
-      if result.failure?
-        flash[:alert] = result.error
+      result = RouteRegistration.update(@route, {})
+      if result.success?
+        redirect_to admin_route_path(@route), notice: "Traccar 노선 동기화에 성공했습니다."
       else
-        flash[:notice] = "group 동기화에 성공했습니다."
+        redirect_to admin_route_path(@route), alert: result.error
       end
-      redirect_to admin_route_path(@route)
     end
 
     private
@@ -82,7 +63,7 @@ module Admin
     end
 
     def route_params
-      params.require(:route).permit(:area_id, :name, :headway_minutes, :position)
+      params.require(:route).permit(:name)
     end
   end
 end

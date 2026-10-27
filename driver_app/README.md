@@ -5,6 +5,8 @@
 ## 역할
 
 - 운전자 단말에서 GPS 위치를 서버로 송신
+- 운행 시작·종료를 서버에 알림 (노선은 운전자가 고르지 않고, 관리자가 차량에 배정한 노선으로 운행)
+- 서버가 보는 버스 위치(이전·현재·다음 정류장)와 배정 노선을 메인 화면에 표시
 - 정류장 크라우드소싱 등록(미구현, `ISSUE.md` 참고)
 
 목업 아티팩트: https://claude.ai/code/artifact/cd691e97-db15-4998-8b02-6f44744d37bd?via=auto_preview
@@ -36,7 +38,10 @@
 - [x] 다국어(한국어/English) 인프라
 - [x] iOS `Info.plist` 위치 권한 문구 + 언어별 `InfoPlist.strings` + Background Modes
 - [x] Traccar Client SDK 연동(`init`/`start`/`stop`, 상태표시) — 실기기 검증 완료
-- [x] 백엔드 API(register/positions/routes) — Rails 쪽 5개 항목 구현 완료. driver_app 실연동도 활성화되어 실서버+실기기 e2e 검증 완료
+- [x] 백엔드 API(register/bus/trips start·end) — Rails 쪽 구현 완료. 옛 `positions`·`routes`는 폐지(위치는 Traccar로 직접 전송, 노선은 차량에 배정)
+- [x] 서버 운행 시작·종료 연동, 배정 노선·이전/현재/다음 정류장 표시, 앱 재시작 시 위치 전송 자동 재개 (단위·위젯 테스트 통과)
+- [ ] iOS 시뮬레이터 e2e 시험 (아래 "iOS 시뮬레이터로 e2e 확인하기")
+- [ ] 실기기 e2e 시험 (iOS는 배포 서버 주소를 `Info.plist` 평문 HTTP 예외에 등록해야 함)
 - [x] 차량 등록 시 Traccar device 자동 프로비저닝
 - [x] register PIN 1회용 처리(유출 대응) — 상세는 `ISSUE.md` 참고
 - [x] 설정화면 "PIN으로 재등록" 연결
@@ -44,6 +49,35 @@
 - [ ] 앱 아이콘/스플래시 이미지 자산 (패키지 ID는 이미 변경됨 — 아이콘은 아직 기본 Flutter 로고)
 - [ ] Firebase 연동 시 새 패키지 ID로 `google-services.json` / `GoogleService-Info.plist` 재발급
 - [ ] 앱스토어/플레이스토어 배포 파이프라인 (Android 릴리즈 키스토어 포함, 전체 미구성)
+
+## iOS 시뮬레이터로 e2e 확인하기
+
+Mac의 iOS 시뮬레이터는 PC와 네트워크를 공유하므로 `localhost`로 Docker 서버에 바로 붙는다.
+
+1. **서버 실행**: 저장소 루트에서 `docker compose up -d`. 호스트 3000번이 이미 쓰이면 `RAILS_PORT=3300 docker compose up -d`(아래 주소의 3000을 그 포트로 바꿔 읽는다). 첫 기동이면 시드가 차량 2대(1번 → 1번 노선, 2번 → 2번 노선)를 만든다.
+2. **PIN 확인**: `docker compose exec rails bin/rails db:seed`가 차량별 PIN을 출력한다. 이미 쓴 PIN이면 관리자 화면(`http://localhost:3000/admin`) 차량 상세에서 "PIN 재발급".
+3. **시뮬레이터 부팅 후 앱 실행**: Flutter는 *부팅된* 시뮬레이터만 기기로 인식한다. `open -a Simulator`는 앱만 띄우고 특정 기기를 부팅해 주지 않으므로, 기기를 직접 부팅한다.
+   ```
+   xcrun simctl list devices available        # 기기 이름과 UDID 확인
+   xcrun simctl boot <UDID>                   # 예: iPhone 17
+   open -a Simulator                          # 부팅된 기기의 창 띄우기
+   flutter devices                            # 목록에 iOS 시뮬레이터가 보이는지 확인
+   cd driver_app && flutter run -d <UDID>     # 이름보다 UDID가 정확하다 (iPhone 17 / 17e 구분)
+   ```
+4. **등록**: 서버 주소 `http://localhost:3000` + PIN → "등록하고 시작하기". 메인 화면에 "1번 차량", "배정 노선 · 1번 노선"이 보이면 성공.
+5. **운행 시작**: 버튼을 누르고 위치 권한을 "항상 허용"(또는 앱 사용 중 허용). 서버 대시보드 "운행 중인 버스"에 나타난다.
+6. **위치 움직이기** (1번 노선, 터미널 100m 전 → 터미널 → 시장 → 병원 → 고성고 → 80m 뒤):
+   ```
+   xcrun simctl location booted start --speed=8 --distance=10 \
+     34.97246,128.32143 34.9731,128.3222 34.9751,128.3246 34.9771,128.3270 34.9791,128.3294 34.97961,128.33002
+   ```
+   2번 노선(2번 차량)은 `34.97246,128.32143 34.9731,128.3222 34.9771,128.3270 34.9751,128.3298 34.9731,128.3326 34.9726,128.3333`. 끝나면 `xcrun simctl location booted clear`.
+7. **확인**: 앱 메인 화면의 "서버가 보는 위치"(이전·현재·다음, 10초마다 갱신), 관리자 대시보드 "최근 정류장 방문", 승객 화면(`http://localhost:3000`).
+8. **종료**: 앱에서 버튼을 눌러 운행 정지 → 대시보드에서 운행이 사라지는지 확인.
+
+시험할 시나리오: ① 정상 등록 ② 운행 시작 후 정류장 순서대로 이동 ③ 운행 종료 ④ 노선이 배정되지 않은 차량으로 시작(관리자 화면에서 배정 해제 후) → 안내 문구 ⑤ 서버를 내린 상태(`docker compose stop rails`)에서 시작·종료 → 상태가 바뀌지 않고 오류 안내 ⑥ 운행 중 앱을 종료했다가 다시 실행 → 위치 전송 자동 재개 ⑦ 관리자가 PIN 재발급 후 앱에서 재등록 ⑧ 정류장을 통과할 때마다 방문이 기록되는지(위치 전송 빈도 점검).
+
+시뮬레이터가 못 보여주는 것: 백그라운드·화면 꺼짐에서의 위치 전송, 배터리, 실제 GPS 정확도. 이 부분은 실기기 시험에서 확인한다.
 
 ## Admin 연동
 

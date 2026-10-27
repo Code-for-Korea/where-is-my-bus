@@ -36,8 +36,9 @@ module Web
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
+    config.time_zone = "Seoul"
     config.i18n.default_locale = :ko
-    config.i18n.available_locales = [ :ko, :en ]
+    config.i18n.available_locales = [ :ko ]
 
     # Don't generate system test files.
     config.generators.system_tests = nil

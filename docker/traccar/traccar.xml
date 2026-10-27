@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<!-- 로컬 데모용 Traccar 설정. 토큰은 compose.yaml의 Rails 환경변수와 맞춰야 한다. -->
+<properties>
+  <entry key='config.default'>./conf/default.xml</entry>
+
+  <!-- 데모용 기본 DB(H2). 운영에는 권장되지 않는다 (docs/future-improvements.md 14번) -->
+  <entry key='database.driver'>org.h2.Driver</entry>
+  <entry key='database.url'>jdbc:h2:./data/database</entry>
+  <entry key='database.user'>sa</entry>
+  <entry key='database.password'></entry>
+
+  <!-- Rails가 Traccar API를 호출할 때 쓰는 서비스 계정 토큰 (Authorization: Bearer ...) -->
+  <entry key='web.serviceAccountToken'>dev-traccar-api-token</entry>
+
+  <!-- Geofence 진입/이탈 등 이벤트를 Rails로 포워딩 -->
+  <entry key='event.forward.url'>http://rails:3000/integrations/traccar/events</entry>
+  <entry key='event.forward.type'>json</entry>
+  <entry key='event.forward.header'>X-Ingest-Token: dev-traccar-token</entry>
+</properties>
