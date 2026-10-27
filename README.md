@@ -149,6 +149,32 @@ bin/rubocop           # 스타일
 
 ---
 
+## 주요 변경 이력
+
+날짜별 전체 이력은 `git log`와 PR에서 볼 수 있고, 여기에는 구조나 운영에 영향을 준 변경만 적습니다. 이후 변경으로 대체된 항목은 그렇게 표시합니다.
+
+### 2026-10-27 — Geofence 이벤트 기반으로 재작성 (#23)
+
+- 데이터 모델을 12개 테이블에서 8개로 줄이고, "GPS 좌표 누적 + 가까운 정류장 계산"을 "Geofence 진입/이탈 이벤트를 `stop_visits`에 기록"으로 바꿈. 정류장이 노선에서 독립되어 여러 노선이 공유하고, 차량에 노선을 하나 배정하며, 운행(Trip)은 운전자가 시작·종료함 ([docs/data-model-rewrite.md](docs/data-model-rewrite.md))
+- 운전자 앱 API 변경(**이전 버전과 호환되지 않음**): `positions`·`routes` 제거, `bus`·`trips/start`·`trips/end`·`events` 추가, `register`는 유지하되 응답 변경
+- 제거: 시·도/운행지역 계층, 좋아요, 영어 화면, 좌표 기반 ETA, GPS 로그, GA4
+- 이 PR에서 CI도 정리: Ruby 4.0.9, gem 보안 업데이트(`net-ssh`, `crass` 등), brakeman 8.1.0
+
+### 2026-09-18 — 차량 등록·PIN 보안 (#17, #18, #19)
+
+- 정류장 등록 시 Traccar geofence 자동 생성, 차량 등록 시 Traccar device 자동 프로비저닝. 노선은 Traccar group, 정류장 연결은 group 단위로 함 (2026-10-27 재작성에서 노선 배정 방식은 바뀌었으나 자원 대응은 유지 — [docs/traccar-integration.md](docs/traccar-integration.md))
+- register PIN을 **1회용**으로 처리(유출돼도 같은 PIN으로 다른 기기가 추가 등록할 수 없음)하고 동시 요청 경쟁 상태를 방지함
+- 차량 등록 시 Traccar 연동 실패로 롤백되면 재시도가 막히던 버그 수정
+
+### 2026-09-16 — 관리자 화면
+
+- 차량 PIN·`traccar_unique_id` 자동 생성, PIN 재발급 버튼(유출 대응, 재발급하면 기존 PIN 즉시 무효화)
+- 차량 목록에서 PIN 컬럼 제거(보안) — 상세 화면에서만 노출
+- "신규등록 운영자 지침" 페이지 추가
+- 노선·정류장·차량 화면에 최종수정일자 표시 (당시 있던 시·도/운행지역 화면의 표시는 재작성에서 화면과 함께 삭제됨)
+
+---
+
 ## License & Open Source Acknowledgments
 
 - This project is licensed under the **Apache License 2.0** - see the [LICENSE.txt](LICENSE.txt) file for details.
