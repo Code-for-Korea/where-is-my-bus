@@ -37,7 +37,7 @@ User ─< Session                     (role: member / operator)
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
 
-주의사항: 프로젝트 스킬 `traccar-sync`, `driver-app`(`.claude/skills/`)은 **재작성 이전 구조**(`positions`, `RouteBus`, `RouteProgress`, Region/Area)를 기준으로 쓰여 있어 아직 낡았다. 참고하되 위 문서·코드와 다르면 문서·코드를 따르고, 스킬은 별도로 갱신한다.
+Traccar 연동·`driver_app` 코드를 고칠 때는 프로젝트 스킬 `traccar-sync`, `driver-app`(`.claude/skills/`)을 먼저 쓴다. 두 스킬은 재작성 이후 구조 기준이다.
 
 ## 인증·권한
 
@@ -77,8 +77,7 @@ Kamal(`config/deploy.yml`)은 **placeholder 상태**(서버 `192.168.0.1`, regis
 6. **`deviceId`가 사실상 비밀번호** — 운행 시작·종료 API는 이것만으로 인증한다. 기기별 토큰은 후속 과제(`docs/future-improvements.md` 2번).
 7. **운전자가 종료를 누르지 않으면 Trip이 계속 열린다** — 자동 종료 기준은 미정(`docs/policy-draft.md`).
 8. **첫 가입자가 자동 operator** — `User#assign_operator_if_first_user`가 `User.count.zero?`로 판정하므로 동시 가입 race가 있고 DB 제약이 없다. 가입 폼은 role을 받지 않는다.
-9. **README는 낡았다** — 재작성 이전 구조(Region/Area, GPS 수신, `positions`)를 설명하는 부분이 많다. 구조 판단은 `docs/`와 코드를 기준으로 한다.
-10. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`와 `driver_app/ISSUE.md`, 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
+9. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`, `driver_app/ISSUE.md`, `README.md`, 스킬(`traccar-sync`, `driver-app`), 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
 
 ## 코딩 관례
 
