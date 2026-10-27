@@ -76,6 +76,12 @@ class PassengerFlowTest < ActionDispatch::IntegrationTest
     assert_select "[data-arrival-polling-target=busMarker][style*='left: 30%']"
   end
 
+  test "arrival screen carries the GA4 virtual page path on body for turbo:load page views" do
+    get stop_route_arrivals_path(stops(:hospital), routes(:one))
+
+    assert_select "body[data-ga4-page-path='/1번 노선/고성병원']"
+  end
+
   test "arrival screen says the bus has arrived when it is stopped at my stop" do
     get stop_route_arrivals_path(stops(:market), routes(:one))
 

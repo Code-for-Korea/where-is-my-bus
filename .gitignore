@@ -38,7 +38,9 @@
 !/app/assets/builds/.keep
 
 # Claude Code — local dev config (not for version control)
-/.claude/
+# 프로젝트 스킬(.claude/skills)만 팀이 공유한다. settings.local.json 등 나머지는 제외.
+/.claude/*
+!/.claude/skills/
 /CLAUDE.md
 /CLAUDE.local.md
 /.mcp.json
