@@ -52,3 +52,24 @@
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*
+
+# 공개 레지스트리(Docker Hub)에 올라가므로 운영에 필요 없는 것은 모두 뺀다.
+# 개발용 credentials(암호문이라도 영구 공개된다). 운영은 config/credentials/production.yml.enc를 쓴다.
+/config/credentials.yml.enc
+
+# 에이전트·IDE 작업 디렉터리 (개인 설정, 세션 기록)
+/.claude/
+/.agents/
+/.omc/
+/.omo/
+/.ruby-lsp/
+
+# 개발 문서, 테스트, 로컬 데모 구성 (런타임이 읽지 않는다)
+/docs/
+/test/
+/script/
+/docker/
+/compose.yaml
+/AGENTS.md
+/README.md
+/.rubocop.yml

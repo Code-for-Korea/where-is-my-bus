@@ -2,12 +2,15 @@
 service: web
 
 # Name of the container image (use your-user/app-name on external registries).
-image: web
+# 공개 Docker Hub 저장소다. 이미지에 비밀값이 들어가지 않도록 .dockerignore를 점검했다(docs/deployment.md).
+# TODO(배포 전): DOCKERHUB_USER를 실제 Docker Hub 계정으로 바꾼다.
+image: DOCKERHUB_USER/where-is-my-bus
 
 # Deploy to these servers.
 servers:
   web:
-    - 192.168.0.1
+    # TODO(배포 전): 실서버 IP 또는 호스트명. 80/443이 비어 있어야 한다(docs/deployment.md "같은 호스트에 Traccar가 있을 때").
+    - SERVER_IP
   # job:
   #   hosts:
   #     - 192.168.0.1
@@ -20,27 +23,32 @@ servers:
 #
 # Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
 #
-# proxy:
-#   ssl: true
-#   host: app.example.com
+# 도메인을 바꾸면 여기 host와 아래 env의 APP_HOST를 같이 바꾼다(credentials site_url, Traccar event.forward.url도).
+proxy:
+  ssl: true
+  host: localbus.codefor.kr
+  healthcheck:
+    path: /up
 
 # Where you keep your container images.
 registry:
-  # Alternatives: hub.docker.com / registry.digitalocean.com / ghcr.io / ...
-  server: localhost:5555
+  # Docker Hub(server 생략). ghcr.io 등으로 옮기려면 server와 image만 바꾸면 된다.
+  # TODO(배포 전): DOCKERHUB_USER를 실제 계정으로.
+  username: DOCKERHUB_USER
 
-  # Needed for authenticated registries.
-  # username: your-user
-
-  # Always use an access token rather than real password when possible.
-  # password:
-  #   - KAMAL_REGISTRY_PASSWORD
+  # 계정 비밀번호가 아니라 Access Token(Read & Write). 값은 .kamal/secrets가 환경변수에서 읽는다.
+  password:
+    - KAMAL_REGISTRY_PASSWORD
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   secret:
+    # config/credentials/production.key (secret_key_base, site_url, traccar.* 는 production.yml.enc 안에 있다)
     - RAILS_MASTER_KEY
   clear:
+    # config.hosts(DNS 리바인딩 방어). proxy.host와 같은 값.
+    APP_HOST: localbus.codefor.kr
+
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
     SOLID_QUEUE_IN_PUMA: true
@@ -66,10 +74,12 @@ aliases:
   logs: app logs -f
   dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
 
-# Use a persistent storage volume for sqlite database files and local Active Storage files.
-# Recommended to change this to a mounted volume path that is backed up off server.
+# SQLite 4개(production, cache, queue, cable)와 Active Storage 파일은 컨테이너 밖 호스트 디렉터리에 둔다.
+# 컨테이너·이미지를 바꿔도 데이터가 남고 호스트에서 바로 백업한다(bin/backup-storage).
+# 최초 1회 호스트에서: sudo mkdir -p /var/lib/where-is-my-bus/storage && sudo chown 1000:1000 /var/lib/where-is-my-bus/storage
+# (컨테이너는 uid 1000 rails 사용자로 돈다. 권한이 없으면 db:prepare가 실패해 부팅하지 못한다.)
 volumes:
-  - "web_storage:/rails/storage"
+  - "/var/lib/where-is-my-bus/storage:/rails/storage"
 
 # Bridge fingerprinted assets, like JS and CSS, between versions to avoid
 # hitting 404 on in-flight requests. Combines all files from new and old

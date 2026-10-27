@@ -1,3 +1,11 @@
+# 운영에서는 실행하지 않는다. 이 시드는 operator@example.com / password123 계정과 데모 정류장·노선·차량을 만들고,
+# 그 자원들을 연결된 Traccar에 실제로 만든다. 새 DB를 만들 때 db:prepare가 시드를 자동 실행하므로(bin/docker-entrypoint)
+# 가드가 없으면 첫 배포에서 실서버에 데모 데이터와 알려진 비밀번호의 관리자가 생긴다.
+if Rails.env.production? && ENV["ALLOW_PRODUCTION_SEED"] != "1"
+  puts "운영 환경에서는 시드를 실행하지 않는다. (정말 필요하면 ALLOW_PRODUCTION_SEED=1)"
+  return
+end
+
 # 로컬 데모 시드. 여러 번 실행해도 안전하다 (이미 있는 것은 건너뛴다).
 # 노선·정류장·차량은 관리자 화면과 같은 등록 서비스를 거치므로 Traccar에도 group·geofence·device가 함께 만들어진다.
 # 그래서 Traccar가 떠 있어야 하며, 아직 뜨는 중이면 잠시 재시도한다.
