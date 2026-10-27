@@ -158,7 +158,7 @@ bin/rubocop           # 스타일
 - 데이터 모델을 12개 테이블에서 8개로 줄이고, "GPS 좌표 누적 + 가까운 정류장 계산"을 "Geofence 진입/이탈 이벤트를 `stop_visits`에 기록"으로 바꿈. 정류장이 노선에서 독립되어 여러 노선이 공유하고, 차량에 노선을 하나 배정하며, 운행(Trip)은 운전자가 시작·종료함 ([docs/data-model-rewrite.md](docs/data-model-rewrite.md))
 - 운전자 앱 API 변경(**이전 버전과 호환되지 않음**): `positions`·`routes` 제거, `bus`·`trips/start`·`trips/end`·`events` 추가, `register`는 유지하되 응답 변경
 - 제거: 시·도/운행지역 계층, 좋아요, 영어 화면, 좌표 기반 ETA, GPS 로그
-- GA4 추적 코드는 6단계 "승객 화면" 커밋 `6609fa5`(2026-10-23)에서 실수로 함께 삭제됐다가(hye-k: "최소 기능만 남기려던 것", 의도한 삭제 아님) #20에서 복원함. `layouts/service.html.erb`의 gtag(production만)와 `app/javascript/ga4.js`를 되살리고, `page_path`는 `/노선명/정류장명`, `arrival_status`는 화면을 열 때 상태(`arriving`/`approaching`/`passed`/`unknown`/`no_bus`)를 1회 전송, `select_bus`는 유지함. 좋아요·상세 보기 기능이 없어져 `like_stop`·`view_detail`은 복원하지 않았고, 예전 `page_path`(`/:지역명/:버스번호/:정류장명`)와 UTM 구분은 이어지지 않음. 원래 코드는 `e92b1c3`(2026-06-26)에서 추가됐음
+- GA4 추적 코드는 6단계 "승객 화면" 커밋 `6609fa5`(2026-10-23)에서 실수로 함께 삭제됐다가(hye-k: "최소 기능만 남기려던 것", 의도한 삭제 아님) #20에서 복원함. `layouts/service.html.erb`의 gtag(production만)와 `app/javascript/ga4.js`를 되살리고, 페이지뷰는 Turbo 이동도 집계하도록 `turbo:load`마다 `ga4.js`가 보내며 `page_path`는 `/노선명/정류장명`(body의 `data-ga4-page-path`), `arrival_status`는 화면을 열 때 상태(`arriving`/`approaching`/`passed`/`unknown`/`no_bus`)를 1회 전송, `select_bus`는 유지함. 좋아요·상세 보기 기능이 없어져 `like_stop`·`view_detail`은 복원하지 않았고, 예전 `page_path`(`/:지역명/:버스번호/:정류장명`)와 UTM 구분은 이어지지 않음. 원래 코드는 `e92b1c3`(2026-06-26)에서 추가됐음
 - 이 PR에서 CI도 정리: Ruby 4.0.9, gem 보안 업데이트(`net-ssh`, `crass` 등), brakeman 8.1.0
 
 ### 2026-09-18 — 차량 등록·PIN 보안 (#17, #18, #19)
