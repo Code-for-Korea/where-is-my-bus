@@ -81,7 +81,7 @@
     <%# 제공 노선 %>
     <div class="mb-8">
       <p class="text-sm font-bold text-gray-800 mb-3">
-        <%= t("pages.about.coverage_title_html", routes_count: @routes.size, stops_count: @selector_stops.size).html_safe %>
+        <%= t("pages.about.coverage_title_html", routes_count: @routes.size, stops_count: @selector_stops.size) %>
       </p>
       <ul class="space-y-2">
         <% @routes.each do |route| %>
