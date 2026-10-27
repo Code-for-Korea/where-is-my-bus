@@ -20,6 +20,15 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
+    <% if Rails.env.production? %>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-V5FQ7DHE99"></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-V5FQ7DHE99'<% if content_for?(:ga4_page_path) %>, { page_path: '<%= j yield(:ga4_page_path) %>' }<% end %>);
+      </script>
+    <% end %>
     <style>
       body { font-family: 'Pretendard Variable', Pretendard, sans-serif; }
     </style>

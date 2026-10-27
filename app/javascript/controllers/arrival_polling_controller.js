@@ -1,12 +1,18 @@
 import { Controller } from "@hotwired/stimulus"
+import { ga4Event } from "ga4"
 
 // 5초마다 현재 상태(JSON)를 받아 문구와 노선 진행 바의 버스 아이콘을 갱신한다.
 // 서버가 만든 문구는 textContent/DOM 노드로만 넣는다 (정류장 이름 등 입력값이 섞여 있다).
 export default class extends Controller {
   static targets = ["small", "big", "others", "busMarker"]
-  static values  = { url: String, interval: { type: Number, default: 5000 } }
+  static values  = {
+    url: String, interval: { type: Number, default: 5000 },
+    stopName: String, routeName: String, status: String
+  }
 
   connect() {
+    // 화면을 열 때의 상태(arriving/approaching/passed/unknown/no_bus)를 한 번만 보낸다. 5초 폴링마다 보내지 않는다.
+    ga4Event("arrival_status", { status: this.statusValue, stop_name: this.stopNameValue, bus_number: this.routeNameValue })
     this.timer = setInterval(() => {
       if (!document.hidden) this.poll()
     }, this.intervalValue)

@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { ga4Event } from "ga4"
 
 // 정류장 → 노선을 고르는 바텀시트. origin/main의 "지역 → 노선 → 정류장" 선택을 우리 데이터에 맞게 바꿨다.
 export default class extends Controller {
@@ -53,6 +54,10 @@ export default class extends Controller {
     }
 
     this.hideError()
+    ga4Event("select_bus", {
+      bus_number: this.routeTarget.selectedOptions[0]?.text,
+      stop_name:  this.stopTarget.selectedOptions[0]?.text
+    })
     window.location.href = `/stops/${stopId}/routes/${routeId}`
   }
 

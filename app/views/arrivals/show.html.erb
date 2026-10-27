@@ -1,9 +1,14 @@
 <% content_for :title,       "#{@stop.name} | #{@route.name}" %>
 <% content_for :description, "#{@stop.name} 정류장의 #{@route.name} 버스는 지금 어디? 실시간 위치를 확인하세요." %>
 
+<% content_for :ga4_page_path, "/#{@route.name}/#{@stop.name}" %>
+
 <div data-controller="bus-selector arrival-polling"
      data-bus-selector-select-error-message-value="<%= t("shared.bus_selector_sheet.select_error") %>"
      data-arrival-polling-url-value="<%= stop_route_status_path(@stop, @route) %>"
+     data-arrival-polling-stop-name-value="<%= @stop.name %>"
+     data-arrival-polling-route-name-value="<%= @route.name %>"
+     data-arrival-polling-status-value="<%= @presenter.primary&.kind || :no_bus %>"
      class="flex flex-col h-screen">
 
   <%# 헤더 %>
