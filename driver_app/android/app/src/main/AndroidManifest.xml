@@ -4,6 +4,8 @@
          무조건 선언해두는 권한 — stopDetection: false로 그 기능 자체를 안 쓰기로 했으니 제거.
          iOS의 NSMotionUsageDescription 미등록과 같은 목적(ISSUE.md 참고). -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
+    <!-- 릴리즈 빌드에서 API/Traccar 통신에 필요 (기본 템플릿은 debug/profile 매니페스트에만 선언). -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="whereismybusapp"
         android:name="${applicationName}"
