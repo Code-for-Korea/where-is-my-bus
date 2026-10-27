@@ -157,8 +157,8 @@ bin/rubocop           # 스타일
 
 - 데이터 모델을 12개 테이블에서 8개로 줄이고, "GPS 좌표 누적 + 가까운 정류장 계산"을 "Geofence 진입/이탈 이벤트를 `stop_visits`에 기록"으로 바꿈. 정류장이 노선에서 독립되어 여러 노선이 공유하고, 차량에 노선을 하나 배정하며, 운행(Trip)은 운전자가 시작·종료함 ([docs/data-model-rewrite.md](docs/data-model-rewrite.md))
 - 운전자 앱 API 변경(**이전 버전과 호환되지 않음**): `positions`·`routes` 제거, `bus`·`trips/start`·`trips/end`·`events` 추가, `register`는 유지하되 응답 변경
-- 제거: 시·도/운행지역 계층, 좋아요, 영어 화면, 좌표 기반 ETA, GPS 로그, GA4
-- ⚠️ **GA4 추적 코드가 사라져 운영에 배포되면 방문·이벤트가 수집되지 않음.** 6단계 "승객 화면" 커밋 `6609fa5`(2026-10-23)에서 `layouts/service.html.erb`의 gtag 스크립트와 `app/javascript/ga4.js`가 함께 삭제됐고, 이후 복원되지 않음. 원래 코드는 `e92b1c3`(2026-06-26, "SEO 메타태그, GA4 추적 코드 및 이벤트 설정")에서 추가됐으며 `git show 6609fa5^:app/views/layouts/service.html.erb`로 볼 수 있음. 재도입 여부는 미결 ([docs/future-improvements.md](docs/future-improvements.md))
+- 제거: 시·도/운행지역 계층, 좋아요, 영어 화면, 좌표 기반 ETA, GPS 로그 (GA4도 함께 삭제됐으나 복원 진행 중, 아래 참고)
+- ⚠️ **GA4 추적 코드가 삭제돼 복원 중. 복원이 머지되기 전에 운영에 배포하면 방문·이벤트가 수집되지 않음.** 6단계 "승객 화면" 커밋 `6609fa5`(2026-10-23)에서 `layouts/service.html.erb`의 gtag 스크립트와 `app/javascript/ga4.js`가 함께 삭제됐고, 이후 복원되지 않았음. 의도한 삭제가 아니었고("요구사항 구현에 필요한 최소 기능만 남기려던 것", hye-k, PR #20 코멘트) 복원하기로 함 — `feat/restore-ga4`. 원래 코드는 `e92b1c3`(2026-06-26, "SEO 메타태그, GA4 추적 코드 및 이벤트 설정")에서 추가됐으며 `git show 6609fa5^:app/views/layouts/service.html.erb`로 볼 수 있음. 경위와 복원 범위는 [docs/future-improvements.md](docs/future-improvements.md))
 - 이 PR에서 CI도 정리: Ruby 4.0.9, gem 보안 업데이트(`net-ssh`, `crass` 등), brakeman 8.1.0
 
 ### 2026-09-18 — 차량 등록·PIN 보안 (#17, #18, #19)
