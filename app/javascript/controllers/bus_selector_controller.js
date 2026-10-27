@@ -1,11 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
-import { ga4Event } from "ga4"
 
+// 정류장 → 노선을 고르는 바텀시트. origin/main의 "지역 → 노선 → 정류장" 선택을 우리 데이터에 맞게 바꿨다.
 export default class extends Controller {
-  static targets = ["region", "route", "stop", "overlay"]
-  static values  = { autoOpen: Boolean, selectErrorMessage: String, stopName: String, busNumber: String }
+  static targets = ["stop", "route", "overlay"]
+  static values  = { autoOpen: Boolean, selectErrorMessage: String }
 
   connect() {
+    if (this.hasStopTarget && this.stopTarget.value) this.filterRoutes()
     if (this.autoOpenValue) this.open()
   }
 
@@ -21,45 +22,42 @@ export default class extends Controller {
     document.body.classList.remove("overflow-hidden")
   }
 
-  onRegionChange() {
-    // DB 연결 후 동적 로딩 예정
+  onStopChange() {
+    this.filterRoutes()
   }
 
-  onRouteChange() {
-    // DB 연결 후 동적 로딩 예정
+  // 고른 정류장에 서는 노선만 보이게 하고, 하나뿐이면 자동으로 고른다.
+  filterRoutes() {
+    const stopId = this.stopTarget.value
+    let matches = []
+
+    Array.from(this.routeTarget.options).forEach((option) => {
+      if (!option.value) return
+      const served = stopId === "" || option.dataset.stops.split(",").includes(stopId)
+      option.hidden = !served
+      option.disabled = !served
+      if (served) matches.push(option)
+    })
+
+    const selected = this.routeTarget.selectedOptions[0]
+    if (selected && selected.value && selected.disabled) this.routeTarget.value = ""
+    if (stopId !== "" && matches.length === 1) this.routeTarget.value = matches[0].value
   }
 
   confirm() {
-    const region = this.regionTarget.value
     const stopId = this.stopTarget.value
-    if (!region || !stopId) {
-      this.showError(this.selectErrorMessageValue || "지역과 정류장을 선택해주세요.")
-      return
-    }
-
-    const selectedStop = this.stopTarget.options[this.stopTarget.selectedIndex]
-    if (selectedStop && selectedStop.dataset.region && selectedStop.dataset.region !== region) {
-      this.showError(this.selectErrorMessageValue || "지역과 정류장을 선택해주세요.")
+    const routeId = this.routeTarget.value
+    if (!stopId || !routeId) {
+      this.showError(this.selectErrorMessageValue || "정류장과 노선을 선택해주세요.")
       return
     }
 
     this.hideError()
-    ga4Event("select_bus", {
-      region:     this.hasRegionTarget ? this.regionTarget.options[this.regionTarget.selectedIndex]?.text : region,
-      bus_number: this.hasRouteTarget  ? this.routeTarget.options[this.routeTarget.selectedIndex]?.text  : "",
-      stop_name:  this.hasStopTarget   ? this.stopTarget.options[this.stopTarget.selectedIndex]?.text    : ""
-    })
-    const locale = document.documentElement.lang
-    const prefix = locale && locale !== "ko" ? `/${locale}` : ""
-    window.location.href = `${prefix}/r/${region}/${stopId}`
-  }
-
-  trackViewDetail() {
-    ga4Event("view_detail", { stop_name: this.stopNameValue, bus_number: this.busNumberValue })
+    window.location.href = `/stops/${stopId}/routes/${routeId}`
   }
 
   showError(message) {
-    let el = this.element.querySelector("[data-error-toast]")
+    const el = this.element.querySelector("[data-error-toast]")
     if (!el) return
     el.textContent = message
     el.classList.remove("opacity-0", "translate-y-2")

@@ -1,0 +1,13 @@
+left_terminal:
+  trip: active_one
+  stop: terminal
+  entered_at: <%= 50.minutes.ago %>
+  exited_at: <%= 48.minutes.ago %>
+  entered_event_id: "event-1"
+  exited_event_id: "event-2"
+
+at_market:
+  trip: active_one
+  stop: market
+  entered_at: <%= 10.minutes.ago %>
+  entered_event_id: "event-3"

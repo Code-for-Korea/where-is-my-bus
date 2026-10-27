@@ -1,17 +1,64 @@
 <% content_for :page_title, "대시보드" %>
 
-<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-  <% cards = [
-       ["시·도", "관리되는 광역 행정구역"],
-       ["운행지역", "버스를 운행하는 지역 (예: 통영시 욕지도)"],
-       ["노선", "지역별 버스 노선"],
-       ["정류장", "노선별 정류장과 좌표"],
-       ["차량", "번호판과 운전자 인증 PIN"],
-     ] %>
-  <% cards.each do |title, desc| %>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+  <% [
+       ["노선", @counts[:routes], admin_routes_path],
+       ["정류장", @counts[:stops], admin_stops_path],
+       ["차량", @counts[:buses], admin_buses_path],
+       ["운행 중", @counts[:active_trips], nil],
+     ].each do |title, count, path| %>
     <div class="bg-white rounded-xl border border-gray-200 p-5">
-      <div class="font-semibold text-gray-900"><%= title %></div>
-      <div class="mt-1 text-sm text-gray-500"><%= desc %></div>
+      <div class="text-sm text-gray-500"><%= path ? link_to(title, path, class: "hover:text-indigo-600") : title %></div>
+      <div class="mt-1 text-2xl font-bold text-gray-900"><%= count %></div>
     </div>
   <% end %>
+</div>
+
+<div class="mt-6 grid md:grid-cols-2 gap-6">
+  <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <h2 class="px-5 py-3 text-sm font-semibold border-b border-gray-100">운행 중인 버스</h2>
+    <table class="w-full text-sm">
+      <tbody class="divide-y divide-gray-100">
+        <% @active_trips.each do |trip| %>
+          <tr>
+            <td class="px-5 py-3 font-medium"><%= link_to trip.bus.license_plate, admin_bus_path(trip.bus), class: "text-indigo-600 hover:underline" %></td>
+            <td class="px-5 py-3 text-gray-600"><%= link_to trip.route.name, admin_route_path(trip.route), class: "hover:underline" %></td>
+            <td class="px-5 py-3 text-gray-400 text-right"><%= trip.started_at.in_time_zone.strftime("%m-%d %H:%M") %> 시작</td>
+          </tr>
+        <% end %>
+        <% if @active_trips.empty? %>
+          <tr><td class="px-5 py-8 text-center text-gray-400">운행 중인 버스가 없습니다.</td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <h2 class="px-5 py-3 text-sm font-semibold border-b border-gray-100">최근 정류장 방문</h2>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-gray-400 border-b border-gray-100">
+          <th class="px-5 py-2 font-normal">도착</th>
+          <th class="px-5 py-2 font-normal">출발</th>
+          <th class="px-5 py-2 font-normal">차량</th>
+          <th class="px-5 py-2 font-normal">정류장</th>
+          <th class="px-5 py-2 font-normal text-right">상태</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        <% @recent_visits.each do |visit| %>
+          <tr>
+            <td class="px-5 py-3 text-gray-600"><%= visit.entered_at.in_time_zone.strftime("%m-%d %H:%M:%S") %></td>
+            <td class="px-5 py-3 text-gray-600"><%= visit.exited_at ? visit.exited_at.in_time_zone.strftime("%m-%d %H:%M:%S") : "-" %></td>
+            <td class="px-5 py-3 font-medium"><%= visit.trip.bus.license_plate %></td>
+            <td class="px-5 py-3 text-gray-600"><%= visit.stop.name %></td>
+            <td class="px-5 py-3 text-right <%= visit.open? ? "text-green-600" : "text-gray-400" %>"><%= visit.open? ? "정차 중" : "출발함" %></td>
+          </tr>
+        <% end %>
+        <% if @recent_visits.empty? %>
+          <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">정류장 방문 기록이 없습니다.</td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
 </div>

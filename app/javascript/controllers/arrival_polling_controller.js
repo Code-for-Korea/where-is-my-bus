@@ -1,92 +1,54 @@
 import { Controller } from "@hotwired/stimulus"
-import { ga4Event } from "ga4"
 
+// 5초마다 현재 상태(JSON)를 받아 문구와 노선 진행 바의 버스 아이콘을 갱신한다.
+// 서버가 만든 문구는 textContent/DOM 노드로만 넣는다 (정류장 이름 등 입력값이 섞여 있다).
 export default class extends Controller {
-  static targets = ["eta", "stopsAway", "busMarker"]
-  static values  = {
-    url: String,
-    stopName: String,
-    busNumber: String,
-    noDataLine1: String,
-    noDataLine2: String,
-    arrivedLine1: String,
-    arrivedLine2: String,
-    stopsAwaySuffix: String,
-    etaPrefix: String,
-    etaSuffixBefore: String,
-    etaSuffixAfter: String
-  }
+  static targets = ["small", "big", "others", "busMarker"]
+  static values  = { url: String, interval: { type: Number, default: 5000 } }
 
   connect() {
-    this._statusFired = false
-    this.poll()
     this.timer = setInterval(() => {
       if (!document.hidden) this.poll()
-    }, 5000)
-    this._onDebugRefresh = () => this.poll()
-    document.addEventListener("debug:refresh", this._onDebugRefresh)
-
-    this._onBeforeCache = () => {
-      if (this.hasStopsAwayTarget) this.stopsAwayTarget.innerHTML = ""
-      if (this.hasEtaTarget)       this.etaTarget.innerHTML = ""
-      if (this.hasBusMarkerTarget) this.busMarkerTarget.style.left = "50%"
-    }
-    document.addEventListener("turbo:before-cache", this._onBeforeCache)
+    }, this.intervalValue)
   }
 
   disconnect() {
     clearInterval(this.timer)
-    document.removeEventListener("debug:refresh", this._onDebugRefresh)
-    document.removeEventListener("turbo:before-cache", this._onBeforeCache)
   }
 
   async poll() {
     try {
-      const res  = await fetch(this.urlValue, { headers: { Accept: "application/json" } })
-      const data = await res.json()
-
-      if (data.status === "no_data" || data.status === "no_trip") {
-        if (!this._statusFired) {
-          ga4Event("arrival_status", { status: data.status, stop_name: this.stopNameValue, bus_number: this.busNumberValue })
-          this._statusFired = true
-        }
-        if (this.hasStopsAwayTarget) this.stopsAwayTarget.innerHTML = ""
-        if (this.hasEtaTarget)       this.etaTarget.innerHTML = `${this.noDataLine1Value}<br>${this.noDataLine2Value}`
-        return
-      }
-
-      if (!this._statusFired) {
-        ga4Event("arrival_status", { status: "running", stop_name: this.stopNameValue, bus_number: this.busNumberValue })
-        this._statusFired = true
-      }
-
-      if (data.stops_away === 0) {
-        if (this.hasStopsAwayTarget) this.stopsAwayTarget.innerHTML = ""
-        if (this.hasEtaTarget)       this.etaTarget.innerHTML = `${this.arrivedLine1Value}<br>${this.arrivedLine2Value}`
-      } else {
-        if (this.hasStopsAwayTarget) {
-          this.stopsAwayTarget.innerHTML = `${data.stops_away}${this.stopsAwaySuffixValue}`
-        }
-        if (this.hasEtaTarget) {
-          this.etaTarget.innerHTML = `${this.etaPrefixValue}${data.eta_minutes}${this.etaSuffixBeforeValue}<br>${this.etaSuffixAfterValue}`
-        }
-      }
-
-      if (this.hasBusMarkerTarget) {
-        let pct
-        if (data.bar_pct != null) {
-          pct = data.bar_pct
-        } else {
-          const stops = data.stops_away ?? 1
-          if      (stops >= 3) pct = 3
-          else if (stops === 2) pct = 15
-          else if (stops === 1) pct = 30
-          else                  pct = 90
-        }
-        this.busMarkerTarget.style.left = `${pct}%`
-      }
+      const response = await fetch(this.urlValue, { headers: { Accept: "application/json" } })
+      if (!response.ok) return
+      this.render(await response.json())
     } catch {
-      // 네트워크 오류 시 현재 표시 유지
+      // 네트워크가 잠깐 끊겨도 현재 표시를 유지하고 다음 주기에 다시 시도한다.
+    }
+  }
+
+  render(data) {
+    if (this.hasSmallTarget) this.smallTarget.textContent = data.small
+
+    if (this.hasBigTarget) {
+      const nodes = []
+      data.big.forEach((line, index) => {
+        if (index > 0) nodes.push(document.createElement("br"))
+        nodes.push(document.createTextNode(line))
+      })
+      this.bigTarget.replaceChildren(...nodes)
+    }
+
+    if (this.hasOthersTarget) {
+      this.othersTarget.replaceChildren(...data.others.map((text) => {
+        const item = document.createElement("li")
+        item.textContent = text
+        return item
+      }))
+    }
+
+    if (this.hasBusMarkerTarget) {
+      this.busMarkerTarget.style.left = `${data.barPct}%`
+      this.busMarkerTarget.classList.toggle("opacity-40", data.dim)
     }
   }
 }

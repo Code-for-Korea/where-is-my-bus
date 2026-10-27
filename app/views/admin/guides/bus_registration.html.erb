@@ -16,6 +16,13 @@
       </p>
     </li>
     <li>
+      <strong>노선 배정</strong>
+      <p class="mt-1 text-gray-600">
+        차량 등록 화면의 "배정 노선"에서 이 차량이 운행할 노선을 고르세요 (나중에 <%= link_to "노선", admin_routes_path, class: "text-indigo-600 underline" %> 화면에서도 배정할 수 있습니다).
+        운전자는 노선을 고르지 않고, 여기서 배정한 노선으로 운행합니다. 노선이 배정되지 않은 차량은 운행을 시작할 수 없습니다.
+      </p>
+    </li>
+    <li>
       <strong>adminUrl과 PIN코드 전달</strong>
       <p class="mt-1 text-gray-600">
         이 Rails 서버의 접속 주소(adminUrl)와 이 버스의 PIN(차량 상세화면에 표시됨)을 운전자에게 함께 전달하세요.
@@ -25,7 +32,8 @@
     <li>
       <strong>동작 확인</strong>
       <p class="mt-1 text-gray-600">
-        운전자가 앱에서 "운행 시작"을 누른 후, 해당 버스의 운행/위치 기록이 쌓이는지 확인하세요.
+        운전자가 앱에서 "운행 시작"을 누르면, <%= link_to "대시보드", admin_root_path, class: "text-indigo-600 underline" %>의
+        "운행 중인 버스"에 이 버스가 나타납니다. 버스가 노선의 정류장 영역에 들어가고 나갈 때마다 "최근 정류장 방문"에 기록이 쌓이는지 확인하세요.
       </p>
     </li>
   </ol>

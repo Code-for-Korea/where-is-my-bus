@@ -1,9 +1,11 @@
-one_active:
+# 버스 one은 1번 노선을 운행 중, 버스 two는 운행 중이 아님.
+active_one:
   bus: one
-  started_at: <%= 10.minutes.ago %>
-  ended_at:
+  route: one
+  started_at: <%= 1.hour.ago %>
 
-two_active:
+finished_two:
   bus: two
-  started_at: <%= 10.minutes.ago %>
-  ended_at:
+  route: two
+  started_at: <%= 3.hours.ago %>
+  ended_at: <%= 2.hours.ago %>

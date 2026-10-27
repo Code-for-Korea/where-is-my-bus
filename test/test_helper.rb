@@ -24,6 +24,49 @@ module AdminAuthenticationHelper
   end
 end
 
+module TraccarEventHelper
+  # Traccar event.forward가 보내는 JSON과 같은 모양(docs/design-event-driven-rewrite.md 6절)의 페이로드.
+  def traccar_event(type: "geofenceEnter", id: 1, at: 5.minutes.ago, unique_id: "bus-one-fixture", geofence_id: 203)
+    {
+      event: { id: id, type: type, eventTime: at.utc.iso8601(3), deviceId: 1, geofenceId: geofence_id, positionId: 9 },
+      device: { id: 1, uniqueId: unique_id, groupId: 101 },
+      geofence: { id: geofence_id }
+    }
+  end
+end
+
+module TraccarApiStubs
+  TRACCAR_API = "http://traccar.test".freeze
+
+  # Traccar API 호출을 쓰는 서비스에 테스트용 접속 정보를 주입한다.
+  def stub_traccar_credentials(*service_classes)
+    service_classes.each do |service|
+      service.stub_credentials(base_url: TRACCAR_API, email: "admin@test.com", password: "secret")
+    end
+  end
+
+  # TraccarDeviceSync의 기기 이름·식별자 갱신(PUT). stub_device_group_move보다 먼저 선언해야 한다
+  # (나중에 선언한 스텁이 먼저 맞는지 검사되므로 groupId가 있는 PUT은 그쪽으로 간다).
+  def stub_device_update(device_id)
+    stub_request(:put, "#{TRACCAR_API}/api/devices/#{device_id}").to_return(status: 200, body: "")
+  end
+
+  # TraccarDeviceGroup의 "GET device → groupId 바꿔 PUT" 흐름을 스텁한다. PUT 스텁을 돌려줘 호출 여부를 확인할 수 있다.
+  def stub_device_group_move(device_id, to_group_id:)
+    stub_request(:get, "#{TRACCAR_API}/api/devices/#{device_id}")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { id: device_id, name: "bus", uniqueId: "abc", groupId: 0 }.to_json)
+    stub_request(:put, "#{TRACCAR_API}/api/devices/#{device_id}")
+      .with(body: hash_including(groupId: to_group_id))
+      .to_return(status: 200, body: "")
+  end
+end
+
+class ActiveSupport::TestCase
+  include TraccarEventHelper
+  include TraccarApiStubs
+end
+
 class ActionDispatch::IntegrationTest
   include AdminAuthenticationHelper
 end

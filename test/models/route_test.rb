@@ -1,24 +1,40 @@
 require "test_helper"
 
 class RouteTest < ActiveSupport::TestCase
-  test "buses returns buses assigned through route_buses" do
-    route = routes(:one)
-    RouteBus.create!(route: route, bus: buses(:one))
-    RouteBus.create!(route: route, bus: buses(:two))
+  test "name must be present and unique" do
+    assert_not Route.new(name: "").valid?
 
-    assert_equal [ buses(:one), buses(:two) ].sort_by(&:id), route.buses.sort_by(&:id)
+    duplicate = Route.new(name: routes(:one).name)
+    assert_not duplicate.valid?
+    assert duplicate.errors.of_kind?(:name, :taken)
   end
 
-  test "destroying a route destroys its route_buses" do
-    route = routes(:one)
-    route_bus = RouteBus.create!(route: route, bus: buses(:one))
-
-    route.destroy
-
-    assert_not RouteBus.exists?(route_bus.id)
+  test "stops are returned in route sequence order" do
+    assert_equal %w[고성터미널 고성시장 고성병원], routes(:one).stops.map(&:name)
+    assert_equal %w[고성터미널 고성병원 고성고등학교], routes(:two).stops.map(&:name)
   end
 
-  test "does not respond to the removed singular bus association" do
-    assert_not routes(:one).respond_to?(:bus)
+  test "destroying a route removes its route_stops but keeps the stops" do
+    route = Route.create!(name: "임시 노선")
+    route.route_stops.create!(stop: stops(:school), sequence: 1)
+
+    assert_difference -> { RouteStop.count }, -1 do
+      assert_no_difference -> { Stop.count } do
+        route.destroy
+      end
+    end
+  end
+
+  test "cannot be destroyed while it has trips" do
+    assert_not routes(:one).destroy
+    assert Route.exists?(routes(:one).id)
+  end
+
+  test "cannot be destroyed while buses are assigned to it" do
+    route = Route.create!(name: "임시 노선")
+    Bus.create!(license_plate: "경남70가0003", route: route)
+
+    assert_not route.destroy
+    assert_includes route.errors[:base].join, "배정된 차량"
   end
 end

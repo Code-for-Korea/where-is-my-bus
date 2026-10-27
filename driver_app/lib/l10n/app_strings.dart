@@ -44,10 +44,40 @@ class AppStrings {
   /// 차량 번호가 들어가는 캡션 — 한/영 어순이 달라 템플릿을 분리한다.
   static String vehicleCaption(String busNumber) =>
       _t((ko: '$busNumber번 차량', en: 'Bus No. $busNumber'));
-  static String get sendingOkCaption => _t((ko: '30초 이내 최신 위치 전송됨', en: 'Last position sent within 30s'));
+  static String get sendingOkCaption => _t((ko: '위치를 전송하고 있어요', en: 'Position is being sent'));
   static String get sendingStoppedCaption => _t((ko: '위치가 전송되지 않고 있어요', en: 'Position is not being sent'));
-  static String get nextStopLabel => _t((ko: '다음', en: 'Next'));
-  static String get etaMinutesUnit => _t((ko: '분', en: 'min'));
+  static String get routeLabel => _t((ko: '배정 노선', en: 'Assigned route'));
+  static String get noRouteBanner =>
+      _t((ko: '배정된 노선이 없습니다. 운영자에게 문의하세요.', en: 'No route assigned. Please contact your operator.'));
+  // 서버가 보는 버스 위치: 이전 · 현재(정차 중) · 다음 정류장.
+  static String get positionTitle => _t((ko: '서버가 보는 위치', en: 'Position seen by the server'));
+  static String get positionPrevious => _t((ko: '이전', en: 'Previous'));
+  static String get positionCurrent => _t((ko: '현재', en: 'Now'));
+  static String get positionNext => _t((ko: '다음', en: 'Next'));
+  static String get positionMoving => _t((ko: '이동 중', en: 'Moving'));
+  static String get positionNone => '—';
+
+  // ---- 서버 연동 오류 (SnackBar) ----
+  static String get serverUnreachableError => _t((
+        ko: '서버에 연결할 수 없습니다. 서버 주소와 네트워크 연결을 확인해주세요.',
+        en: 'Cannot reach the server. Check the address and your network connection.',
+      ));
+  static String get noRouteAssignedError => _t((
+        ko: '배정된 노선이 없어 운행을 시작할 수 없습니다. 운영자에게 문의하세요.',
+        en: 'No route is assigned, so you cannot start. Please contact your operator.',
+      ));
+  static String get unknownDeviceError => _t((
+        ko: '서버에서 이 기기의 등록 정보를 찾을 수 없습니다. 설정에서 PIN으로 다시 등록해주세요.',
+        en: 'The server does not know this device. Re-register with your PIN in Settings.',
+      ));
+  static String startFailedError(int code) =>
+      _t((ko: '운행을 시작하지 못했습니다 ($code). 잠시 후 다시 시도해주세요.', en: 'Could not start the trip ($code). Please try again shortly.'));
+  static String endFailedError(int code) =>
+      _t((ko: '운행을 종료하지 못했습니다 ($code). 연결을 확인하고 다시 눌러주세요.', en: 'Could not end the trip ($code). Check the connection and tap again.'));
+  static String get startFailedPermission =>
+      _t((ko: '운행 시작에 실패했습니다. 위치 권한을 확인해주세요.', en: 'Could not start. Please check the location permission.'));
+  static String get stopFailedError => _t((ko: '위치 전송을 멈추지 못했습니다.', en: 'Could not stop sending the position.'));
+  static String get tripEndedByServer => _t((ko: '서버에서 운행이 종료되었습니다.', en: 'The trip was ended on the server.'));
 
   // ---- 3. 설정 ----
   static String get settingsTitle => _t((ko: '설정', en: 'Settings'));
@@ -86,7 +116,6 @@ class AppStrings {
   static String get statusTitle => _t((ko: '상태보기', en: 'Status'));
   static String get trackingStatusLabel => _t((ko: '추적 상태', en: 'Tracking status'));
   static String get lastSentLabel => _t((ko: '마지막 전송', en: 'Last sent'));
-  static String get lastCoordLabel => _t((ko: '최근 좌표', en: 'Last position'));
   static String get keepTrackingStatusLabel => _t((ko: '지속 추적', en: 'Keep tracking'));
   static String get onValue => _t((ko: '켜짐', en: 'On'));
   static String get offValue => _t((ko: '꺼짐', en: 'Off'));

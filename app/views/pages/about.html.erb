@@ -17,7 +17,6 @@
         <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
         <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
       </svg>
-      <%= render "shared/locale_switcher" %>
     </div>
 
     <%# 버스 이미지 %>
@@ -79,21 +78,17 @@
 
     <hr class="border-gray-100 mb-6">
 
-    <%# 제공 지역 %>
+    <%# 제공 노선 %>
     <div class="mb-8">
-      <% total_routes = @regions.sum { |r| r.buses.select(&:active?).sum { |b| b.routes.size } } %>
       <p class="text-sm font-bold text-gray-800 mb-3">
-        <%= t("pages.about.coverage_title_html", regions_count: @regions.count, routes_count: total_routes).html_safe %>
+        <%= t("pages.about.coverage_title_html", routes_count: @routes.size, stops_count: @selector_stops.size) %>
       </p>
       <ul class="space-y-2">
-        <% @regions.each do |region| %>
-          <% entries = region.areas.any? ? region.areas.map { |a| "#{region.display_name} #{a.name}" } : [region.display_name] %>
-          <% entries.each do |label| %>
-            <li class="flex items-center gap-2 text-sm text-gray-600">
-              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0"></span>
-              <%= label %> <%= t("pages.about.region_route_suffix") %>
-            </li>
-          <% end %>
+        <% @routes.each do |route| %>
+          <li class="flex items-center gap-2 text-sm text-gray-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0"></span>
+            <%= route.name %> <%= t("pages.about.region_route_suffix", count: route.route_stops.size) %>
+          </li>
         <% end %>
       </ul>
     </div>
@@ -150,9 +145,8 @@
                 bg-white rounded-t-3xl px-6 pt-6 pb-10 shadow-xl">
 
       <%= render "shared/bus_selector_sheet",
-                 regions: @selector_regions,
-                 current_region_slug: nil,
-                 current_stop_id: nil,
+                 stops: @selector_stops, routes: @selector_routes,
+                 current_stop_id: nil, current_route_id: nil,
                  close_action: "click->bus-selector#close" %>
     </div>
   </div>

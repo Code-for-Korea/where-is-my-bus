@@ -35,6 +35,10 @@
 	     정해지면 이 블록 제거할 것. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<!-- 시뮬레이터에서 PC의 Docker(localhost:3000, :5055)에 붙기 위한 로컬 네트워크 평문 HTTP 허용.
+		     실기기·배포 서버 도메인은 아래 NSExceptionDomains에 따로 등록한다. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>yehyunserver.iptime.org</key>

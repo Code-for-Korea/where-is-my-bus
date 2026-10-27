@@ -1,21 +1,12 @@
 class Stop < ApplicationRecord
-  belongs_to :route, counter_cache: true
+  has_many :route_stops, dependent: :destroy
+  has_many :routes, through: :route_stops
+  has_many :stop_visits, dependent: :restrict_with_error
 
   validates :name, presence: true
-  validates :sequence, presence: true, numericality: { only_integer: true, greater_than: 0 }
-  validates :lat, :lng, presence: true
+  validates :lat, presence: true, numericality: { greater_than_or_equal_to: -90, less_than_or_equal_to: 90 }
+  validates :lng, presence: true, numericality: { greater_than_or_equal_to: -180, less_than_or_equal_to: 180 }
+  validates :traccar_geofence_id, uniqueness: true, allow_nil: true
 
-  default_scope { order(:sequence) }
-
-  def first_stop?
-    sequence == 1
-  end
-
-  def display_name
-    I18n.locale == :ko ? name : (name_en.presence || name)
-  end
-
-  def coordinates?
-    lat.present? && lng.present?
-  end
+  scope :ordered, -> { order(:name) }
 end

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>">
+<html lang="ko">
   <head>
     <% _title       = content_for?(:title)       ? "#{yield(:title)} | 로컬버스" : "내 버스는 언제올까? | 로컬버스" %>
     <% _description = content_for?(:description) ? yield(:description)           : "지방 소도시 버스 도착 정보를 실시간으로 확인하세요. 스마트폰 QR로 이용하는 무료 버스 알리미." %>
@@ -17,17 +17,12 @@
     <%= csp_meta_tag %>
     <%= yield :head %>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
-    <% if Rails.env.production? %>
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-V5FQ7DHE99"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-V5FQ7DHE99'<% if content_for?(:ga4_page_path) %>, { page_path: '<%= j yield(:ga4_page_path) %>' }<% end %>);
-      </script>
-    <% end %>
+    <style>
+      body { font-family: 'Pretendard Variable', Pretendard, sans-serif; }
+    </style>
   </head>
 
   <body class="bg-gray-100 min-h-screen sm:py-8">
