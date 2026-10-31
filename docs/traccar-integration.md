@@ -50,7 +50,14 @@ Rails가 그 이벤트를 받아 "버스가 어느 정류장에 있는가"를 �
 - 터널·음영에서 모인 위치가 늦게 도착하면 그 사이 정류장 이벤트가 사라질 수 있다(`future-improvements.md` 18번).
 - **서버를 껐다 켜면** 꺼지기 전 마지막 위치보다 새로운 위치가 몰려 오므로 옛 시각의 이벤트가 생길 수 있다. 운전자가 "종료"를 누른 뒤에는 앱이 위치를 보내지 않아 쌓이지 않는다([traccar-accessory.md](traccar-accessory.md) "껐다 켤 때의 위험").
 
-**문서로 확인하지 못한 것** (SDK 문서 요약만 읽었고 소스는 보지 못했다): HTTP 메서드(GET/POST), URL 형식, `serverUrl`에 경로를 붙일 수 있는지, 평문 `http://` 지원 여부(문서의 예시는 모두 `https://`). 위치 수신을 HTTPS로 옮기는 설계([traccar-accessory.md](traccar-accessory.md) "위치 수신(5055)을 HTTPS로")는 **실제 앱으로 시험한 뒤** 확정한다. SDK `Config`에는 업로드마다 붙는 `headers`가 있으나 앱은 쓰지 않는다(`future-improvements.md` 2번).
+**SDK 소스로 확인한 것** (`traccar-client-sdk` v1.0.11의 `HttpUploader.kt`, 2026-11-01. 플러그인 `traccar_client_sdk`는 이 네이티브 라이브러리를 감싼 얇은 래퍼다):
+- 위치 한 건을 Ktor `submitForm(url = config.serverUrl, ...)`로 보낸다. **`serverUrl`을 그대로 URL로 쓰고**, 방식은 **POST, `application/x-www-form-urlencoded` 본문**이다(GET 쿼리가 아니다). 본문 항목은 `id`, `lat`, `lon`, `timestamp`(초), `accuracy`, `altitude`, `speed`(노트), `bearing`, `batt`, `charge`, `alarm`이다. Traccar의 OsmAnd 수신이 이 POST 폼을 받는다.
+- **`https://` 주소로 보낼 수 있다.** 별도 앱 코드가 필요 없다. HTTP 엔진은 Android에서 Ktor `Android` 엔진(플랫폼 HTTP 스택), iOS에서 `Darwin` 엔진(URLSession)이고, 인증서·헤더·리다이렉트 설정이 따로 없어 **OS의 신뢰 저장소**를 쓴다. 주소에 경로가 붙어도 URL로 그대로 쓰인다.
+- 응답이 **2xx가 아니면 실패**(`response.status.isSuccess()`)로 보고 큐에 남겨 재시도한다. 큐에서 버리는 조건은 보지 못했다.
+- **로컬 끝까지 확인**: SDK와 같은 형식의 HTTPS POST 폼이 kamal-proxy(TLS, 자체 서명 인증서) → nginx → Traccar를 거쳐 200을 받고, 지오펜스에 진입한 위치가 `geofenceEnter` 이벤트로 Rails 대용 수신기에 도착했다. 등록되지 않은 기기는 400이다.
+- 플랫폼: Android 플러그인 `minSdk = 24`(Android 7.0), iOS 15.0. **Let's Encrypt 인증서는 Android 7.1.1 이상에서만 신뢰된다**(공식 호환성 문서). Android 7.0 폰은 인증서 오류로 위치를 보내지 못한다. iOS는 10 이상이라 문제없다. 앱의 `minSdk`는 `flutter.minSdkVersion`(Flutter 기본값)이라 실제 값은 확인하지 못했다.
+
+**확인하지 못한 것**: SDK가 HTTP(`http://`)로 보냈을 때의 301 리다이렉트를 POST에서 따라가는지(Ktor 기본 리다이렉트는 GET/HEAD만 따라간다고 알고 있으나 확인하지 못했다. 그래서 위치 수신 주소는 처음부터 `https://`로 준다), 실기기에서의 동작. 앱의 `adminUrl` 입력은 스킴이 없으면 `http://`를 붙인다(`driver_app/lib/api_client.dart`). 웹 서버가 HTTPS 전용이면 운전자가 `https://`를 직접 적어야 하고, 기본값을 `https://`로 바꾸는 것은 `driver_app` 후속 작업이다(`future-improvements.md` 29번). SDK `Config`에는 업로드마다 붙는 `headers`가 있으나 앱은 쓰지 않는다(`future-improvements.md` 2번).
 
 ## Traccar 설정
 

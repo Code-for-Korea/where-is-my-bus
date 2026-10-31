@@ -197,7 +197,7 @@ server {
 ```
 
 - 보안 그룹은 22(관리자 IP만), 80, 443만 연다. **5055는 열지 않는다.** Rails와 nginx와 Traccar는 같은 도커 네트워크(`kamal`) 안에서 통신한다.
-- `TRACCAR_SERVER_URL`은 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다. 앱 SDK가 이 주소(경로 없는 `https`)로 위치를 보내는지는 SDK 문서로 확인하지 못했다.
+- `TRACCAR_SERVER_URL`은 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다. **앱 SDK는 `serverUrl`을 그대로 쓰고 HTTPS로 POST 폼을 보낸다**(SDK 소스 확인, [traccar-integration.md](traccar-integration.md) "운전자 앱의 위치 전송"). SDK와 같은 형식의 HTTPS POST가 프록시(TLS) → nginx → Traccar → 지오펜스 이벤트까지 통하는 것을 로컬에서 확인했다. **Let's Encrypt 인증서는 Android 7.1.1 이상에서만 신뢰된다**(Android 7.0 폰은 보내지 못한다).
 - Traccar가 Rails로 보내는 이벤트(`http://rails-app:80/...`)와 Rails가 Traccar API를 부르는 주소(`http://where-is-my-bus-traccar:8082`)는 그대로다.
 
 ### Let's Encrypt 인증서를 받을 수 있는가
@@ -237,7 +237,7 @@ server {
 
 1. **평문 허용 범위를 위치 수신 이름 하나로 좁힌다 (가장 큰 이유).** 운전자 앱은 평문을 도메인 단위로만 허용한다. Android `network_security_config.xml`은 `<domain>` 단위, iOS `NSExceptionDomains`도 도메인 단위이며 **포트로 구분하지 못한다**(플랫폼 동작, 이 저장소의 두 파일이 도메인만 적는 것을 확인함). 위치 수신이 승객 사이트와 같은 이름이면 그 이름을 평문 허용에 넣어야 하고, 그러면 같은 이름의 **HTTPS 웹 서버 호출(PIN 등록, 운행 시작·종료)** 도 OS가 막아 주지 않는다. 앱 입력란에 `http://`로 잘못 적어도 통과한다(`adminUrl`은 운전자가 입력한다). 이름을 나누면 **승객 사이트는 계속 HTTPS만** 허용되고 평문은 위치 수신 이름에만 열린다. 이 저장소가 이미 겪은 상황이다: 지금 허용 목록은 테스트 서버 한 도메인이고 Traccar와 웹이 같은 이름이다([future-improvements.md](future-improvements.md) 29번).
 2. **Cloudflare 프록시와 충돌하지 않는다.** 승객 사이트를 나중에 Cloudflare 프록시(주황 구름, DDoS 방어·캐시)로 돌리고 싶어도, 프록시는 허용된 일부 포트만 전달하고 5055는 그 목록에 없는 것으로 알고 있다(Cloudflare 문서로 확인하지 못함). 이름이 같으면 승객 사이트를 영원히 DNS 전용으로 둬야 한다. 분리하면 `traccar.…`만 DNS 전용으로 두고 사이트는 프록시를 켤 수 있다.
-3. **HTTPS로 올릴 때 이름을 나누는 쪽이 위험이 작다.** kamal-proxy는 호스트 이름으로 요청을 나눈다. 같은 이름을 쓰려면 경로(`/osmand`)로 나눠야 하는데 프록시 수준에서는 되지만(로컬 실험) 앱 SDK가 경로가 붙은 주소를 어떻게 쓰는지 확인하지 못했다. 자세한 비교는 아래 "위치 수신(5055)을 HTTPS로"를 본다.
+3. **HTTPS로 올릴 때 이름을 나누는 쪽이 낫다.** kamal-proxy는 호스트 이름으로 요청을 나눈다. 같은 이름을 쓰려면 경로(`/osmand`)로 나눠야 하는데 프록시 수준에서는 되고(로컬 실험) SDK도 `serverUrl`을 경로째 그대로 쓰므로(SDK 소스 확인) 막히는 곳은 없다. 다만 경로로 나눠도 Traccar 헬스체크 문제(앞단 nginx 필요)는 그대로라 얻는 것이 적고 별도 이름이 더 단순하다. 자세한 비교는 아래 "위치 수신(5055)을 HTTPS로"를 본다.
 4. **Traccar만 다른 서버로 옮길 수 있다.** 이름이 Traccar 전용이면 그 레코드만 바꾸면 된다. 이름을 공유하면 Traccar를 옮길 때 이름도 새로 만들어야 한다.
 
 ### 이 저장소에서 확인한 것 — 주소는 휴대폰에 박힌다
