@@ -296,5 +296,5 @@
 
 - **현재 상태**: 앱은 첨부 파일을 쓰지 않는다(`has_one_attached`, `variant`, Active Storage 테이블 없음). 그런데 `config/application.rb`가 `require "active_storage/engine"`을 하고 환경별로 `config.active_storage.service`가 있고 `config/storage.yml`이 있다. `image_processing` gem과 `libvips`는 제거했고 부팅 경고는 `variant_processor = :disabled`로 껐다.
 - **문제점**: 쓰지 않는 엔진이 부팅 때 로드되고, 나중에 첨부를 쓰려는 사람이 `variant_processor = :disabled`를 보고 헷갈릴 수 있다.
-- **대안**: `require "active_storage/engine"`과 환경별 `active_storage` 설정, `config/storage.yml`을 지우고 `variant_processor` 줄도 함께 지운다. 첨부가 필요해지면 그때 다시 넣는다.
+- **대안**: `require "active_storage/engine"`과 환경별 `active_storage` 설정, `config/storage.yml`을 지우고 `variant_processor` 줄도 함께 지운다. 첨부가 필요해지면 그때 다시 넣는다. 이미지 변환을 다시 쓰는 절차는 `docs/deployment.md`.
 - **손볼 시점**: 첨부 기능이 없다고 확정된 뒤. 배포에는 영향이 없다.

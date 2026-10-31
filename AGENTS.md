@@ -80,7 +80,8 @@ Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Tr
 6. **`deviceId`가 사실상 비밀번호** — 운행 시작·종료 API는 이것만으로 인증한다. 기기별 토큰은 후속 과제(`docs/future-improvements.md` 2번).
 7. **운전자가 종료를 누르지 않으면 Trip이 계속 열린다** — 자동 종료 기준은 미정(`docs/policy-draft.md`).
 8. **첫 가입자가 자동 operator** — `User#assign_operator_if_first_user`가 `User.count.zero?`로 판정하므로 동시 가입 race가 있고 DB 제약이 없다. 가입 폼은 role을 받지 않는다.
-9. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`, `driver_app/ISSUE.md`, `README.md`, 스킬(`traccar-sync`, `driver-app`), 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
+9. **이미지 변환 없음** — `image_processing` gem과 `libvips`는 쓰지 않아 제거했고(`config.active_storage.variant_processor = :disabled`), 첨부 파일과 Active Storage 테이블도 없다. 이미지 변환이나 첨부가 필요해지면 gem, Dockerfile의 `libvips`, 이 설정, 테이블을 함께 되돌려야 한다(`docs/deployment.md` "이미지 크기와 레지스트리 무료 한도").
+10. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`, `driver_app/ISSUE.md`, `README.md`, 스킬(`traccar-sync`, `driver-app`), 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
 
 ## 코딩 관례
 

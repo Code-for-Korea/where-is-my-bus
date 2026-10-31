@@ -172,6 +172,12 @@ bin/kamal app logs         # 부팅 로그
 - **GitHub 비공개 패키지 무료 한도(GitHub Free: 저장 500MB, 전송 월 1GB)와 비교**: 첫 push 약 185MB는 저장 한도의 37%다. 모든 버전을 남기면 코드만 바꾼 배포 약 12회에서 500MB에 닿는다(`(500−185)/26`). 전송은 서버가 첫 pull 약 185MB + 배포마다 약 26MB를 받으므로 월 1GB로 배포 약 30회다. **단 이 한도는 비공개 패키지에만 해당한다.** 공개 패키지는 무료이고 컨테이너 레지스트리의 저장·대역폭은 문서상 "현재 무료"다(변경 시 최소 1개월 전 공지). 한도가 *압축 크기*로 계산되는지는 문서에서 확인하지 못했다. 압축 전 크기(501MB)로 센다면 한도(500MB)에 딱 닿는다.
 - Kamal은 레지스트리의 옛 버전을 지우지 않는다. 오래된 태그 정리는 따로 해야 한다(Docker Hub 설정 또는 GitHub 패키지 화면).
 - **`image_processing` gem과 `libvips`는 제거했다.** 앱은 첨부 파일과 이미지 변환을 쓰지 않는다(`has_one_attached`, `variant`, Active Storage 테이블 모두 없음). `Gemfile`, `Gemfile.lock`(`image_processing`, `mini_magick`, `ruby-vips`, `ruby-vips`만 쓰던 `ffi`), `Dockerfile`·`Dockerfile.dev`에서 뺐고, 빼면 부팅 때 나오는 경고를 `config.active_storage.variant_processor = :disabled`로 껐다. 이미지가 부팅해 `/up`과 주요 경로가 200이고 경고가 없다. 이미지 변환을 쓰게 되면 gem을 다시 넣고 이 줄을 지운다.
+- **나중에 이미지 변환(첨부 이미지의 크기 조절 등)이 필요해지면 gem과 라이브러리를 다시 추가해야 한다.** gem만 또는 `libvips`만 되살리면 부팅 때 경고가 난다(`libvips`만 빼고 gem을 두면 `Using vips to process variants requires the libvips library`, gem만 빼고 설정이 없으면 `Generating image variants require the image_processing gem`). 절차(모두 시험하지는 않았다):
+  1. `Gemfile`에 `gem "image_processing", "~> 1.2"`를 넣고 `bundle install`.
+  2. `Dockerfile`의 런타임 `apt-get install` 줄과 빌드 단계 줄, `Dockerfile.dev`에 `libvips`를 다시 넣는다. (이 변경을 되돌리는 것과 같다. 압축 저장 크기가 약 33MB 늘어난다: 약 185MB → 약 219MB, 위 측정.)
+  3. `config/application.rb`의 `config.active_storage.variant_processor = :disabled`와 주석을 지운다.
+  4. Active Storage 테이블이 아직 없으므로 `bin/rails active_storage:install` 후 `bin/rails db:migrate`(시험하지 못함). 업로드 파일은 `config.active_storage.service = :local`이라 컨테이너 안 `storage/`, 곧 호스트 `/var/lib/where-is-my-bus/storage`에 쌓이고 배포로 사라지지 않으며 `bin/backup-storage`가 `files.tar.gz`로 백업한다.
+  5. 이미지를 다시 빌드해 부팅 경고가 없는지 보고, 크기와 메모리(이미지 변환은 메모리를 더 쓸 수 있다, 재지 않았다)를 `t4g.micro`에서 확인한다.
 - Active Storage 엔진 자체는 아직 로드된다(`config/application.rb`의 `require "active_storage/engine"`, 환경별 `config.active_storage.service`). 쓰지 않으므로 걷어낼 수 있다(`future-improvements.md` 31번).
 - **로컬에서 `/`로 요청하면 403이 나온다.** 운영 모드는 `config.hosts`가 `where-is-my-bus.codefor.kr`와 `rails-app`만 허용하기 때문이다(`Host`를 도메인으로 주면 200). 로컬 컨테이너 시험에서는 `curl -H 'Host: where-is-my-bus.codefor.kr' ...`로 한다.
 

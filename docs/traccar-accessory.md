@@ -138,7 +138,7 @@ Rails와 마찬가지로 Traccar도 HTTPS로 받는다. **결정(2026-11-01): Ra
 
 ### 왜 nginx를 쓰는가
 
-nginx는 **TLS를 위해서가 아니라 kamal-proxy의 헬스체크를 통과시키기 위해서만** 쓴다. TLS 종단과 인증서 발급은 계속 kamal-proxy가 한다.
+nginx는 **Traccar 때문에만 필요하다.** Rails 앱에는 필요 없다(Rails에는 `/up`이 있어 kamal-proxy의 기본 헬스체크를 그대로 통과한다). 그리고 **TLS를 위해서가 아니라 kamal-proxy의 헬스체크를 통과시키기 위해서만** 쓴다. TLS 종단과 인증서 발급은 계속 kamal-proxy가 한다. 위치 수신을 HTTPS로 받지 않고 평문 5055를 그대로 둔다면 nginx도 필요 없다.
 
 - kamal-proxy는 배포할 때 대상이 헬스체크에서 2xx를 줘야 트래픽을 넘긴다(통과하지 못하면 `target failed to become healthy`로 배포가 실패한다).
 - Traccar 위치 수신 포트(5055)는 등록된 기기의 위치 요청에만 200을 주고 **그 밖의 모든 요청에 400**이다. 헬스체크용 경로가 없다(로컬 확인).
