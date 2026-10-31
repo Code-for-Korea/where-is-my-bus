@@ -38,6 +38,11 @@ module Web
 
     config.time_zone = "Seoul"
     config.i18n.default_locale = :ko
+
+    # 첨부 파일과 이미지 변환을 쓰지 않아 image_processing gem과 libvips를 뺐다.
+    # 이 설정이 없으면 부팅 때마다 image_processing이 없다는 경고가 나온다. 이미지 변환을 쓰게 되면
+    # gem "image_processing"을 다시 넣고 이 줄을 지운다.
+    config.active_storage.variant_processor = :disabled
     config.i18n.available_locales = [ :ko ]
 
     # Don't generate system test files.
