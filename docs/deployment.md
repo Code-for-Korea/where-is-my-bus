@@ -159,19 +159,20 @@ bin/kamal app logs         # 부팅 로그
 
 ## 이미지 크기와 레지스트리 무료 한도
 
-운영 이미지(arm64, `Dockerfile` 기준)를 실제로 빌드해 쟀다(2026-10-31, Docker Hub·GHCR 공통).
+운영 이미지(arm64, `Dockerfile` 기준)를 실제로 빌드해 쟀다(2026-11-01, Docker Hub·GHCR 공통). `image_processing` gem과 `libvips`를 뺀 뒤의 값이다.
 
 | 항목 | 크기 |
 |---|---|
-| 로컬 이미지(압축 전) | 약 609 MB |
-| **레지스트리에 저장되는 크기**(레이어를 gzip으로 압축한 추정) | **약 219 MB** |
+| 로컬 이미지(압축 전) | 약 501 MB (제거 전 약 609 MB) |
+| **레지스트리에 저장되는 크기**(레이어를 gzip으로 압축한 추정) | **약 185 MB** (제거 전 약 219 MB) |
 | 코드만 바꾼 다음 배포가 새로 쌓는 양(마지막 `/rails` 레이어만 바뀜) | 약 26 MB |
-| `Gemfile.lock`이 바뀐 배포가 새로 쌓는 양 | 위 26 MB + gem 레이어 약 78 MB |
+| `Gemfile.lock`이 바뀐 배포가 새로 쌓는 양 | 위 26 MB + gem 레이어(제거 전 약 78 MB) |
 
-- 레이어별 압축 크기(MB): 기반 Debian 29, Ruby 47, `apt` 패키지 39, gem 78, 앱 26. 재지 않은 것: 레지스트리가 실제로 계산하는 값(위는 `gzip -6` 추정이라 오차가 있다).
-- **GitHub 비공개 패키지 무료 한도(GitHub Free: 저장 500MB, 전송 월 1GB)와 비교**: 첫 push 약 219MB는 저장 한도의 44%다. 모든 버전을 남기면 코드만 바꾼 배포 약 10회에서 500MB에 닿는다(`(500−219)/26`). 전송은 서버가 첫 pull 약 219MB + 배포마다 약 26MB를 받으므로 월 1GB로 배포 약 30회다. **단 이 한도는 비공개 패키지에만 해당한다.** 공개 패키지는 무료이고 컨테이너 레지스트리의 저장·대역폭은 문서상 "현재 무료"다(변경 시 최소 1개월 전 공지). 한도가 *압축 크기*로 계산되는지는 문서에서 확인하지 못했다. 압축 전 크기(609MB)로 센다면 한도를 넘는다.
+- 레이어별 압축 크기는 제거 전에 쟀다(MB): 기반 Debian 29, Ruby 47, `apt` 패키지 39, gem 78, 앱 26. 제거 후에는 합계만 다시 쟀다. 레지스트리가 실제로 계산하는 값은 재지 못했다(위는 `gzip -6` 추정이라 오차가 있다).
+- **GitHub 비공개 패키지 무료 한도(GitHub Free: 저장 500MB, 전송 월 1GB)와 비교**: 첫 push 약 185MB는 저장 한도의 37%다. 모든 버전을 남기면 코드만 바꾼 배포 약 12회에서 500MB에 닿는다(`(500−185)/26`). 전송은 서버가 첫 pull 약 185MB + 배포마다 약 26MB를 받으므로 월 1GB로 배포 약 30회다. **단 이 한도는 비공개 패키지에만 해당한다.** 공개 패키지는 무료이고 컨테이너 레지스트리의 저장·대역폭은 문서상 "현재 무료"다(변경 시 최소 1개월 전 공지). 한도가 *압축 크기*로 계산되는지는 문서에서 확인하지 못했다. 압축 전 크기(501MB)로 센다면 한도(500MB)에 딱 닿는다.
 - Kamal은 레지스트리의 옛 버전을 지우지 않는다. 오래된 태그 정리는 따로 해야 한다(Docker Hub 설정 또는 GitHub 패키지 화면).
-- **줄일 수 있는 것**: 런타임 `libvips`를 빼면 압축 크기가 약 33MB(15%) 준다(약 186MB). 그러나 앱은 이미지 변환을 쓰지 않는데도 `image_processing` gem이 남아 있어 부팅 때 `Using vips to process variants requires the libvips library` 경고가 나온다(부팅과 `/up`은 정상). `image_processing` gem까지 함께 빼는 것이 먼저다. 지금은 한도 안이라 하지 않았다.
+- **`image_processing` gem과 `libvips`는 제거했다.** 앱은 첨부 파일과 이미지 변환을 쓰지 않는다(`has_one_attached`, `variant`, Active Storage 테이블 모두 없음). `Gemfile`, `Gemfile.lock`(`image_processing`, `mini_magick`, `ruby-vips`, `ruby-vips`만 쓰던 `ffi`), `Dockerfile`·`Dockerfile.dev`에서 뺐고, 빼면 부팅 때 나오는 경고를 `config.active_storage.variant_processor = :disabled`로 껐다. 이미지가 부팅해 `/up`과 주요 경로가 200이고 경고가 없다. 이미지 변환을 쓰게 되면 gem을 다시 넣고 이 줄을 지운다.
+- Active Storage 엔진 자체는 아직 로드된다(`config/application.rb`의 `require "active_storage/engine"`, 환경별 `config.active_storage.service`). 쓰지 않으므로 걷어낼 수 있다(`future-improvements.md` 31번).
 - **로컬에서 `/`로 요청하면 403이 나온다.** 운영 모드는 `config.hosts`가 `where-is-my-bus.codefor.kr`와 `rails-app`만 허용하기 때문이다(`Host`를 도메인으로 주면 200). 로컬 컨테이너 시험에서는 `curl -H 'Host: where-is-my-bus.codefor.kr' ...`로 한다.
 
 ## 이후 배포·롤백

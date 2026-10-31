@@ -244,7 +244,7 @@ aws ec2 stop-instances  --instance-ids <i-...>
 | Rails 이미지 실행 | 부팅, `/up` 200, Ruby `aarch64-linux` | 부팅, `/up` 200, Ruby `x86_64-linux`(에뮬레이션 실행) |
 | 미리 빌드된 gem | `ffi`, `nokogiri`, `sqlite3`, `tailwindcss-ruby`, `thruster`에 `aarch64-linux` 판이 `Gemfile.lock`에 있음 | 같은 gem들에 `x86_64-linux` 판이 있음 |
 | 그 밖의 gem(`bcrypt`, `bootsnap` 등) | 빌드 단계의 `build-essential`로 컴파일, 빌드됨 | 같음, 빌드됨 |
-| 시스템 라이브러리 | `Dockerfile`의 `apt`(`libvips`, `libjemalloc2`, `sqlite3`, `libyaml-dev` 등)가 아키텍처와 무관, jemalloc 경로는 `uname -m`으로 맞춤 | 같음 |
+| 시스템 라이브러리 | `Dockerfile`의 `apt`(`libjemalloc2`, `sqlite3`, `libyaml-dev` 등. `libvips`는 이미지 변환을 쓰지 않아 제거함)가 아키텍처와 무관, jemalloc 경로는 `uname -m`으로 맞춤 | 같음 |
 | Traccar 이미지 | `arm64` 매니페스트 있음 | `amd64` 매니페스트 있음 |
 | kamal-proxy 이미지 | `arm64` 있음 | `amd64` 있음 |
 | `deploy.yml` | `builder.arch: arm64`로 바꿔야 함 | 지금 값(`amd64`) 그대로 |

@@ -291,3 +291,10 @@
 - **문제점**: 도메인을 바꿀 때 두 곳을 같이 고쳐야 한다. 한쪽을 빼먹으면 프록시는 통과시키는데 Rails가 403을 줘서 사이트가 막힌다. 어긋남은 `test/lib/production_hosts_test.rb`가 잡지만 CI에는 테스트 잡이 없어 로컬에서 돌려야 한다.
 - **대안**: `deploy.yml`의 `env.clear`에서 `APP_HOST`(와 필요하면 내부 이름)를 내려 주고 `production.rb`가 읽는다. 이때 `APP_HOST`가 없으면(이미지 빌드 중) 호스트 검사를 켜지 않도록 가드가 필요하다. 또는 `config.hosts`를 아예 지운다(`docs/traccar-accessory.md` "도메인(Host) 검사").
 - **손볼 시점**: 도메인을 바꿀 때, 또는 Traccar에 별도 도메인을 둘 때.
+
+## 31. 쓰지 않는 Active Storage 엔진이 로드됨
+
+- **현재 상태**: 앱은 첨부 파일을 쓰지 않는다(`has_one_attached`, `variant`, Active Storage 테이블 없음). 그런데 `config/application.rb`가 `require "active_storage/engine"`을 하고 환경별로 `config.active_storage.service`가 있고 `config/storage.yml`이 있다. `image_processing` gem과 `libvips`는 제거했고 부팅 경고는 `variant_processor = :disabled`로 껐다.
+- **문제점**: 쓰지 않는 엔진이 부팅 때 로드되고, 나중에 첨부를 쓰려는 사람이 `variant_processor = :disabled`를 보고 헷갈릴 수 있다.
+- **대안**: `require "active_storage/engine"`과 환경별 `active_storage` 설정, `config/storage.yml`을 지우고 `variant_processor` 줄도 함께 지운다. 첨부가 필요해지면 그때 다시 넣는다.
+- **손볼 시점**: 첨부 기능이 없다고 확정된 뒤. 배포에는 영향이 없다.
