@@ -312,3 +312,11 @@
 - **문제점**: 호스트 이름이 아니라 URL 문자열 전체에서 찾아서 `https://localhost-bus.codefor.kr` 같은 운영 주소를 오탐한다. 오타 난 호스트, URL이 아닌 값, 스킴 없는 주소, 대문자 `DEV-`, 서로 같은 두 토큰, 너무 짧은 토큰은 통과한다(모두 직접 확인).
 - **대안**: `URI`로 파싱해 호스트 이름만 비교하고 스킴(`http`/`https`)과 호스트 유무를 검사한다. 두 토큰이 같으면 거부하고 최소 길이를 둔다. 대소문자를 구분하지 않고 `dev-`를 거부한다. 연결 여부는 부팅 검사에서 보지 말고 첫 배포 후 확인 절차에 둔다(부팅이 Traccar 장애에 묶이면 안 된다).
 - **손볼 시점**: 오탐으로 배포가 막히거나 HTTPS 전환(32번)으로 스킴 규칙이 필요해질 때.
+
+## 34. 로컬 개발에서 Traccar를 `bin/dev`로 함께 띄우지 못한다
+
+- **현재 방식**: `bin/dev`(Procfile.dev)는 Rails와 Tailwind watch만 띄우고 Traccar는 포함하지 않는다. Traccar는 `docker compose up`으로 Rails까지 같이 올리거나 따로 띄워야 한다. `demo:seed`, 정류장·노선·차량 등록은 Traccar가 떠 있어야 동작한다.
+- **문제점**: 호스트에서 `bin/dev`로 개발할 때 Traccar를 따로 챙겨야 한다. 빼먹으면 등록과 `demo:seed`가 Traccar 연결 실패로 멈춘다.
+- **대안**: `bin/traccar` 스크립트가 Traccar 도커 이미지를 `compose.yaml`의 traccar 서비스와 같은 설정(포트 8082·5055, `docker/traccar/traccar.xml`, 데이터 볼륨)으로 띄운다. Procfile.dev에 `traccar: bin/traccar`를 추가해 `bin/dev`와 overmind에서 함께 쓴다.
+- **결정할 것**: 호스트 Rails는 `TRACCAR_API_BASE_URL`이 `http://localhost:8082`여야 한다(compose는 `http://traccar:8082`). 컨테이너 이름과 데이터 볼륨을 compose와 공유할지, 포트 충돌(compose와 동시 실행)을 어떻게 막을지. 종료 때 컨테이너가 남지 않게 `--rm`과 시그널 처리를 둔다.
+- **손볼 시점**: 호스트에서 `bin/dev`로 개발하는 사람이 늘 때. 이번 PR 범위 밖이다.

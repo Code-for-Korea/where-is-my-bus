@@ -170,7 +170,7 @@ bin/kamal app logs         # 부팅 로그
 
 `bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 환경변수 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
 
-- 컨테이너가 부팅할 때 `bin/docker-entrypoint`가 `db:prepare`를 실행한다. 빈 DB면 스키마를 만들고, **운영에서는 시드를 실행하지 않는다**(`db/seeds.rb`의 운영 가드). 시드는 데모 계정(`operator@example.com`/`password123`)과 정류장·노선·차량을 만들고 Traccar에도 만들기 때문이다.
+- 컨테이너가 부팅할 때 `bin/docker-entrypoint`가 `db:prepare`를 실행한다. 빈 DB면 스키마를 만들고, **운영에서는 시드를 실행하지 않는다**(`db/seeds.rb`는 비어 있고 데모 데이터는 `demo:seed`가 만들며 운영에서 `abort`한다). 데모 시드는 데모 계정(`operator@example.com`/`password123`)과 정류장·노선·차량을 만들고 Traccar에도 만들기 때문이다.
 - 부팅할 때 `TraccarProductionCheck`가 Traccar 설정을 검사한다. 값이 없거나 개발용이면 `운영 Traccar 설정 오류: ...`로 부팅이 실패한다. 로그(`bin/kamal app logs`)에서 이유를 확인한다. 자세한 것은 아래 "부팅 검사".
 
 ### 부팅 검사: 운영 Traccar 설정 (`lib/traccar_production_check.rb`)
@@ -300,7 +300,7 @@ DNS의 A 레코드를 먼저 옮기고 배포한다.
 ## 로컬에서 확인한 것
 
 - 이미지가 빌드된다(Ruby 4.0.9-slim, 에셋 프리컴파일 포함).
-- 빈 스토리지 디렉터리를 마운트하고 `RAILS_ENV=production`으로 `db:prepare`를 실행하면 4개 DB가 만들어지고 시드는 실행되지 않으며(`users=0`), 두 번 실행해도 오류가 없다.
+- 빈 스토리지 디렉터리를 마운트하고 `RAILS_ENV=production`으로 `db:prepare`를 실행하면 4개 DB가 만들어지고 `users=0`이며(시드 데이터 없음), 두 번 실행해도 오류가 없다.
 - 이미지에 키 파일·`.env`·SQLite·`settings.local.json`·개발용 credentials·문서·테스트·에이전트 디렉터리가 들어 있지 않다.
 - Traccar accessory와 같은 설정(환경변수, 네트워크 별칭 `rails-app`)으로 도커 네트워크에서 `geofenceEnter` 이벤트가 `Host: rails-app`, `X-Ingest-Token` 헤더와 함께 도착한다. 수신 쪽은 실제 Rails가 아니라 간이 수신기였다.
 - 확인하지 못한 것: 서버 배포, Let's Encrypt 발급, 실제 Rails 컨테이너가 포워딩을 받는지, 호스트 디렉터리 권한, 실기기 운행.

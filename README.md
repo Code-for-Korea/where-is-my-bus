@@ -85,7 +85,7 @@ bundle install
 bin/dev            # Rails 서버 + Tailwind watch (Traccar는 포함되지 않음)
 ```
 
-노선·정류장·차량을 등록하거나 시드(`bin/rails db:prepare`)를 실행하려면 **Traccar 서버가 떠 있어야** 합니다(등록이 Traccar 호출과 한 트랜잭션으로 묶여 있음). Traccar 접속 정보는 환경변수(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)가 credentials보다 우선하며, 표와 설정 방법은 [docs/traccar-integration.md](docs/traccar-integration.md)에 있습니다. 가장 간단한 방법은 `docker compose up -d traccar`로 Traccar만 띄우는 것입니다.
+노선·정류장·차량을 등록하거나 데모 시드(`bin/rails demo:seed`)를 실행하려면 **Traccar 서버가 떠 있어야** 합니다(등록이 Traccar 호출과 한 트랜잭션으로 묶여 있음). Traccar 접속 정보는 환경변수(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)가 credentials보다 우선하며, 표와 설정 방법은 [docs/traccar-integration.md](docs/traccar-integration.md)에 있습니다. 가장 간단한 방법은 `docker compose up -d traccar`로 Traccar만 띄우는 것입니다.
 
 - 회원가입: <http://localhost:3000/registration/new> — **첫 가입자가 운영자**가 됩니다
 - 로컬 개발 DB를 이전 구조에서 가져왔다면 `bin/rails db:reset`이 필요합니다.
