@@ -17,14 +17,14 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 
 | 항목 | 값 | 위치 |
 |---|---|---|
-| 이미지 | Docker Hub **공개** 저장소 `<계정>/where-is-my-bus` | `config/deploy.yml` `image`, `registry.username` |
+| 이미지 | GHCR `ghcr.io/code-for-korea/where-is-my-bus` (처음 **비공개**, 점검 뒤 공개) | `config/deploy.yml` `image`, `registry` |
 | 서버 | Rails를 올릴 서버 1대 | `config/deploy.yml` `servers.web` |
 | 데이터 | 호스트 `/var/lib/where-is-my-bus/storage` (컨테이너 밖) | `config/deploy.yml` `volumes` |
 | 비밀값 | `config/credentials/production.yml.enc` (키: `production.key`) | Rails credentials |
 | Traccar | 같은 서버의 accessory. 토큰은 배포 PC의 환경변수 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN` | `config/deploy.yml` `accessories`, `.kamal/secrets` |
 | Traccar 접속 설정 | 환경변수가 credentials보다 우선 | [traccar-integration.md](traccar-integration.md) |
 
-`config/deploy.yml`의 `DOCKERHUB_USER`, `SERVER_IP`는 아직 자리표시자다. 배포 전에 실제 값으로 바꾼다.
+`config/deploy.yml`의 `SERVER_IP`(두 곳)는 아직 자리표시자다. 배포 전에 실제 값으로 바꾼다.
 
 ## 첫 배포의 위치 수신은 임시로 평문(HTTP)이다 — HTTPS는 꼭 반영해야 한다
 
@@ -66,12 +66,16 @@ sudo mkdir -p /var/backups/where-is-my-bus
 sudo apt install -y sqlite3        # bin/backup-storage가 쓴다
 ```
 
-### 3. Docker Hub
-- 공개 저장소 `<계정>/where-is-my-bus`를 만든다. `deploy.yml`의 `DOCKERHUB_USER`를 그 계정으로 바꾼다.
-- **Access Token**(Read & Write)을 만든다. 계정 비밀번호를 쓰지 않는다.
-- 사용자 이름과 토큰은 **`bin/deploy`가 실행할 때 입력받는다**(토큰은 화면에 보이지 않는다). 환경변수 `KAMAL_REGISTRY_USERNAME`, `KAMAL_REGISTRY_PASSWORD`가 이미 있으면 묻지 않는다. 파일에는 값을 쓰지 않는다. `.kamal/secrets`는 환경변수를 참조만 한다(이 파일은 git에 있다).
+### 3. 레지스트리: GHCR (처음 비공개, 나중에 공개)
+- `deploy.yml`은 `ghcr.io/code-for-korea/where-is-my-bus`를 쓴다. 첫 push 때 패키지가 **비공개**로 만들어지고, `Dockerfile`의 `org.opencontainers.image.source` 라벨로 이 저장소에 연결된다.
+- **클래식 PAT**를 만든다(GitHub > Settings > Developer settings > Tokens (classic)). 권한은 `write:packages`(받기만 하는 서버용이면 `read:packages`). 이 조직에 SSO가 걸려 있으면 토큰을 조직에 승인(Authorize)해야 한다.
+- 사용자 이름은 **GitHub 사용자 이름**이다. `bin/deploy`가 실행할 때 입력받고(토큰은 화면에 보이지 않는다), 환경변수 `KAMAL_REGISTRY_USERNAME`, `KAMAL_REGISTRY_PASSWORD`가 있으면 묻지 않는다. 파일에는 값을 쓰지 않는다. `.kamal/secrets`는 참조만 한다.
+- 비공개 패키지라도 Kamal이 서버에 같은 토큰으로 로그인해 이미지를 받으므로 서버에 따로 할 일은 없다.
+- 첫 push 뒤 패키지 화면(조직 Packages)에서 저장소 연결과 접근 권한을 확인한다. Actions 등 다른 곳에서 받을 일이 없으면 그대로 둔다.
+- **공개로 바꾸기**: 이미지 내용 점검("이미지에 넣지 않는 것")을 마친 뒤 패키지 설정 "Danger Zone"에서 공개로 바꾼다. **한 번 공개하면 비공개로 되돌릴 수 없다.** 조직 소유자가 공개 패키지 생성을 막았으면 설정 > Packages에서 풀어야 한다(확인하지 못함). 공개한 뒤에는 서버가 로그인 없이 받을 수 있지만 Kamal은 배포 때 로그인하므로 `bin/deploy` 사용은 그대로다.
+- 비공개 패키지의 무료 한도는 GitHub 문서 기준 확인이 필요하다(아래 "이미지 크기와 레지스트리 무료 한도"). 이미지는 gzip 약 185MB다.
 
-#### 레지스트리를 GitHub 컨테이너 레지스트리(GHCR)로 쓰려면 (검토 결과, 아직 적용하지 않았다)
+#### GHCR 검토 결과 (적용함)
 
 GitHub의 `ghcr.io`도 공개 이미지에 무료로 쓸 수 있다(공식 문서: "공개 패키지 사용은 무료", 컨테이너 레지스트리의 저장·대역폭은 "현재 무료"이며 정책 변경 시 최소 1개월 전에 공지).
 
@@ -133,7 +137,7 @@ bin/kamal secrets print | sed -E 's/(RAILS_MASTER_KEY|KAMAL_REGISTRY_PASSWORD)=.
 
 ## 이미지에 넣지 않는 것 (공개 이미지)
 
-Docker Hub 공개 이미지는 누구나 받아서 내용을 볼 수 있고, 한 번 올린 것은 회수할 수 없다. `.dockerignore`가 아래를 막는다.
+공개 이미지(공개로 바꾼 뒤의 GHCR 포함)는 누구나 받아서 내용을 볼 수 있고, 한 번 올린 것은 회수할 수 없다. `.dockerignore`가 아래를 막는다.
 
 - 키: `.env*`, `config/master.key`, `config/credentials/*.key`
 - 개발용 credentials 암호문 `config/credentials.yml.enc` (운영은 `production.yml.enc`만 쓴다)
@@ -212,7 +216,7 @@ bin/kamal app logs         # 부팅 로그
 
 ## 이미지 크기와 레지스트리 무료 한도
 
-운영 이미지(arm64, `Dockerfile` 기준)를 실제로 빌드해 쟀다(2026-11-01, Docker Hub·GHCR 공통). `image_processing` gem과 `libvips`를 뺀 뒤의 값이다.
+운영 이미지(arm64, `Dockerfile` 기준)를 실제로 빌드해 쟀다(2026-11-01). `image_processing` gem과 `libvips`를 뺀 뒤의 값이다.
 
 | 항목 | 크기 |
 |---|---|
@@ -223,7 +227,7 @@ bin/kamal app logs         # 부팅 로그
 
 - 레이어별 압축 크기는 제거 전에 쟀다(MB): 기반 Debian 29, Ruby 47, `apt` 패키지 39, gem 78, 앱 26. 제거 후에는 합계만 다시 쟀다. 레지스트리가 실제로 계산하는 값은 재지 못했다(위는 `gzip -6` 추정이라 오차가 있다).
 - **GitHub 비공개 패키지 무료 한도(GitHub Free: 저장 500MB, 전송 월 1GB)와 비교**: 첫 push 약 185MB는 저장 한도의 37%다. 모든 버전을 남기면 코드만 바꾼 배포 약 12회에서 500MB에 닿는다(`(500−185)/26`). 전송은 서버가 첫 pull 약 185MB + 배포마다 약 26MB를 받으므로 월 1GB로 배포 약 30회다. **단 이 한도는 비공개 패키지에만 해당한다.** 공개 패키지는 무료이고 컨테이너 레지스트리의 저장·대역폭은 문서상 "현재 무료"다(변경 시 최소 1개월 전 공지). 한도가 *압축 크기*로 계산되는지는 문서에서 확인하지 못했다. 압축 전 크기(501MB)로 센다면 한도(500MB)에 딱 닿는다.
-- Kamal은 레지스트리의 옛 버전을 지우지 않는다. 오래된 태그 정리는 따로 해야 한다(Docker Hub 설정 또는 GitHub 패키지 화면).
+- Kamal은 레지스트리의 옛 버전을 지우지 않는다. 오래된 태그 정리는 따로 해야 한다(GitHub 패키지 화면).
 - **`image_processing` gem과 `libvips`는 제거했다.** 앱은 첨부 파일과 이미지 변환을 쓰지 않는다(`has_one_attached`, `variant`, Active Storage 테이블 모두 없음). `Gemfile`, `Gemfile.lock`(`image_processing`, `mini_magick`, `ruby-vips`, `ruby-vips`만 쓰던 `ffi`), `Dockerfile`·`Dockerfile.dev`에서 뺐고, 빼면 부팅 때 나오는 경고를 `config.active_storage.variant_processor = :disabled`로 껐다. 이미지가 부팅해 `/up`과 주요 경로가 200이고 경고가 없다. 이미지 변환을 쓰게 되면 gem을 다시 넣고 이 줄을 지운다.
 - **나중에 이미지 변환(첨부 이미지의 크기 조절 등)이 필요해지면 gem과 라이브러리를 다시 추가해야 한다.** gem만 또는 `libvips`만 되살리면 부팅 때 경고가 난다(`libvips`만 빼고 gem을 두면 `Using vips to process variants requires the libvips library`, gem만 빼고 설정이 없으면 `Generating image variants require the image_processing gem`). 절차(모두 시험하지는 않았다):
   1. `Gemfile`에 `gem "image_processing", "~> 1.2"`를 넣고 `bundle install`.

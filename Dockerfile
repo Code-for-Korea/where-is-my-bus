@@ -11,6 +11,9 @@
 ARG RUBY_VERSION=4.0.9
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
+# GHCR 패키지를 이 저장소와 연결한다(저장소 접근 권한을 이어받는다).
+LABEL org.opencontainers.image.source="https://github.com/Code-for-Korea/where-is-my-bus"
+
 # Rails app lives here
 WORKDIR /rails
 

@@ -2,9 +2,9 @@
 service: where-is-my-bus
 
 # Name of the container image (use your-user/app-name on external registries).
-# 공개 Docker Hub 저장소다. 이미지에 비밀값이 들어가지 않도록 .dockerignore를 점검했다(docs/deployment.md).
-# TODO(배포 전): DOCKERHUB_USER를 실제 Docker Hub 계정으로 바꾼다.
-image: DOCKERHUB_USER/where-is-my-bus
+# GitHub 컨테이너 레지스트리(ghcr.io). 처음에는 비공개 패키지로 쓰고, 이미지 내용을 점검한 뒤 공개로 바꾼다(docs/deployment.md).
+# 이름은 소문자여야 한다.
+image: code-for-korea/where-is-my-bus
 
 # Deploy to these servers.
 servers:
@@ -38,12 +38,12 @@ proxy:
 
 # Where you keep your container images.
 registry:
-  # Docker Hub(server 생략). ghcr.io 등으로 옮기려면 server와 image만 바꾸면 된다.
-  # 사용자 이름과 토큰은 bin/deploy가 입력받아 환경변수로 넘긴다(.kamal/secrets). 파일에는 적지 않는다.
+  server: ghcr.io
+  # 사용자 이름(GitHub 사용자)과 토큰은 bin/deploy가 입력받아 환경변수로 넘긴다(.kamal/secrets). 파일에는 적지 않는다.
   username:
     - KAMAL_REGISTRY_USERNAME
 
-  # 계정 비밀번호가 아니라 Access Token(Read & Write).
+  # 클래식 PAT(write:packages). 서버가 이미지를 받을 때도 같은 값으로 로그인한다.
   password:
     - KAMAL_REGISTRY_PASSWORD
 
