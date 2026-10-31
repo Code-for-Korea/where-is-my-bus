@@ -66,6 +66,8 @@
 - **호스트 검사**: `config/environments/production.rb`의 `config.hosts = [ "where-is-my-bus.codefor.kr", "rails-app" ]`로 **소스에 직접** 적었다(환경변수 `APP_HOST`는 쓰지 않는다. 환경변수화는 후속 작업, `future-improvements.md` 30번). 같은 이름이 `deploy.yml`에도 있으므로(`proxy.host`, `network-alias`, `EVENT_FORWARD_URL`) 어긋나면 테스트가 실패한다. 허용 호스트가 늘어나도 이벤트 수신은 `X-Ingest-Token`으로 인증하므로 내부 이름을 허용한다고 인증이 약해지지는 않는다.
 - 공개 도메인(`https://where-is-my-bus.codefor.kr/...`)으로 포워딩하는 안은 서버가 자기 공인 주소로 되돌아오는 경로에 의존하고 DNS가 틀리면 이벤트가 끊겨서 택하지 않았다.
 
+> **위치 수신 HTTPS를 적용하면 위 표의 accessory `port: 5055:5055` 행이 없어지고 `traccar-proxy`(nginx) accessory가 추가된다.** 지금 `deploy.yml`은 아직 평문 5055 구성이다. 설계와 검증 결과는 아래 "위치 수신(5055)을 HTTPS로".
+
 ## 첫 배포 후 확인
 
 1. `bin/kamal accessory details traccar`와 `bin/kamal app details`로 두 컨테이너가 떠 있다.
@@ -121,58 +123,115 @@ config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 
 ## 위치 수신(5055)을 HTTPS로 (요구사항: HTTPS를 쓴다)
 
-HTTPS를 쓰기로 했으므로 5055 평문 전송은 목표 구성이 아니다. 이전에는 "평문으로 시작"했지만 이 절이 그것을 대체한다. 아래 실험은 모두 로컬 도커에서 `basecamp/kamal-proxy:v0.9.2`(Kamal 2.11의 최소 버전)와 `traccar/traccar:6.14.4`로 했고, TLS 인증서 발급은 시험하지 못했다(공개 DNS가 필요하다).
+Rails와 마찬가지로 Traccar도 HTTPS로 받는다. **결정(2026-11-01): Rails는 `where-is-my-bus.codefor.kr`, Traccar는 `traccar-where-is-my-bus.codefor.kr`를 쓰고 두 이름을 같은 IP로 연결한다. 두 이름 모두 kamal-proxy가 443에서 받는다.** Traccar 자체는 계속 HTTP(5055)이고 TLS는 프록시가 끝낸다.
+
+아래 실험은 모두 로컬 도커에서 `basecamp/kamal-proxy:v0.9.2`(Kamal 2.11의 최소 버전), `traccar/traccar:6.14.4`, `nginx:1.27-alpine`으로 했다. **자체 서명 인증서로 시험했고 Let's Encrypt 발급 자체는 시험하지 못했다**(공개 DNS와 서버가 필요하다).
 
 ### 확인한 것 (로컬)
 
-1. kamal-proxy는 **등록한 호스트가 아닌 요청을 모두 404로 막는다**(다른 이름, 내부 별칭 `rails-app`, IP 직접 접속 모두).
-2. **Traccar 5055는 기기 ID가 등록되지 않은 요청에는 어떤 경로든 400을 준다**(`/`, `/up`, 모르는 `id` 모두). 그래서 kamal-proxy의 기본 헬스체크(`/up`, 2xx 필요)로는 배포가 `target failed to become healthy`로 실패한다. `/`를 헬스체크 경로로 줘도 같다.
-3. **등록된 기기의 위치 요청(`/?id=<등록된 ID>&lat=…&lon=…`)은 200**이다.
-4. kamal-proxy는 헬스체크를 **다른 포트**로 돌릴 수 있다(`--health-check-port`). 웹 API(8082)의 `/api/server`로 헬스체크하고 5055로 트래픽을 보내는 배포가 성공했고, 프록시를 거친 위치 요청이 Traccar에 도달했다. **그러나 Kamal 2.11 설정에는 이 포트 항목이 없다**(`healthcheck`는 `path`, `interval`, `timeout`만, 소스 확인).
-5. 웹 포트(8082)의 `/`는 200이지만 위치 수신이 아니라 웹 화면이다(요청 값을 무시). 위치 수신 대용으로 쓸 수 없다.
-6. **같은 호스트에서 경로로 나누는 것이 된다.** kamal-proxy에 `--path-prefix=/osmand`(접두사 제거가 기본)로 Traccar를 등록하면 `/osmand/?id=…`는 Traccar로, `/`는 Rails로 간다. Kamal도 `path_prefix`, `strip_path_prefix`를 지원한다(소스 확인). 앞 절의 "경로로 나누기 어렵다"는 틀렸다.
-7. Kamal이 "같은 호스트를 서로 다른 role이 SSL로 공유"하는 것은 막지만, 이 검사는 role만 대상이라 accessory는 해당하지 않는다(소스 확인). 인증서가 같은 호스트에 두 번 발급되는지는 확인하지 못했다.
+1. **한 프록시가 두 이름을 동시에, 각자 다른 인증서로 받는다.** `where-is-my-bus.codefor.kr`(Rails 역할)와 `traccar-where-is-my-bus.codefor.kr`(Traccar 쪽)를 같은 443에 배포하니 SNI별로 각자의 인증서를 내보냈고(`subject=CN=<그 이름>`), 요청이 각 서비스로 갔다. 이름에 맞지 않는 인증서로 검증하면 실패(curl 종료코드 60)하고, 등록하지 않은 이름은 연결이 되지 않는다. 등록한 호스트가 아닌 요청은 404였다(앞선 실험).
+2. **Traccar 5055는 등록되지 않은 기기의 요청에 어떤 경로든 400**이고(`/`, `/up`, 모르는 `id`), **등록된 기기의 위치 요청은 200**이다.
+3. **헬스체크 문제 — 기기를 등록하고 쿼리 경로로 헬스체크하는 방법은 동작하지 않는다(이전 추천 철회).** kamal-proxy가 헬스체크 경로의 `?`를 `%3F`로 바꿔 `GET /%3Fid=healthcheck&lat=0&lon=0`으로 보낸다. 가짜 수신기에 도착한 요청 줄로 확인했다. 그래서 `target failed to become healthy`로 배포가 실패한다. kamal-proxy에는 헬스체크를 다른 포트(8082)로 돌리는 `--health-check-port`가 있고 동작하지만, **Kamal 2.11 설정에는 이 항목이 없다**(`healthcheck`는 `path`, `interval`, `timeout`만, 소스 확인).
+4. **Traccar 앞에 nginx를 두는 방법은 동작한다.** nginx가 `/up`에는 직접 200을 주고 나머지는 Traccar 5055로 넘긴다(`resolver 127.0.0.11`과 변수 `proxy_pass`를 써서 Traccar가 아직 없어도 nginx가 부팅한다). kamal-proxy가 nginx(80)를 기본 헬스체크(`/up`)와 TLS로 배포하는 데 성공했고, HTTPS 위치 요청이 등록된 기기에 200, 미등록 기기에 400이다. Traccar를 멈추면 요청은 응답 없이 끝나고(8초 제한으로 시험) nginx 컨테이너는 살아 있으며, Traccar를 다시 켜면 곧바로 200으로 돌아온다. nginx 메모리는 약 9.7 MiB, 이미지는 약 50 MB다.
+5. **평문 HTTP(80) 요청은 TLS 이름에서 301로 HTTPS로 리다이렉트**된다(`Location: https://...`, 기본값 `--tls-redirect` 켜짐). Kamal에서는 `proxy.ssl_redirect: false`로 끌 수 있다(소스 확인). 끈 상태의 동작은 시험하지 못했다. 앱 SDK가 리다이렉트를 따라가는지도 모르므로 앱 주소는 처음부터 `https://`로 준다.
+6. Kamal 설정으로 이 구성이 풀린다(초안 아래): Traccar accessory는 `port=nil`, `proxy?=false`, nginx accessory는 `proxy?=true`, `hosts=["traccar-where-is-my-bus.codefor.kr"]`, `app_port=80`, `ssl=true`, `health-check-path=/up`.
 
-### 결과: 두 가지 방법
+### 왜 nginx를 쓰는가
 
-| | A. 별도 이름 (`https://traccar.where-is-my-bus.codefor.kr`) | B. 같은 이름 + 경로 (`https://where-is-my-bus.codefor.kr/osmand/`) |
-|---|---|---|
-| 도메인 | 하나 더 | 늘지 않음 |
-| 앱이 받는 주소 모양 | 지금과 같은 루트 주소(`https://호스트`) | 경로가 붙음. **앱의 `traccar_client_sdk`가 경로가 붙은 주소와 쿼리 문자열을 어떻게 만드는지 확인하지 못했다** |
-| 인증서 | 이름마다 발급 | 같은 이름 하나(두 서비스가 한 이름에서 발급 문제 없는지 미확인) |
-| Rails와 경로 충돌 | 없음 | `/osmand`를 Rails가 못 쓴다 |
-| Traccar만 옮기기 | 레코드만 바꾸면 됨 | 프록시 설정까지 바꿔야 함 |
+nginx는 **TLS를 위해서가 아니라 kamal-proxy의 헬스체크를 통과시키기 위해서만** 쓴다. TLS 종단과 인증서 발급은 계속 kamal-proxy가 한다.
 
-**추천: A.** 위 6번으로 B도 프록시 수준에서는 가능하지만, 앱 SDK가 경로가 붙은 주소를 올바르게 쓰는지 아직 모르고 A는 주소 모양이 지금과 같아 위험이 작다. 어느 쪽이든 5055는 서버 밖으로 열지 않으므로 보안 그룹에서 **5055를 닫고** `accessories.traccar.port`를 지운다(Rails와 kamal-proxy가 같은 도커 네트워크에서 전달한다).
+- kamal-proxy는 배포할 때 대상이 헬스체크에서 2xx를 줘야 트래픽을 넘긴다(통과하지 못하면 `target failed to become healthy`로 배포가 실패한다).
+- Traccar 위치 수신 포트(5055)는 등록된 기기의 위치 요청에만 200을 주고 **그 밖의 모든 요청에 400**이다. 헬스체크용 경로가 없다(로컬 확인).
+- 등록된 기기로 쿼리를 붙여 헬스체크하려 해도 kamal-proxy가 `?`를 `%3F`로 바꿔 보낸다(로컬 확인).
+- 헬스체크를 다른 포트(8082)로 돌리는 kamal-proxy 옵션이 있지만 Kamal 2.11 설정에는 없다(소스 확인).
 
-### 얻는 것
+그래서 `/up`에는 직접 200을 주고 나머지를 Traccar 5055로 넘기는 얇은 앞단이 필요하다. nginx는 그 역할을 하는 여러 도구 중 하나이고, 설정이 짧고 이미지가 널리 쓰여 골랐다. 다른 도구(Caddy, HAProxy 등)는 시험하지 않았다.
 
-- 위치와 `deviceId`가 평문으로 오가지 않는다(`future-improvements.md` 2번의 가장 큰 위험 해소).
-- 앱의 **평문 허용(Android `network_security_config.xml`, iOS ATS 예외)을 모두 걷어낼 수 있다**(29번). 이전 절의 "평문 허용 범위를 좁힌다"는 이유도 필요 없어진다.
-- 서버가 열어 두는 포트는 80, 443, 22뿐이다.
+- **드는 것**: 컨테이너 하나(메모리 약 10 MiB), 이미지 약 50 MB, 설정 파일 하나(`config/traccar-nginx.conf`). Traccar가 꺼져 있으면 위치 요청은 응답 없이 끝난다(앱의 큐가 쌓아 두었다 다시 보낸다).
+- **nginx 없이 하는 방법**: 프록시 없이 평문 5055(HTTPS 요구사항에 어긋난다), 또는 `kamal-proxy deploy`를 `--health-check-port 8082`로 수동 호출(재현성이 낮다). 아래 표를 본다.
 
-### 헬스체크 문제의 해법 (적용 전, 서버에서 확인 필요)
+### 헬스체크 해법 비교
 
-Traccar는 기본 헬스체크를 통과하지 못한다(위 2번). 방법이 둘이다.
+| 방법 | 상태 |
+|---|---|
+| **A. nginx 앞단 accessory (추천)** | 로컬에서 동작 확인. Kamal 설정 안에서 해결되고 재배포·재시작이 Kamal 방식 그대로다. 컨테이너가 하나 늘고(약 10 MiB) nginx 설정 파일이 하나 는다 |
+| B. 기기 `healthcheck` + 쿼리 경로 | **동작하지 않음**(`?`가 `%3F`로 바뀜) |
+| C. `kamal-proxy deploy`를 수동으로 호출해 `--health-check-port 8082` | 프록시 쪽은 동작. Kamal이 모르는 수동 단계라 재현성이 낮고 `kamal accessory boot`/`proxy reboot`와 충돌할 수 있다. 시험하지 못함 |
+| D. 같은 이름 + 경로(`/osmand`) | 프록시 수준에서는 되지만(앞선 실험) 헬스체크 문제는 그대로이고 앱 SDK의 경로 처리를 모른다 |
 
-1. **전용 기기 `healthcheck`를 만들어 쓴다 (Kamal 설정 안에서 해결).** Traccar에 기기(`uniqueId=healthcheck`)를 하나 만들고 accessory의 `proxy.healthcheck.path`를 `/?id=healthcheck&lat=0&lon=0`으로 준다. 위 3번대로 200이 된다. **함정: 기기를 만들려면 Traccar가 먼저 떠 있어야 하는데, `kamal accessory boot`는 컨테이너를 띄운 직후 프록시 배포를 해 헬스체크가 실패한다.** 그래서 2단계로 한다: ① 처음에는 `proxy` 없이 부팅하고 서비스 토큰으로 기기를 만든다, ② `proxy`를 추가하고 `bin/kamal accessory reboot traccar`. 배포 때만 헬스체크가 돌고 이 기기에 위치가 몇 건 기록될 수 있다(이벤트가 Rails로 포워딩되면 Rails는 모르는 기기를 200 `ignored`로 받는다). Kamal이 헬스체크 경로의 `?`를 그대로 넘기는지는 확인하지 못했다.
-2. **kamal-proxy를 직접 호출한다.** `docker exec kamal-proxy kamal-proxy deploy …`에 `--health-check-port=8082 --health-check-path=/api/server`를 준다(4번에서 동작 확인). Kamal이 모르는 수동 단계라 재현성이 떨어지고, `kamal proxy reboot` 뒤에 유지되는지 확인하지 못했다.
+### `deploy.yml` 초안 (적용 전)
 
-**추천: 1.** Kamal 설정에 남기 때문이다.
+```yaml
+accessories:
+  traccar:                          # 기존 설정에서 port "5055:5055"를 뺀다. 프록시도 없다
+    image: traccar/traccar:6.14.4
+    host: SERVER_IP
+    env: ...                        # 지금과 같다
+    volumes: [ ... ]
+  traccar-proxy:                    # 컨테이너 이름 where-is-my-bus-traccar-proxy
+    image: nginx:1.27-alpine
+    host: SERVER_IP
+    files:
+      - config/traccar-nginx.conf:/etc/nginx/conf.d/default.conf
+    proxy:
+      host: traccar-where-is-my-bus.codefor.kr
+      ssl: true
+      app_port: 80
+      healthcheck:
+        path: /up
+```
 
-### 아직 모르는 것
+```nginx
+# config/traccar-nginx.conf
+server {
+  listen 80;
+  access_log off;
+  location = /up { return 200 "ok"; }
+  location / {
+    resolver 127.0.0.11 valid=10s;
+    set $upstream http://where-is-my-bus-traccar:5055;
+    proxy_pass $upstream;
+    proxy_set_header Host $host;
+  }
+}
+```
 
-- Let's Encrypt가 두 이름(또는 한 이름 두 서비스)에서 발급되는지.
-- 앱 SDK가 `https://` 주소로 위치를 보내는지(경로가 붙는 B는 더 불확실). **SDK 공식 문서는 HTTP 메서드, URL 형식, `serverUrl`에 경로를 붙일 수 있는지, 평문 지원 여부를 밝히지 않는다**(예시는 모두 `https://demo.traccar.org`뿐, 2026-10-31 확인; SDK 소스는 보지 못했다). 그래서 앱의 위치 전송 동작은 [traccar-integration.md](traccar-integration.md) "운전자 앱의 위치 전송"에 정리하고, 확정은 실제 앱 시험 뒤에 한다.
-- 헬스체크 경로의 쿼리 문자열 처리, `kamal proxy reboot` 뒤의 경로 유지.
-- 5055를 닫은 상태에서 Traccar가 컨테이너 네트워크로만 위치를 받는 동작(로컬에서는 같은 네트워크에서 전달됐지만 서버에서는 보지 못했다).
-- 이미 등록된 휴대폰의 주소 갱신: 주소는 PIN 등록 때 휴대폰에 저장된다. **HTTPS 주소를 처음부터 쓰면 재등록이 필요 없다.** 이미 평문 주소로 등록된 폰이 생긴 뒤에 바꾸면 재등록이 필요하다.
+- 보안 그룹은 22(관리자 IP만), 80, 443만 연다. **5055는 열지 않는다.** Rails와 nginx와 Traccar는 같은 도커 네트워크(`kamal`) 안에서 통신한다.
+- `TRACCAR_SERVER_URL`은 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다. 앱 SDK가 이 주소(경로 없는 `https`)로 위치를 보내는지는 SDK 문서로 확인하지 못했다.
+- Traccar가 Rails로 보내는 이벤트(`http://rails-app:80/...`)와 Rails가 Traccar API를 부르는 주소(`http://where-is-my-bus-traccar:8082`)는 그대로다.
+
+### Let's Encrypt 인증서를 받을 수 있는가
+
+**조건이 맞으면 가능할 것으로 본다. 실제 발급은 시험하지 못했으므로 첫 배포에서 확인한다.**
+
+- kamal-proxy는 Let's Encrypt용 `golang.org/x/crypto/acme/autocert`를 내장한다(바이너리에서 확인, `http-01` 문자열 포함). 그래서 **80과 443이 모두 인터넷에서 닿아야** 한다(HTTP-01 검증은 80). `proxy.host`에 이름을 적어 둔 호스트만 발급한다(`host not configured in HostWhitelist`). 인증서 캐시는 Kamal이 마운트하는 `kamal-proxy-config` 볼륨에 남는다.
+- **두 이름 모두 발급 전에 같은 IP로 해석돼야 한다.** 현재 두 이름 모두 DNS 레코드가 없다(2026-11-01 조회). Cloudflare에서 두 이름 모두 **DNS 전용(프록시 끔)** A 레코드로 만든다(같은 IP). 하나만 `CNAME`으로 다른 이름을 가리키게 해도 된다.
+- **`codefor.kr`에 CAA 레코드가 없다**(`codefor.kr`와 두 이름 모두 비어 있음, 2026-11-01 조회). 그래서 인증서 발급 기관을 제한하지 않고 Let's Encrypt가 막히지 않는다. `codefor.kr`은 DNSSEC을 쓴다(DS 레코드 있음). 존이 Cloudflare 관리라 영향이 없을 것으로 보지만 확인하지 못했다.
+- **발급 속도 제한(Let's Encrypt 공식 문서, 2026-11-01 확인)**: `codefor.kr` 전체가 하나의 "등록 도메인"이라 **일주일에 인증서 50개를 이 도메인의 모든 하위 이름이 나눠 쓴다**(다른 팀이 `codefor.kr` 하위 이름으로 발급한 것도 센다). 이 서비스는 2개를 쓴다. 같은 이름 조합은 일주일에 5개, **이름별 인증 실패는 시간당 5번**이다. 실패 제한은 DNS가 맞기 전에 배포를 반복하면 걸리니, **DNS가 맞는 것을 확인한 뒤에 배포**한다(`dig +short <이름>`이 서버 IP와 같은지).
+- **스테이징으로 먼저 시험할 수 없다.** kamal-proxy에는 `--tls-staging`이 있지만 Kamal 2.11 설정에는 이 옵션이 없다(소스 확인). 실패 제한이 부담되면 `kamal-proxy`를 직접 호출해 시험해야 한다.
+- **첫 배포 순서 제안**: ① 서버 생성과 Elastic IP, 보안 그룹 80·443 ② Cloudflare에서 두 이름의 DNS 전용 A 레코드 ③ `dig`로 두 이름이 서버 IP를 가리키는지 확인 ④ `bin/deploy setup` ⑤ `bin/kamal proxy logs`로 발급 로그를 보고 `curl -sI https://<이름>/up`으로 확인.
+- **확인하지 못한 것**: 실제 발급, 두 이름의 연속 발급, 갱신(만료 전 자동 갱신은 autocert가 한다고 알고 있다), 서버가 오래 꺼져 있다 켜질 때의 인증서 상태.
 
 ## 위치 수신 주소: 도메인을 하나 더 두는가
 
-**결론: 둔다.** 위치 수신용 이름을 승객 사이트와 분리한다. 제안: `traccar.where-is-my-bus.codefor.kr` (Cloudflare에서 **DNS 전용(프록시 끔)**, 값은 `where-is-my-bus.codefor.kr`을 가리키는 CNAME 또는 같은 IP의 A 레코드). 비용은 DNS 레코드 하나이고 HTTP에는 인증서가 필요 없다.
+**결론: 둔다.** 위치 수신용 이름을 승객 사이트와 분리한다. 제안: `traccar-where-is-my-bus.codefor.kr` (Cloudflare에서 **DNS 전용(프록시 끔)**, 값은 `where-is-my-bus.codefor.kr`을 가리키는 CNAME 또는 같은 IP의 A 레코드). 비용은 DNS 레코드 하나이고 HTTP에는 인증서가 필요 없다.
 
 위치 수신이 HTTP(평문, 5055)인 한 아래 이유가 겹친다. 도메인 없이 `http://where-is-my-bus.codefor.kr:5055`로 써도 **동작은 한다.** 분리하는 이유는 동작이 아니라 보안과 나중에 바꾸는 비용이다.
+
+### 이름 형태: `traccar-where-is-my-bus`(하이픈)와 `traccar.where-is-my-bus`(하위 도메인)
+
+**둘 다 동작한다.** 이 구성(DNS 전용, 이름마다 kamal-proxy가 Let's Encrypt 인증서)에서는 어느 쪽을 써도 결과가 같고, 차이는 아래 네 가지다. **하이픈 이름을 추천한다.**
+
+| | 하이픈 `traccar-where-is-my-bus.codefor.kr` | 하위 도메인 `traccar.where-is-my-bus.codefor.kr` |
+|---|---|---|
+| Let's Encrypt | 이름마다 발급. 속도 제한은 `codefor.kr` 전체로 계산 | 같음. 이름 깊이와 무관 |
+| Cloudflare 프록시(주황 구름)로 바꿀 때 | Universal SSL이 루트와 **1단계** 하위 이름을 덮는다. **덮는다** | **2단계**라 Universal SSL이 덮지 않아 유효 인증서가 없다(문서: "not covered", 해결은 유료 Advanced Certificate Manager). 이 이름을 DNS 전용으로 두면 무관 |
+| 브라우저 HSTS | Rails가 `Strict-Transport-Security: max-age=63072000; includeSubDomains`를 보낸다(운영 요청으로 확인). `where-is-my-bus.codefor.kr`의 **하위 이름 전부**가 브라우저에서 HTTPS 강제 대상이 된다 | 이 범위 안에 들어간다(브라우저만 해당, 앱 SDK는 HSTS를 쓰지 않음) |
+| 쿠키 | 세션 쿠키에 `domain:` 지정이 없다(`authentication.rb`, 호스트 전용). 어느 이름이든 서로 전달되지 않는다 | 같음. 나중에 `domain:`을 지정하면 하위 이름으로 전달되므로 하이픈이 더 안전하다 |
+| 정리·가독성 | 조직 존의 다른 이름(`testtraccar.codefor.kr`)처럼 한 단계 이름 | 프로젝트 이름 아래로 묶여 보이고 앱 도메인이 바뀌면 `traccar.<새 도메인>`으로 따라간다 |
+
+- 하이픈을 추천하는 이유: Cloudflare 프록시로 옮길 여지가 남고, HSTS와 쿠키 범위가 앱과 완전히 분리된다. 하위 도메인은 정리 면에서 낫다.
+- `where-is-my-bus.codefor.kr`에 A 레코드가 있어도 하위 이름을 따로 만드는 데는 문제가 없고, `codefor.kr`에는 와일드카드 레코드가 없다(임의 이름 조회가 비어 있음).
 
 ### 이유
 
@@ -194,8 +253,8 @@ Traccar는 기본 헬스체크를 통과하지 못한다(위 2번). 방법이 �
 
 | 파일 | 바꿀 값 |
 |---|---|
-| `config/deploy.yml` `env.clear.TRACCAR_SERVER_URL` | `http://traccar.where-is-my-bus.codefor.kr:5055` |
-| Cloudflare DNS | `traccar.where-is-my-bus.codefor.kr` 레코드(DNS 전용). Elastic IP를 쓰는 동안은 A 레코드, 나중에 IP가 바뀌는 방식(4장 B·C)으로 가면 **CNAME으로 두어 한 곳만 갱신**한다 |
+| `config/deploy.yml` `env.clear.TRACCAR_SERVER_URL` | `http://traccar-where-is-my-bus.codefor.kr:5055` |
+| Cloudflare DNS | `traccar-where-is-my-bus.codefor.kr` 레코드(DNS 전용). Elastic IP를 쓰는 동안은 A 레코드, 나중에 IP가 바뀌는 방식(4장 B·C)으로 가면 **CNAME으로 두어 한 곳만 갱신**한다 |
 | 앱 평문 허용 목록(Android `network_security_config.xml`, iOS `Info.plist`) | 이 이름 하나만 적는다. 현재 예전 테스트 서버 항목은 걷어낸다(29번) |
 | Rails 호스트 검사(`production.rb`의 `config.hosts`) | **바꿀 것 없다.** 5055는 Rails가 받지 않는다 |
 | Let's Encrypt | 필요 없다(HTTP). 나중에 kamal-proxy로 감쌀 때 이 이름으로 발급된다 |
@@ -226,7 +285,7 @@ docker stop <service>-traccar && tar -czf /var/backups/where-is-my-bus/traccar-$
 
 ## 결정 대기
 
-1. **위치 수신 HTTPS**: 요구사항으로 확정. 방법은 A(별도 이름 `traccar.where-is-my-bus.codefor.kr`, 추천)와 B(같은 이름 + `/osmand`). 헬스체크는 전용 기기 방식(추천). 적용하면 `deploy.yml`(`accessories.traccar.proxy`, `port` 삭제, `TRACCAR_SERVER_URL`을 `https://…`로), 보안 그룹의 5055 닫기, 앱의 평문 허용 제거가 따른다. **등록된 휴대폰이 생기기 전에 정한다.**
+1. **위치 수신 HTTPS**: 요구사항으로 확정. 이름은 `traccar-where-is-my-bus.codefor.kr`(Rails와 같은 IP, 둘 다 kamal-proxy가 443에서 받음)로 정했다. 헬스체크는 **nginx 앞단 accessory**(로컬 검증, 추천)로 푼다. 기기+쿼리 경로 방식은 동작하지 않는다. 적용하면 `deploy.yml`(`traccar-proxy` accessory, Traccar의 `port` 삭제, `TRACCAR_SERVER_URL`을 `https://…`로), `config/traccar-nginx.conf`, 보안 그룹의 5055 닫기, 앱의 평문 허용 제거가 따른다. **등록된 휴대폰이 생기기 전에 정한다.**
 2. ~~도메인 검사 삭제~~ → **결정: 유지하되 소스에 직접 적는다**(적용됨). 환경변수화는 후속 작업.
 3. 비밀번호 재설정 메일을 쓸지.
 4. 서버 크기: **결정 `t4g.micro` + 스왑 2GB**([aws-server-operations.md](aws-server-operations.md) 6장).
