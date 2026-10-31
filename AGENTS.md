@@ -68,7 +68,7 @@ bin/ci                              # rubocop + gem/importmap audit + brakeman (
 
 ## 배포
 
-Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Traccar는 accessory(`docs/traccar-accessory.md`)이고 설정은 환경변수, 토큰은 배포 PC의 환경변수(`.kamal/secrets`)다. 이미지는 **공개 Docker Hub**라 비밀값·개발 자료가 들어가지 않도록 `.dockerignore`를 관리한다. `deploy.yml`의 `DOCKERHUB_USER`, `SERVER_IP`는 아직 자리표시자다. `RAILS_MASTER_KEY`는 `.kamal/secrets`가 `config/credentials/production.key`에서 주입하고(키는 git·이미지에 없음), 운영 설정은 `production.yml.enc`에 둔다. SQLite는 컨테이너 밖 호스트 디렉터리에 두고 `bin/backup-storage`로 백업한다. 운영에서는 `db:seed`가 실행되지 않고, Traccar 설정이 비었거나 개발용이면 부팅이 실패한다. Solid Queue는 Puma 안에서 구동(`SOLID_QUEUE_IN_PUMA`). 배포는 `bin/deploy`(레지스트리 이름·토큰을 입력받아 `bin/kamal`을 실행)로 한다. 절차는 `docs/deployment.md`. 서버 배포·iOS 실기기 시험은 아직 하지 않았다.
+Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Traccar는 accessory(`docs/traccar-accessory.md`)이고 설정은 환경변수, 토큰은 배포 PC의 환경변수(`.kamal/secrets`)다. 이미지는 **공개 Docker Hub**라 비밀값·개발 자료가 들어가지 않도록 `.dockerignore`를 관리한다. `deploy.yml`의 `DOCKERHUB_USER`, `SERVER_IP`는 아직 자리표시자다. `RAILS_MASTER_KEY`는 `.kamal/secrets`가 `config/credentials/production.key`에서 주입하고(키는 git·이미지에 없음), 운영 설정은 `production.yml.enc`에 둔다. SQLite는 컨테이너 밖 호스트 디렉터리에 두고 `bin/backup-storage`로 백업한다. **첫 배포의 위치 수신은 임시로 평문 HTTP 5055이고 HTTPS(서브도메인 + nginx)는 필수 후속 작업이다**(`docs/deployment.md`, `docs/traccar-accessory.md`). 운영에서는 `db:seed`가 실행되지 않고, Traccar 설정이 비었거나 개발용이면 부팅이 실패한다. Solid Queue는 Puma 안에서 구동(`SOLID_QUEUE_IN_PUMA`). 배포는 `bin/deploy`(레지스트리 이름·토큰을 입력받아 `bin/kamal`을 실행)로 한다. 절차는 `docs/deployment.md`. 서버 배포·iOS 실기기 시험은 아직 하지 않았다.
 
 ## 알려진 함정
 
@@ -77,7 +77,7 @@ Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Tr
 3. **Route/Stop/Bus 등록은 Traccar 호출과 한 트랜잭션** — Traccar 실패 시 Rails 변경도 취소(`*Registration`, `TraccarRegistration`). 단 **외부 HTTP는 롤백되지 않아** Traccar에만 남는 orphan이 생길 수 있다. 복구는 admin의 `sync_group`/`sync_geofence`/`sync_device`. 운전자의 운행 시작·종료(`Trip*`)는 Traccar를 부르지 않는다. 상세는 `docs/traccar-integration.md`.
 4. **운행 중에는 차량의 노선을 바꿀 수 없다**(`Bus#route_unchanged_during_trip`). 노선·정류장·차량에는 `restrict_with_error` 삭제 제약이 있다(배정된 차량이 있는 노선, 방문 기록이 있는 정류장, 운행 기록이 있는 차량은 지울 수 없다).
 5. **PIN은 1회용이고 `buses.pin`은 전역 unique** — register API가 PIN만으로 버스를 특정한다. 성공 시 조건부 UPDATE(`pin_registered_at`)로 원자적 소모, IP당 5회 실패 시 15분 잠금(`Rails.cache`). 기기 교체는 admin "PIN 재발급"(`Bus#regenerate_pin!`). PIN은 자동 발급 6자리(검증은 4~6자리 허용), `traccar_unique_id`는 hex 12자.
-6. **`deviceId`가 사실상 비밀번호** — 운행 시작·종료 API는 이것만으로 인증한다. 기기별 토큰은 후속 과제(`docs/future-improvements.md` 2번).
+6. **`deviceId`가 사실상 비밀번호** — 운행 시작·종료 API는 이것만으로 인증한다. 첫 배포는 이 값이 평문 5055로 오가므로 HTTPS 전환이 필수다. 기기별 토큰은 후속 과제(`docs/future-improvements.md` 2번).
 7. **운전자가 종료를 누르지 않으면 Trip이 계속 열린다** — 자동 종료 기준은 미정(`docs/policy-draft.md`).
 8. **첫 가입자가 자동 operator** — `User#assign_operator_if_first_user`가 `User.count.zero?`로 판정하므로 동시 가입 race가 있고 DB 제약이 없다. 가입 폼은 role을 받지 않는다.
 9. **이미지 변환 없음** — `image_processing` gem과 `libvips`는 쓰지 않아 제거했고(`config.active_storage.variant_processor = :disabled`), 첨부 파일과 Active Storage 테이블도 없다. 이미지 변환이나 첨부가 필요해지면 gem, Dockerfile의 `libvips`, 이 설정, 테이블을 함께 되돌려야 한다(`docs/deployment.md` "이미지 크기와 레지스트리 무료 한도").

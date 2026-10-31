@@ -4,6 +4,8 @@
 
 > **구성은 `config/deploy.yml`에 반영했지만 서버에는 아직 배포하지 않았다.** "확인함"은 로컬 도커에서 실행해 본 것이고, "확인하지 못함"은 서버에서 처음 올릴 때 확인한다.
 
+> **현재 결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055(`http://where-is-my-bus.codefor.kr:5055`)로 한다. 이 문서의 HTTPS 설계(서브도메인 `traccar-where-is-my-bus.codefor.kr` + nginx)는 보류 중이고 반드시 후속으로 반영해야 한다.** 평문은 위치와 `deviceId`를 보호하지 못하므로 시험(소수의 기기, 실운행 전)에만 쓴다. 위험, 앱 허용 목록, 폰 재등록은 [deployment.md](deployment.md)의 "첫 배포의 위치 수신은 임시로 평문(HTTP)이다".
+
 ## 구성
 
 ```
@@ -123,7 +125,7 @@ config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 
 ## 위치 수신(5055)을 HTTPS로 (요구사항: HTTPS를 쓴다)
 
-Rails와 마찬가지로 Traccar도 HTTPS로 받는다. **결정(2026-11-01): Rails는 `where-is-my-bus.codefor.kr`, Traccar는 `traccar-where-is-my-bus.codefor.kr`를 쓰고 두 이름을 같은 IP로 연결한다. 두 이름 모두 kamal-proxy가 443에서 받는다.** Traccar 자체는 계속 HTTP(5055)이고 TLS는 프록시가 끝낸다.
+Rails와 마찬가지로 Traccar도 HTTPS로 받아야 한다. **지금은 첫 배포의 동작 확인을 위해 이 설계를 보류하고 평문 5055로 먼저 배포한다(필수 후속 작업, 위 안내).** **이름과 방식 결정(2026-11-01): Rails는 `where-is-my-bus.codefor.kr`, Traccar는 `traccar-where-is-my-bus.codefor.kr`를 쓰고 두 이름을 같은 IP로 연결한다. 두 이름 모두 kamal-proxy가 443에서 받는다.** Traccar 자체는 계속 HTTP(5055)이고 TLS는 프록시가 끝낸다.
 
 아래 실험은 모두 로컬 도커에서 `basecamp/kamal-proxy:v0.9.2`(Kamal 2.11의 최소 버전), `traccar/traccar:6.14.4`, `nginx:1.27-alpine`으로 했다. **자체 서명 인증서로 시험했고 Let's Encrypt 발급 자체는 시험하지 못했다**(공개 DNS와 서버가 필요하다).
 
@@ -135,6 +137,15 @@ Rails와 마찬가지로 Traccar도 HTTPS로 받는다. **결정(2026-11-01): Ra
 4. **Traccar 앞에 nginx를 두는 방법은 동작한다.** nginx가 `/up`에는 직접 200을 주고 나머지는 Traccar 5055로 넘긴다(`resolver 127.0.0.11`과 변수 `proxy_pass`를 써서 Traccar가 아직 없어도 nginx가 부팅한다). kamal-proxy가 nginx(80)를 기본 헬스체크(`/up`)와 TLS로 배포하는 데 성공했고, HTTPS 위치 요청이 등록된 기기에 200, 미등록 기기에 400이다. Traccar를 멈추면 요청은 응답 없이 끝나고(8초 제한으로 시험) nginx 컨테이너는 살아 있으며, Traccar를 다시 켜면 곧바로 200으로 돌아온다. nginx 메모리는 약 9.7 MiB, 이미지는 약 50 MB다.
 5. **평문 HTTP(80) 요청은 TLS 이름에서 301로 HTTPS로 리다이렉트**된다(`Location: https://...`, 기본값 `--tls-redirect` 켜짐). Kamal에서는 `proxy.ssl_redirect: false`로 끌 수 있다(소스 확인). 끈 상태의 동작은 시험하지 못했다. 앱 SDK가 리다이렉트를 따라가는지도 모르므로 앱 주소는 처음부터 `https://`로 준다.
 6. Kamal 설정으로 이 구성이 풀린다(초안 아래): Traccar accessory는 `port=nil`, `proxy?=false`, nginx accessory는 `proxy?=true`, `hosts=["traccar-where-is-my-bus.codefor.kr"]`, `app_port=80`, `ssl=true`, `health-check-path=/up`.
+
+### HTTPS 전환 체크리스트 (후속, 필수)
+
+1. **DNS**: Cloudflare에 `traccar-where-is-my-bus.codefor.kr` DNS 전용(프록시 끔) A 레코드를 Rails와 같은 IP로 만들고, `dig +short`로 서버 IP를 확인한다(발급 전 선행 조건, 아래 "Let's Encrypt").
+2. **`deploy.yml`**: `traccar-proxy`(nginx) accessory와 `config/traccar-nginx.conf`를 추가하고, `traccar` accessory의 `port: "5055:5055"`를 지우고, `TRACCAR_SERVER_URL`을 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다(아래 초안).
+3. **보안 그룹**: 5055를 닫는다. 80과 443은 이미 연다.
+4. **앱**: 평문 허용 목록(Android `network_security_config.xml`, iOS `Info.plist`)을 걷어낸다. 서브도메인으로 바꾸면 **웹 서버 이름에는 평문이 허용되지 않는다.**
+5. **기사 폰 재등록**: 위치 전송 주소는 PIN 등록 때 폰에 저장된다. 평문 주소로 등록한 폰은 PIN을 재발급해 다시 등록해야 한다. 앱이 시작할 때 주소를 다시 받아 오게 하면 이 재등록이 필요 없어진다(앱과 Rails 변경, 후속 개선).
+6. **확인**: 첫 배포 후 확인 절차를 HTTPS 기준으로 다시 한다(`curl -sI https://traccar-where-is-my-bus.codefor.kr/up`, Traccar 이벤트가 Rails에 200으로 도착).
 
 ### 왜 nginx를 쓰는가
 
@@ -285,7 +296,7 @@ docker stop <service>-traccar && tar -czf /var/backups/where-is-my-bus/traccar-$
 
 ## 결정 대기
 
-1. **위치 수신 HTTPS**: 요구사항으로 확정. 이름은 `traccar-where-is-my-bus.codefor.kr`(Rails와 같은 IP, 둘 다 kamal-proxy가 443에서 받음)로 정했다. 헬스체크는 **nginx 앞단 accessory**(로컬 검증, 추천)로 푼다. 기기+쿼리 경로 방식은 동작하지 않는다. 적용하면 `deploy.yml`(`traccar-proxy` accessory, Traccar의 `port` 삭제, `TRACCAR_SERVER_URL`을 `https://…`로), `config/traccar-nginx.conf`, 보안 그룹의 5055 닫기, 앱의 평문 허용 제거가 따른다. **등록된 휴대폰이 생기기 전에 정한다.**
+1. **위치 수신 HTTPS**: **보류, 필수 후속 작업**(2026-11-01). 첫 배포는 동작 확인을 위해 평문 5055로 한다. 전환 방식은 서브도메인 `traccar-where-is-my-bus.codefor.kr` + nginx(로컬 검증)로 정했고, 전환 체크리스트는 위 "HTTPS 전환 체크리스트". **승객 공개와 실운행 전에 한다.**
 2. ~~도메인 검사 삭제~~ → **결정: 유지하되 소스에 직접 적는다**(적용됨). 환경변수화는 후속 작업.
 3. 비밀번호 재설정 메일을 쓸지.
 4. 서버 크기: **결정 `t4g.micro` + 스왑 2GB**([aws-server-operations.md](aws-server-operations.md) 6장).

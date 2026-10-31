@@ -58,7 +58,8 @@ env:
   clear:
     # 같은 서버의 Traccar accessory. 컨테이너 이름은 <service>-<accessory> 이다.
     TRACCAR_API_BASE_URL: http://where-is-my-bus-traccar:8082
-    # 운전자 앱이 위치를 보낼 주소. 도메인을 바꾸면 같이 바꾼다. 처음에는 평문 5055(docs/traccar-accessory.md).
+    # 운전자 앱이 위치를 보낼 주소. **임시: 첫 배포는 평문 HTTP 5055.** HTTPS(서브도메인 traccar-where-is-my-bus.codefor.kr + nginx)는
+    # 필수 후속 작업이다(docs/traccar-accessory.md). 도메인을 바꾸면 같이 바꾼다.
     TRACCAR_SERVER_URL: http://where-is-my-bus.codefor.kr:5055
 
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
@@ -126,7 +127,7 @@ accessories:
     image: traccar/traccar:6.14.4
     # TODO(배포 전): servers.web과 같은 서버.
     host: SERVER_IP
-    # 위치 수신(OsmAnd)만 게시한다. 웹/API(8082)는 게시하지 않는다. Rails가 도커 네트워크 안에서 부른다.
+    # 위치 수신(OsmAnd)만 게시한다(임시 평문. HTTPS 전환 때 이 줄을 지우고 traccar-proxy accessory를 추가한다). 웹/API(8082)는 게시하지 않는다. Rails가 도커 네트워크 안에서 부른다.
     port: "5055:5055"
     env:
       clear:

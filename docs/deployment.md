@@ -26,6 +26,27 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 
 `config/deploy.yml`의 `DOCKERHUB_USER`, `SERVER_IP`는 아직 자리표시자다. 배포 전에 실제 값으로 바꾼다.
 
+## 첫 배포의 위치 수신은 임시로 평문(HTTP)이다 — HTTPS는 꼭 반영해야 한다
+
+**결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055로 한다.** 운전자 앱은 `http://where-is-my-bus.codefor.kr:5055`로 위치를 보내고(`TRACCAR_SERVER_URL`, Traccar accessory가 5055를 게시), Rails 사이트(443)는 처음부터 HTTPS다. **HTTPS는 필수 후속 작업이고 보류일 뿐 생략이 아니다.** nginx도 그때까지 쓰지 않는다.
+
+**HTTPS로 보호해야 하는 이유**
+- 위치와 `deviceId`가 **암호화되지 않고** 오간다. `deviceId`는 운행 시작·종료 API의 사실상 비밀번호다(`AGENTS.md` 함정 6, `docs/future-improvements.md` 2번).
+- 5055는 **인터넷 전체에 열려 있다**(기사 폰이 이동통신망이라 출발 IP를 좁힐 수 없다). 네트워크에서 엿본 사람은 그 버스의 `deviceId`를 알아내 **운행을 시작·종료하거나 가짜 위치를 보낼 수 있다.** HTTPS는 엿보기를 막지만 알아맞히기는 막지 못한다.
+- 그래서 평문은 **시험(소수의 기기, 실운행 전)에만** 쓴다. **승객에게 공개하기 전, 실운행 전에 HTTPS로 전환한다.**
+
+**이 임시 구성에서 꼭 알아야 할 것**
+- **앱의 평문 허용 목록에 `where-is-my-bus.codefor.kr`를 넣은 앱 빌드가 필요하다.** 휴대폰 OS는 `http://` 접속을 기본으로 막는데 지금 허용 목록에는 옛 테스트 서버(`yehyunserver.iptime.org`)뿐이다. 시험하는 사람이 **자기 로컬에서만** 추가하고 커밋하지 않는다(`docs/future-improvements.md` 29번 방침): Android `driver_app/android/app/src/main/res/xml/network_security_config.xml`의 `<domain>`, iOS `driver_app/ios/Runner/Info.plist`의 `NSExceptionDomains`. 추가한 뒤 앱을 다시 빌드한다.
+- **이 허용은 도메인 단위라 포트를 구분하지 못한다.** 그래서 **같은 이름의 웹 서버(HTTPS 사이트)에도 평문이 허용**된다. 앱의 `adminUrl` 입력은 스킴이 없으면 `http://`를 붙이므로(`driver_app/lib/api_client.dart`), **`adminUrl`은 반드시 `https://where-is-my-bus.codefor.kr`로 직접 입력한다.** 그렇지 않으면 PIN과 `deviceId`가 평문으로 나가고, 서버가 301로 HTTPS로 돌려보내기 전에 이미 요청이 나간 뒤다. 이 위험은 위치 수신에 **별도 이름**을 쓰면 사라진다(아래 후속 작업).
+- 보안 그룹에서 **5055를 열어야** 한다(HTTPS 전환 후 닫는다).
+- **평문 주소로 등록한 폰은 나중에 다시 등록해야 한다.** 위치 전송 주소는 PIN 등록 때 폰에 저장되고 다시 받아 오지 않는다(`docs/traccar-integration.md`). HTTPS로 바꾸면 주소가 달라지므로, 임시 평문으로 등록한 폰이 많을수록 재등록이 늘어난다. 시험 폰을 적게 유지한다.
+
+**HTTPS 전환 계획 (필수, 후속)**: 위치 수신에 **서브도메인 `traccar-where-is-my-bus.codefor.kr`**를 쓴다. Rails와 같은 IP(Cloudflare DNS 전용 A 레코드)로 연결하고, Traccar 앞에 nginx(헬스체크용), kamal-proxy가 443에서 TLS와 Let's Encrypt 인증서를 맡는다. 설계, 로컬 검증 결과, 인증서 발급 조건은 [traccar-accessory.md](traccar-accessory.md)의 "위치 수신(5055)을 HTTPS로". 전환할 때 할 일:
+1. Cloudflare에 `traccar-where-is-my-bus.codefor.kr` DNS 전용 A 레코드를 만들고 `dig`로 서버 IP를 확인한다.
+2. `deploy.yml`에 `traccar-proxy`(nginx) accessory와 `config/traccar-nginx.conf`를 추가하고, Traccar accessory의 `port: "5055:5055"`를 지우고, `TRACCAR_SERVER_URL`을 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다.
+3. 보안 그룹에서 5055를 닫고 앱의 평문 허용을 걷어낸다.
+4. 기사 폰을 다시 등록한다(PIN 재발급).
+
 ## 배포 전 준비 (한 번만)
 
 ### 1. DNS·서버

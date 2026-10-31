@@ -281,7 +281,7 @@ aws ec2 stop-instances  --instance-ids <i-...>
 | 스냅샷 | **AWS Data Lifecycle Manager로 일 1회, 7개 보관** | 디스크 장애·서버 재생성 대비. 앞서 문서에 적은 "같은 디스크의 백업만으로는 부족"을 메운다. 스냅샷은 전원이 켜진 때 찍어도 파일 단위로는 일관되지 않을 수 있어 **`bin/backup-storage` 백업과 함께** 쓴다 |
 | 스왑 | **2GB 스왑 파일**(루트 디스크 안, 월 약 $0.18) | Ubuntu AMI는 스왑이 없다. RAM(1GiB)의 2배다. 배포 중 겹침(새 Rails 컨테이너 약 256 MiB + 부팅 순간 증가)과 Traccar의 유휴 메모리를 흡수하고, 더 커도 쓰는 양은 같아 비용은 디스크 몇 센트뿐이다. 2GB는 "적당한 크기"에 대한 판단이며 실측 근거는 없다. `swappiness`는 기본값(60)으로 두고 관찰한다 |
 | 고정 IP | Elastic IP 1개 | 4장 결정 |
-| 보안 그룹 | 22(**관리자 IP만**), 80, 443 인바운드. 8082는 열지 않는다. **5055는 HTTPS 방식(kamal-proxy)을 쓰면 열지 않는다**(평문 5055를 쓰는 동안만 연다) | 80은 Let's Encrypt 발급에 필요하다. 기사 휴대폰은 이동통신망이라 출발 IP를 특정할 수 없어 443은 전체에 연다. 관리자 IP가 바뀌면 22 규칙을 고쳐야 한다 |
+| 보안 그룹 | 22(**관리자 IP만**), 80, 443, **5055(임시)** 인바운드. 8082는 열지 않는다 | 80은 Let's Encrypt 발급에 필요하다. **5055는 첫 배포의 평문 위치 수신용 임시 규칙이고 HTTPS 전환(`docs/traccar-accessory.md`) 후 닫는다.** 기사 휴대폰은 이동통신망이라 출발 IP를 특정할 수 없어 443과 5055는 전체에 열어야 한다. 관리자 IP가 바뀌면 22 규칙을 고쳐야 한다 |
 | 메타데이터 | **IMDSv2 필수**(`HttpTokens=required`), hop limit 1 | 컨테이너가 인스턴스 메타데이터에 닿지 못하게 한다. 앱이 AWS를 쓰지 않으므로 영향 없다 |
 | IAM 인스턴스 프로파일 | 없음 | 앱이 AWS API를 부르지 않는다. 나중에 백업을 S3로 보내면 그때 최소 권한으로 추가 |
 | 종료 보호 | 켠다 | 실수로 `terminate`하면 EBS와 데이터가 같이 사라진다. 중지(stop)와 종료(terminate)를 구분한다 |
@@ -351,7 +351,7 @@ Ubuntu AMI는 root SSH를 막고 `ubuntu` 사용자로 접속한다. `deploy.yml
 | 6 | AWS 계정 소유자, IAM 관리자 | 대기 |
 | 7 | Lambda 런타임 | 대기: Node.js(Ed25519 내장) 또는 Python + 레이어 |
 | 8 | EC2 구성 | **결정: 서울 `t4g.micro`(arm64, 1GiB) + 스왑 2GB + gp3 20GB + Elastic IP + 일 1회 스냅샷**(6장). `deploy.yml`의 `builder.arch`는 `arm64`로 바꿨다. 올리는 기준은 "승격 기준" |
-| 9 | Traccar 위치 수신 HTTPS | **요구사항(HTTPS)**. 추천: 별도 이름 + kamal-proxy, 보안 그룹의 5055는 닫는다([traccar-accessory.md](traccar-accessory.md) "위치 수신(5055)을 HTTPS로"). 방법 **결정 대기** |
+| 9 | Traccar 위치 수신 HTTPS | **보류, 필수 후속**(2026-11-01). 첫 배포는 동작 확인을 위해 평문 5055(`http://where-is-my-bus.codefor.kr:5055`)로 한다. 전환 방식은 서브도메인 `traccar-where-is-my-bus.codefor.kr` + nginx로 정했고 체크리스트는 [traccar-accessory.md](traccar-accessory.md)의 "HTTPS 전환 체크리스트". 평문의 위험과 앱 허용 목록은 [deployment.md](deployment.md) |
 
 권한에서 정할 것: 허용 역할을 하나로 할지(운영자), 둘로 할지(조회 / 변경). 처음엔 하나를 추천한다.
 
