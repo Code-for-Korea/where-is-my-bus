@@ -1,8 +1,5 @@
-# 운영에서는 실행하지 않는다. 이 시드는 operator@example.com / password123 계정과 데모 정류장·노선·차량을 만들고,
-# 그 자원들을 연결된 Traccar에 실제로 만든다. 새 DB를 만들 때 db:prepare가 시드를 자동 실행하므로(bin/docker-entrypoint)
-# 가드가 없으면 첫 배포에서 실서버에 데모 데이터와 알려진 비밀번호의 관리자가 생긴다.
 if Rails.env.production? && ENV["ALLOW_PRODUCTION_SEED"] != "1"
-  puts "운영 환경에서는 시드를 실행하지 않는다. (정말 필요하면 ALLOW_PRODUCTION_SEED=1)"
+  puts "운영 환경에서는 시드를 실행하지 않습니다. 필요하면 ALLOW_PRODUCTION_SEED=1 설정하여 재실행합니다."
   return
 end
 
