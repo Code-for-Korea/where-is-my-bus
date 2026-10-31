@@ -80,8 +80,11 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
   # Enable DNS rebinding protection and other `Host` header attacks.
-  # 도메인은 deploy.yml의 APP_HOST(proxy.host와 같은 값). 이미지 빌드(assets:precompile) 때는 없어도 된다.
-  config.hosts = [ ENV["APP_HOST"] ] if ENV["APP_HOST"].present?
+  # 공개 도메인은 deploy.yml의 proxy.host와 같은 값이다. 도메인을 바꾸면 둘을 같이 바꾼다.
+  # "rails-app"은 같은 서버의 Traccar 컨테이너가 이벤트를 보낼 때 쓰는 이름이다(deploy.yml의 network-alias,
+  # EVENT_FORWARD_URL). 소스에 직접 적는다 — 환경변수(APP_HOST)로 옮기는 것은 후속 작업.
+  # 두 파일의 값이 어긋나면 test/lib/production_hosts_test.rb가 잡는다.
+  config.hosts = [ "where-is-my-bus.codefor.kr", "rails-app" ]
   # kamal-proxy의 헬스체크는 컨테이너 주소로 들어오므로 /up은 호스트 검사에서 뺀다.
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end
