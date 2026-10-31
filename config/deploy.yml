@@ -1,5 +1,5 @@
 # Name of your application. Used to uniquely configure containers.
-service: web
+service: where-is-my-bus
 
 # Name of the container image (use your-user/app-name on external registries).
 # 공개 Docker Hub 저장소다. 이미지에 비밀값이 들어가지 않도록 .dockerignore를 점검했다(docs/deployment.md).
@@ -9,8 +9,13 @@ image: DOCKERHUB_USER/where-is-my-bus
 # Deploy to these servers.
 servers:
   web:
-    # TODO(배포 전): 실서버 IP 또는 호스트명. 80/443이 비어 있어야 한다(docs/deployment.md "같은 호스트에 Traccar가 있을 때").
-    - SERVER_IP
+    hosts:
+      # TODO(배포 전): 실서버 IP 또는 호스트명. 80/443이 비어 있어야 한다. 아래 accessories.traccar.host도 같은 값으로 바꾼다.
+      - SERVER_IP
+    options:
+      # 같은 서버의 Traccar 컨테이너가 이벤트를 보낼 고정 이름. 배포마다 앱 컨테이너 이름이 바뀌어서 별칭을 쓴다.
+      # config/environments/production.rb의 config.hosts와 accessories.traccar의 EVENT_FORWARD_URL이 같은 이름이어야 한다.
+      network-alias: rails-app
   # job:
   #   hosts:
   #     - 192.168.0.1
@@ -23,31 +28,38 @@ servers:
 #
 # Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
 #
-# 도메인을 바꾸면 여기 host와 아래 env의 APP_HOST를 같이 바꾼다(credentials site_url, Traccar event.forward.url도).
+# 도메인을 바꾸면 여기 host와 production.rb의 config.hosts, TRACCAR_SERVER_URL을 같이 바꾼다(credentials site_url도).
+# host를 비우면 프록시가 어떤 이름에도 응답하는 와일드카드가 되므로 비우지 않는다.
 proxy:
   ssl: true
-  host: localbus.codefor.kr
+  host: where-is-my-bus.codefor.kr
   healthcheck:
     path: /up
 
 # Where you keep your container images.
 registry:
   # Docker Hub(server 생략). ghcr.io 등으로 옮기려면 server와 image만 바꾸면 된다.
-  # TODO(배포 전): DOCKERHUB_USER를 실제 계정으로.
-  username: DOCKERHUB_USER
+  # 사용자 이름과 토큰은 bin/deploy가 입력받아 환경변수로 넘긴다(.kamal/secrets). 파일에는 적지 않는다.
+  username:
+    - KAMAL_REGISTRY_USERNAME
 
-  # 계정 비밀번호가 아니라 Access Token(Read & Write). 값은 .kamal/secrets가 환경변수에서 읽는다.
+  # 계정 비밀번호가 아니라 Access Token(Read & Write).
   password:
     - KAMAL_REGISTRY_PASSWORD
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   secret:
-    # config/credentials/production.key (secret_key_base, site_url, traccar.* 는 production.yml.enc 안에 있다)
+    # config/credentials/production.key (secret_key_base, site_url 은 production.yml.enc 안에 있다)
     - RAILS_MASTER_KEY
+    # Traccar 토큰은 배포하는 PC의 환경변수 한 곳에서 Rails와 Traccar 양쪽으로 내려간다(.kamal/secrets).
+    - TRACCAR_API_TOKEN
+    - TRACCAR_INGEST_TOKEN
   clear:
-    # config.hosts(DNS 리바인딩 방어). proxy.host와 같은 값.
-    APP_HOST: localbus.codefor.kr
+    # 같은 서버의 Traccar accessory. 컨테이너 이름은 <service>-<accessory> 이다.
+    TRACCAR_API_BASE_URL: http://where-is-my-bus-traccar:8082
+    # 운전자 앱이 위치를 보낼 주소. 도메인을 바꾸면 같이 바꾼다. 처음에는 평문 5055(docs/traccar-accessory.md).
+    TRACCAR_SERVER_URL: http://where-is-my-bus.codefor.kr:5055
 
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
@@ -88,7 +100,8 @@ asset_path: /rails/public/assets
 
 # Configure the image builder.
 builder:
-  arch: amd64
+  # t4g(Graviton, ARM) 서버. x86 서버(t3 등)를 쓰면 amd64로 되돌린다(docs/aws-server-operations.md "ARM과 x86 비교").
+  arch: arm64
 
   # # Build image via remote server (useful for faster amd64 builds on arm64 computers)
   # remote: ssh://docker@docker-builder-server
@@ -104,26 +117,29 @@ builder:
 # ssh:
 #   user: app
 
-# Use accessory services (secrets come from .kamal/secrets).
-# accessories:
-#   db:
-#     image: mysql:8.0
-#     host: 192.168.0.2
-#     # Change to 3306 to expose port to the world instead of just local network.
-#     port: "127.0.0.1:3306:3306"
-#     env:
-#       clear:
-#         MYSQL_ROOT_HOST: '%'
-#       secret:
-#         - MYSQL_ROOT_PASSWORD
-#     files:
-#       - config/mysql/production.cnf:/etc/mysql/my.cnf
-#       - db/production.sql:/docker-entrypoint-initdb.d/setup.sql
-#     directories:
-#       - data:/var/lib/mysql
-#   redis:
-#     image: valkey/valkey:8
-#     host: 192.168.0.2
-#     port: 6379
-#     directories:
-#       - data:/data
+# 같은 서버에 Traccar를 함께 올린다(docs/traccar-accessory.md). 컨테이너 이름은 where-is-my-bus-traccar.
+# 설정은 traccar.xml 파일 없이 환경변수로 한다. 이름은 camelCase를 _로 나눈다(web.serviceAccountToken => WEB_SERVICE_ACCOUNT_TOKEN).
+# 이름을 틀리면 오류 없이 무시되고 서비스 토큰만 적용되지 않는다.
+accessories:
+  traccar:
+    # 버전을 고정한다. latest는 배포 때마다 바뀔 수 있다.
+    image: traccar/traccar:6.14.4
+    # TODO(배포 전): servers.web과 같은 서버.
+    host: SERVER_IP
+    # 위치 수신(OsmAnd)만 게시한다. 웹/API(8082)는 게시하지 않는다. Rails가 도커 네트워크 안에서 부른다.
+    port: "5055:5055"
+    env:
+      clear:
+        CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+        WEB_REGISTRATION: "false"
+        EVENT_FORWARD_URL: http://rails-app:80/integrations/traccar/events
+        EVENT_FORWARD_TYPE: json
+      secret:
+        - WEB_SERVICE_ACCOUNT_TOKEN
+        - EVENT_FORWARD_HEADER
+    # H2 DB(database.mv.db)가 호스트에 남는다. 컨테이너는 root로 돌아 chown이 필요 없다.
+    volumes:
+      - /var/lib/where-is-my-bus/traccar:/opt/traccar/data
+    options:
+      # 서버를 끄거나 재배포할 때 DB를 닫을 시간을 준다.
+      stop-timeout: 30
