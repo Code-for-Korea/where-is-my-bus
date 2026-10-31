@@ -1,6 +1,6 @@
 # 로컬 데모: Rails 앱 + Traccar 서버.
 #   docker compose up -d --build
-#   docker compose exec rails bin/rails db:seed
+#   docker compose exec rails bin/rails demo:seed
 # 자세한 사용법은 docs/local-demo.md
 services:
   traccar:

@@ -2,5 +2,6 @@
 # compose의 rails 서비스 진입점: DB 준비 → CSS 빌드 → 서버 기동.
 rm -f tmp/pids/server.pid
 bin/rails db:prepare
+bin/rails demo:seed
 bin/rails tailwindcss:build
 exec bin/rails server -b 0.0.0.0 -p 3000
