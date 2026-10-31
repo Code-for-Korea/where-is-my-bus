@@ -35,6 +35,8 @@ User ─< Session                     (role: member / operator)
 | 데이터 모델 변경 목적 / ERD | `docs/data-model-rewrite.md`, `docs/erd.md` |
 | 로컬 데모 실행 | `docs/local-demo.md` |
 | 운영 배포(Kamal), 백업, 마이그레이션 | `docs/deployment.md` |
+| AWS 서버 생성, Discord로 끄고 켜기, IP 변경 (설계, 미구현) | `docs/aws-server-operations.md` |
+| Traccar를 같은 서버에 Kamal accessory로 올리기 | `docs/traccar-accessory.md` |
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
 
@@ -66,7 +68,7 @@ bin/ci                              # rubocop + gem/importmap audit + brakeman (
 
 ## 배포
 
-Rails만 Kamal(`config/deploy.yml`)로 배포하고 Traccar는 별도 서버를 쓴다. 이미지는 **공개 Docker Hub**라 비밀값·개발 자료가 들어가지 않도록 `.dockerignore`를 관리한다. `deploy.yml`의 `DOCKERHUB_USER`, `SERVER_IP`는 아직 자리표시자다. `RAILS_MASTER_KEY`는 `.kamal/secrets`가 `config/credentials/production.key`에서 주입하고(키는 git·이미지에 없음), 운영 설정은 `production.yml.enc`에 둔다. SQLite는 컨테이너 밖 호스트 디렉터리에 두고 `bin/backup-storage`로 백업한다. 운영에서는 `db:seed`가 실행되지 않고, Traccar 설정이 비었거나 개발용이면 부팅이 실패한다. Solid Queue는 Puma 안에서 구동(`SOLID_QUEUE_IN_PUMA`). 절차는 `docs/deployment.md`. 서버 배포·iOS 실기기 시험은 아직 하지 않았다.
+Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Traccar는 accessory(`docs/traccar-accessory.md`)이고 설정은 환경변수, 토큰은 배포 PC의 환경변수(`.kamal/secrets`)다. 이미지는 **공개 Docker Hub**라 비밀값·개발 자료가 들어가지 않도록 `.dockerignore`를 관리한다. `deploy.yml`의 `DOCKERHUB_USER`, `SERVER_IP`는 아직 자리표시자다. `RAILS_MASTER_KEY`는 `.kamal/secrets`가 `config/credentials/production.key`에서 주입하고(키는 git·이미지에 없음), 운영 설정은 `production.yml.enc`에 둔다. SQLite는 컨테이너 밖 호스트 디렉터리에 두고 `bin/backup-storage`로 백업한다. 운영에서는 `db:seed`가 실행되지 않고, Traccar 설정이 비었거나 개발용이면 부팅이 실패한다. Solid Queue는 Puma 안에서 구동(`SOLID_QUEUE_IN_PUMA`). 배포는 `bin/deploy`(레지스트리 이름·토큰을 입력받아 `bin/kamal`을 실행)로 한다. 절차는 `docs/deployment.md`. 서버 배포·iOS 실기기 시험은 아직 하지 않았다.
 
 ## 알려진 함정
 
