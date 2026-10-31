@@ -71,6 +71,8 @@ Rails가 그 이벤트를 받아 "버스가 어느 정류장에 있는가"를 �
 
 Rails 쪽 접속 정보는 환경변수가 credentials보다 우선한다.
 
+**운영에서는 아래 네 값이 모두 있어야 부팅한다**(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`). 비었거나 `dev-` 토큰이거나 개발 서버 주소이면 `TraccarProductionCheck`가 부팅을 막는다. 이유와 한계는 `docs/deployment.md`의 "부팅 검사".
+
 | 환경변수 | 의미 |
 |---|---|
 | `TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN` | Traccar API 주소와 서비스 토큰 (토큰이 없으면 `TRACCAR_API_EMAIL`/`PASSWORD` 기본 인증) |

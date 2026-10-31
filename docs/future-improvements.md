@@ -303,5 +303,12 @@
 
 - **현재 방식(2026-11-01)**: 첫 배포의 동작 확인을 위해 운전자 앱이 위치를 `http://where-is-my-bus.codefor.kr:5055`(평문)로 보낸다. Rails 사이트는 HTTPS다. 앱의 평문 허용 목록에 이 도메인을 넣은 시험 빌드가 필요하다(커밋하지 않음, 29번).
 - **문제점**: 위치와 `deviceId`가 암호화되지 않고 오간다. `deviceId`는 운행 시작·종료 API의 사실상 비밀번호이고(2번) 5055는 인터넷 전체에 열려 있어, 네트워크에서 엿본 사람이 그 버스의 운행을 시작·종료하거나 가짜 위치를 보낼 수 있다. 앱의 평문 허용이 도메인 단위(포트 구분 없음)라 같은 이름의 웹 서버에도 평문이 허용되고, 앱이 스킴 없는 `adminUrl`에 `http://`를 붙이므로 PIN과 `deviceId`가 평문으로 나갈 수 있다.
-- **대안(결정함)**: 위치 수신에 서브도메인 `traccar-where-is-my-bus.codefor.kr`를 쓰고(Rails와 같은 IP, DNS 전용), Traccar 앞에 nginx(헬스체크용)를 두어 kamal-proxy가 443에서 TLS를 끝낸다. 설계, 로컬 검증, 전환 체크리스트는 `docs/traccar-accessory.md`. 앱이 시작할 때 위치 전송 주소를 다시 받아 오게 하면 전환 때 폰 재등록이 필요 없다.
+- **대안(결정함)**: 위치 수신에 서브도메인 `traccar-where-is-my-bus.codefor.kr`를 쓰고(Rails와 같은 IP, DNS 전용), Traccar 앞에 nginx(헬스체크용)를 두어 kamal-proxy가 443에서 TLS를 끝낸다. 설계, 로컬 검증, 전환 체크리스트는 `docs/traccar-accessory.md`. 앱이 시작할 때 위치 전송 주소를 다시 받아 오게 하면 전환 때 폰 재등록이 필요 없다. 전환 뒤에는 `TraccarProductionCheck`가 평문 `http://` 위치 수신 주소를 거부하게 규칙을 추가하고 `test/lib/traccar_production_check_test.rb`의 평문 허용 항목을 뺀다.
 - **손볼 시점**: **첫 배포로 동작을 확인한 직후, 승객 공개와 실운행 전에 반드시.** 평문으로 등록한 폰이 늘수록 재등록 비용이 커지므로 서두른다.
+
+## 33. 운영 Traccar 설정 검사가 값의 모양만 본다
+
+- **현재 방식**: `TraccarProductionCheck`(`lib/traccar_production_check.rb`)가 운영 부팅 때 Traccar 설정 네 가지가 있는지, `dev-` 토큰이 아닌지, URL에 `iptime.org`·`localhost`·`127.0.0.1`이 없는지 본다. 이유와 효과는 `docs/deployment.md` "부팅 검사".
+- **문제점**: 호스트 이름이 아니라 URL 문자열 전체에서 찾아서 `https://localhost-bus.codefor.kr` 같은 운영 주소를 오탐한다. 오타 난 호스트, URL이 아닌 값, 스킴 없는 주소, 대문자 `DEV-`, 서로 같은 두 토큰, 너무 짧은 토큰은 통과한다(모두 직접 확인).
+- **대안**: `URI`로 파싱해 호스트 이름만 비교하고 스킴(`http`/`https`)과 호스트 유무를 검사한다. 두 토큰이 같으면 거부하고 최소 길이를 둔다. 대소문자를 구분하지 않고 `dev-`를 거부한다. 연결 여부는 부팅 검사에서 보지 말고 첫 배포 후 확인 절차에 둔다(부팅이 Traccar 장애에 묶이면 안 된다).
+- **손볼 시점**: 오탐으로 배포가 막히거나 HTTPS 전환(32번)으로 스킴 규칙이 필요해질 때.

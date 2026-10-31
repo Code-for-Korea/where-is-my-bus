@@ -1,5 +1,6 @@
 # 운영 부팅 때 Traccar 설정이 비어 있거나 개발용이 아닌지 검사한다 (config/initializers/traccar_production_check.rb).
-# 환경변수·credentials를 빠뜨리면 개발 서버로 조용히 연결되거나(credentials의 예전 값), 공개된 개발 토큰이 쓰일 수 있다.
+# 값을 빠뜨리면 앱은 /up 200으로 정상처럼 뜨는데 이벤트 수신이 전부 401이 되고 운전자 앱 등록이 깨지며, 공개된 개발 토큰(dev-traccar-*)이
+# 운영에 쓰일 수 있다. 부팅을 막아 배포 때 드러내려는 검사다. 값의 모양만 보며(연결 여부는 보지 않는다) 한계와 이유는 docs/deployment.md "부팅 검사".
 class TraccarProductionCheck
   DEV_HOSTS = /iptime\.org|localhost|127\.0\.0\.1/i
 

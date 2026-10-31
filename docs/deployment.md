@@ -167,7 +167,39 @@ bin/kamal app logs         # 부팅 로그
 `bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 환경변수 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
 
 - 컨테이너가 부팅할 때 `bin/docker-entrypoint`가 `db:prepare`를 실행한다. 빈 DB면 스키마를 만들고, **운영에서는 시드를 실행하지 않는다**(`db/seeds.rb`의 운영 가드). 시드는 데모 계정(`operator@example.com`/`password123`)과 정류장·노선·차량을 만들고 Traccar에도 만들기 때문이다.
-- 부팅할 때 `TraccarProductionCheck`가 Traccar 설정을 검사한다. 값이 없거나 개발용(`dev-` 토큰, `iptime.org`·`localhost` 주소)이면 `운영 Traccar 설정 오류: ...`로 부팅이 실패한다. 로그에서 이유를 확인한다.
+- 부팅할 때 `TraccarProductionCheck`가 Traccar 설정을 검사한다. 값이 없거나 개발용이면 `운영 Traccar 설정 오류: ...`로 부팅이 실패한다. 로그(`bin/kamal app logs`)에서 이유를 확인한다. 자세한 것은 아래 "부팅 검사".
+
+### 부팅 검사: 운영 Traccar 설정 (`lib/traccar_production_check.rb`)
+
+**무엇을 하나.** 운영 모드로 부팅할 때(`config/initializers/traccar_production_check.rb`) `TraccarProductionCheck.problems`가 Traccar 설정 네 가지(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)를 본다. 환경변수가 우선이고 없으면 credentials를 본다. 문제가 있으면 `운영 Traccar 설정 오류: <항목 목록>`으로 부팅을 막는다. 거부하는 것은 다음이다.
+- 비었거나 공백뿐인 값(`api_token 없음`처럼 이름을 알려 준다)
+- `dev-`로 시작하는 토큰(`api_token가 개발용 값(dev-...)`). 로컬 데모 토큰 `dev-traccar-*`는 공개 저장소에 있다.
+- 개발 서버 주소: URL에 `iptime.org`, `localhost`, `127.0.0.1`이 들어 있는 경우(대소문자 무시, `api_base_url가 개발 서버를 가리킴(<주소>)`)
+
+**왜 필요한가.** 이 검사가 없으면 값을 빠뜨린 배포가 **정상처럼 떠서** 나중에 따로따로 깨진다(모두 코드로 확인함).
+- `TRACCAR_INGEST_TOKEN`이 비면 이벤트 수신(`traccar_events_controller.rb`)이 모든 요청을 401로 거절한다. 앱은 `/up` 200으로 멀쩡해 보이는데 Traccar만 재시도를 계속하고 도착 정보가 조용히 비게 된다.
+- `TRACCAR_SERVER_URL`이 비면 앱 등록 응답이 `traccarServerUrl: null`이 되고, 운전자 앱이 `body['traccarServerUrl'] as String`에서 예외를 내 기사 등록이 실패한다.
+- `TRACCAR_API_BASE_URL`이 비면 정류장·노선·차량 등록이 "Traccar API credentials가 설정되지 않았습니다"로 실패한다.
+- 로컬 데모의 개발 토큰을 운영에 붙여 넣으면 누구나 이벤트를 위조할 수 있다. 이 검사만 이를 막는다.
+
+검사가 있으면 이 모두가 **배포 때 컨테이너가 뜨지 않는 것**으로 바뀐다. kamal-proxy가 헬스체크를 통과하지 못한 대상을 거부하는 것(`target failed to become healthy`)은 로컬에서 확인했다. 첫 배포는 그 자리에서 실패로 끝나서 반쯤 동작하는 앱이 남지 않는다. 이전 배포가 있을 때 그 버전이 계속 서비스되는지는 확인하지 못했다.
+
+**건너뛰는 경우.** `SECRET_KEY_BASE_DUMMY`가 있을 때(이미지 빌드의 `assets:precompile`), 그리고 개발·테스트 모드.
+
+**부수 효과.** 운영 모드로 실행하는 모든 명령이 같은 검사를 받는다. 컨테이너 부팅 때의 `db:prepare`, `bin/kamal app exec`, `bin/rails runner`가 값이 비면 실패한다. 로컬에서 운영 모드를 시험할 때는 `SECRET_KEY_BASE_DUMMY=1`을 주거나 네 값을 준다. 이 PC에 `config/master.key`가 있으면 옛 `credentials.yml.enc`의 개발 서버 주소(`api_base_url`)를 읽어 걸린다.
+
+**다른 안전장치와의 관계.** 셋이 서로 다른 곳을 막는다.
+| 장치 | 보는 것 | 못 보는 것 |
+|---|---|---|
+| `bin/deploy` 사전 점검 | `production.key`, 토큰 두 개가 환경변수에 있는지 | `dev-` 값, 두 URL. `bin/kamal`을 직접 쓰면 거치지 않음 |
+| `test/lib/traccar_production_check_test.rb` | `deploy.yml`이 네 설정을 내려 주고 그 값이 검사를 통과하는지, `.kamal/secrets`에 비밀 이름이 있는지, 부팅 | 배포하는 사람의 셸에서 오는 토큰 값. CI에는 테스트 잡이 없어 로컬에서 돌려야 함 |
+| 이 부팅 검사 | 실제로 컨테이너가 받은 최종 값 | 아래 한계 |
+
+**알려진 한계(모두 직접 확인함).** 이 검사는 값의 *모양*만 본다.
+- **오탐**: 호스트 이름이 아니라 URL 문자열 전체에서 찾는다. `https://localhost-bus.codefor.kr`처럼 이름 일부이거나 `?from=iptime.org`처럼 경로에 들어 있어도 "개발 서버"로 거부한다. 지금 쓰는 주소(`where-is-my-bus.codefor.kr`, `where-is-my-bus-traccar`, `traccar-where-is-my-bus.codefor.kr`)에는 해당 없다.
+- **놓치는 것**: 오타 난 호스트(`where-is-my-bus-traccr`), URL이 아닌 값(`not a url`), 스킴 없는 주소(`where-is-my-bus.codefor.kr:5055`), 대문자 `DEV-`, 서로 같은 두 토큰, 너무 짧은 토큰은 모두 통과한다. 연결이 되는지와 Traccar 쪽 토큰과 같은지는 보지 못하므로 **첫 배포 후 확인**(`docs/traccar-accessory.md`)으로 확인한다.
+- `iptime.org`는 옛 `credentials.yml.enc`가 이미지에 들어가던 시절의 대비다. 지금은 `.dockerignore`가 그 파일을 막고 운영은 `production.yml.enc`를 쓰므로 주된 용도가 아니다.
+- **HTTPS 전환 때**: 지금은 평문 `http://` 위치 수신 주소를 통과시킨다(임시, 테스트 "운영 주소는 거부하지 않는다"에 그렇게 적혀 있다). 전환 뒤에는 `http://` 위치 수신 주소를 거부하도록 규칙을 추가하고 그 테스트에서 평문 항목을 뺀다(`docs/future-improvements.md` 32번).
 
 ### 첫 가입자가 운영자다
 **배포 직후 가장 먼저 본인이 `https://where-is-my-bus.codefor.kr/registration/new`에서 가입한다.** 첫 가입자가 자동으로 operator가 되고, 가입 폼은 공개되어 있다(`docs/future-improvements.md` 12번). 누가 언제 하는지 미리 정해 둔다. 가입 폼을 닫는 일은 후속 과제다.
