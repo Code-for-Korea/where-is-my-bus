@@ -16,7 +16,7 @@
 위치 추적 로직을 직접 구현하지 않고 공식 SDK로 UI만 감싼다.
 
 - SDK: [`traccar_client_sdk`](https://pub.dev/packages/traccar_client_sdk) (pub.dev, Apache-2.0) — [traccar.org/traccar-client-sdk](https://www.traccar.org/traccar-client-sdk/) · [Flutter 문서](https://www.traccar.org/traccar-client-sdk-flutter/)
-- 역할: 백그라운드 위치 수집 + 권한 요청(위치·배터리 최적화 예외) + OsmAnd 프로토콜(`:5055`)로 서버 전송까지 전부 처리. 앱은 UI(로그인/상태표시/시작·정지)만 구현.
+- 역할: 백그라운드 위치 수집 + 권한 요청(위치·배터리 최적화 예외) + OsmAnd 방식 파라미터의 HTTP 요청으로 `serverUrl`에 전송하는 것까지 전부 처리(위치 한 건을 `serverUrl`로 POST 폼(`application/x-www-form-urlencoded`)으로 보낸다. `http`/`https`는 서버가 PIN 등록 때 알려 준 주소를 따르고 HTTPS도 앱 코드 변경 없이 된다. 근거는 `docs/traccar-integration.md`.)
 - `serverUrl`/`deviceId`는 온보딩에서 `POST /integrations/traccar/register` 호출로 받은 응답값 사용(`lib/driver_registration.dart`). 설정값·계약 상세는 `ISSUE.md` 참고.
 - SDK 범위 밖(직접 구현 필요): 정류장 크라우드소싱 등록 화면.
 

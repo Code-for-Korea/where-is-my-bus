@@ -64,6 +64,7 @@
 - **현재 방식**: 운전자 앱이 `deviceId`(= `buses.traccar_unique_id`)만으로 운행 시작·종료를 요청한다.
 - **문제점**: 이 값은 Traccar로 GPS를 보낼 때 OsmAnd 프로토콜로 평문 전송된다. 네트워크에서 엿본 사람이 다른 버스의 운행을 시작·종료할 수 있다.
 - **대안**: PIN 등록(`register`) 때 기기별 별도 토큰을 발급해 앱이 보관하고, 운행 API는 그 토큰으로 인증한다. `deviceId`는 GPS 식별 용도로만 쓴다.
+- **알게 된 것(2026-10-31)**: 위치 SDK(`traccar_client_sdk`)의 `Config`에는 업로드마다 붙는 HTTP 헤더 설정(`headers`, 예: `Authorization`)이 있다. 앱은 쓰지 않는다. 위치 요청에도 기기별 토큰을 붙일 수 있어 보이지만, Traccar 자체는 이 헤더를 검사하지 않으므로 앞단(프록시나 Rails)이 검사하는 구조가 따로 필요하다(추정, 시험하지 못함). 위치 수신을 HTTPS로 옮기면(`docs/traccar-accessory.md`) 평문 노출 문제는 줄어든다.
 - **손볼 시점**: 로컬 데모 이후, 실제 기기로 시험 운영하기 전.
 
 ## 3. 운행 자동 종료 없음
@@ -142,6 +143,7 @@
 - **문제점**: 동시에 가입하면 운영자가 둘 이상 생길 수 있다. 배포 직후 아무나 가입해 운영자가 될 수 있다. (비즈니스 로직 검토 9번에서 이어짐)
 - **대안**: 가입 화면을 닫고 운영자는 시드나 명령으로만 만든다.
 - **손볼 시점**: 로컬 밖에 배포하기 전.
+- **현재 상태(2026-10-28)**: 운영 첫 배포 절차에 "배포 직후 본인이 가장 먼저 가입"을 넣었다(`docs/deployment.md`). 가입 폼을 닫거나 운영자를 명령으로만 만드는 것은 아직 하지 않았다.
 
 ## 13. `register` 속도 제한 동작 미확인
 
@@ -156,6 +158,7 @@
 - **문제점**: Traccar 공식 문서가 H2를 운영에 권하지 않는다. 컨테이너를 지우면 데이터가 사라질 수 있고, 여러 기기·팀원 환경에서의 접속 주소 설정이 로컬 기준이다.
 - **대안**: Traccar를 TimescaleDB나 MySQL로 옮기고, 개발용·운영용 compose를 분리한다. HTTPS와 도메인을 설정한다.
 - **손볼 시점**: 로컬 밖에 배포하기 전.
+- **현재 상태(2026-10-28)**: Rails는 Kamal 운영 구성과 호스트 디렉터리 백업을 준비했다(`docs/deployment.md`). Traccar는 같은 서버의 Kamal accessory로 올린다(`docs/traccar-accessory.md`). H2 DB는 호스트 디렉터리에 두고, 위치 수신(5055)은 처음에 평문이다.
 
 ## 15. Traccar의 Trip·Stop 리포트 미활용
 
@@ -185,6 +188,7 @@
 
 - **현재 방식**: Geofence 이벤트는 Traccar가 위치를 받는 순서대로 만든다. 실험에서 직전 위치보다 과거 시각의 위치는 이벤트를 만들지 않았다.
 - **문제점**: 운전자 앱이 터널·음영 지역에서 위치를 모아 두었다가 한꺼번에 보내면, 그 사이 지난 정류장의 도착/출발 이벤트가 사라질 수 있다. 승객 화면에서는 버스가 정류장을 건너뛴 것처럼 보인다.
+- **서버를 껐다 켜는 운영에서는**: 보내지 못한 위치는 앱의 로컬 큐(SQLite)에 남았다가 서버가 켜지면 원래 시각 그대로 도착한다(SDK 공식 문서). 꺼지기 전 마지막 위치보다 새것이라 이 경우에는 옛 시각의 이벤트가 **만들어질** 수 있다(사라지는 쪽이 아니라 오래된 방문이 기록되는 쪽). 실제 동작은 서버에서 껐다 켜 보며 확인해야 한다.
 - **대안**: 정류장 순서 기반으로 건너뛴 정류장을 추정해 보정하거나, Traccar 위치 이력(리포트 API)을 주기적으로 대조해 누락된 방문을 채운다.
 - **손볼 시점**: 실제 기기로 운행 시험을 하면서 누락이 관측될 때.
 
@@ -275,7 +279,44 @@
 - **배경**: 휴대폰 OS(Android, iOS)는 기본적으로 암호화되지 않은 `http://` 주소로의 접속을 막는다. 서버가 `http://`이면 앱 설정 파일에 "이 주소는 허용한다"고 미리 적어 둬야 접속된다. 운전자 앱은 주소 두 곳에 접속한다: 등록·운행 시작 같은 요청을 받는 **웹 서버 주소**(운전자가 앱에 입력, 23번)와, 위치를 보내는 **위치 수신 주소**(Traccar, 포트 5055. PIN 등록 때 서버가 앱에 알려 줌). 두 주소 모두 어떤 서버든 쓸 수 있다.
 - **현재 상태**: 허용 목록(Android `network_security_config.xml`, iOS `Info.plist`)에 예전 테스트 서버 도메인 하나만 들어 있다. iOS에는 같은 네트워크(로컬)의 서버를 허용하는 설정(`NSAllowsLocalNetworking`)도 들어 있다.
 - **문제점**: 내 PC나 새 시험 서버에 앱을 붙여 보려면 설정 파일에 그 주소를 직접 적고 앱을 다시 빌드해야 한다. 실기기 시험에서도 로컬 PC의 IP를 설정 파일에 직접 추가해야 했다 (xeno-xeno, 2026-10-26). iOS 실기기는 시험하지 못했다.
+- **운영 방침(2026-10-31)**: 운영은 HTTPS를 쓰기로 했다. 위치 수신도 kamal-proxy 뒤에서 HTTPS로 받는 설계를 `docs/traccar-accessory.md`에 정리했다(별도 이름 + 443 추천). 그렇게 되면 이 허용 목록을 모두 걷어낼 수 있다. **앱 SDK는 `serverUrl`을 그대로 쓰고 HTTPS로 POST 폼을 보내는 것을 SDK 소스로 확인했다**(`docs/traccar-integration.md`). 남은 것은 실기기 시험과, **Let's Encrypt가 Android 7.1.1 이상에서만 신뢰된다**는 점(플러그인 `minSdk`는 24)이다. 또 앱의 `adminUrl` 입력은 스킴이 없으면 `http://`를 붙이므로 웹 서버가 HTTPS 전용이 되면 기본값을 `https://`로 바꿔야 한다(`driver_app/lib/api_client.dart`).
 - **지금 방침**: 아직 테스트 단계라 HTTP를 그대로 쓰고, 시험하는 사람이 자기 주소를 로컬에서만 추가한다(커밋하지 않는다).
 - **나중에 정리할 때 알아 둘 점**: 서버를 HTTPS로 운영하면 그 주소의 예외는 필요 없다. 다만 **앱이 접속하는 두 주소가 모두 HTTPS여야** 예외를 없앨 수 있다. 위치 수신 주소가 `http://`로 남으면 그 주소의 예외는 계속 필요하다. 또 이미 들어 있는 예외는 저절로 사라지지 않고, 파일에서 지우고 앱을 다시 빌드해야 한다.
 - **개선안** (xeno-xeno 제안): Android는 개발용(debug) 빌드에서만 `http://`를 허용하도록 분리해 배포용(release) 빌드에 영향을 주지 않게 한다. iOS는 시험용으로 `NSAllowsLocalNetworking`을 쓴다. 운영 서버가 HTTPS가 되면 허용 설정을 모두 제거한다.
 - **손볼 시점**: 배포 서버와 위치 수신 방식이 정해진 뒤.
+
+## 30. 허용 호스트가 소스와 deploy.yml에 이중으로 적혀 있음
+
+- **현재 방식**: 운영의 허용 호스트(`config.hosts`)에 공개 도메인과 내부 이름(`rails-app`)을 `config/environments/production.rb`에 직접 적었다. 같은 이름이 `config/deploy.yml`(`proxy.host`, `network-alias`, `EVENT_FORWARD_URL`)에도 있다.
+- **문제점**: 도메인을 바꿀 때 두 곳을 같이 고쳐야 한다. 한쪽을 빼먹으면 프록시는 통과시키는데 Rails가 403을 줘서 사이트가 막힌다. 어긋남은 `test/lib/production_hosts_test.rb`가 잡지만 CI에는 테스트 잡이 없어 로컬에서 돌려야 한다.
+- **대안**: `deploy.yml`의 `env.clear`에서 `APP_HOST`(와 필요하면 내부 이름)를 내려 주고 `production.rb`가 읽는다. 이때 `APP_HOST`가 없으면(이미지 빌드 중) 호스트 검사를 켜지 않도록 가드가 필요하다. 또는 `config.hosts`를 아예 지운다(`docs/traccar-accessory.md` "도메인(Host) 검사").
+- **손볼 시점**: 도메인을 바꿀 때, 또는 Traccar에 별도 도메인을 둘 때.
+
+## 31. 쓰지 않는 Active Storage 엔진이 로드됨
+
+- **현재 상태**: 앱은 첨부 파일을 쓰지 않는다(`has_one_attached`, `variant`, Active Storage 테이블 없음). 그런데 `config/application.rb`가 `require "active_storage/engine"`을 하고 환경별로 `config.active_storage.service`가 있고 `config/storage.yml`이 있다. `image_processing` gem과 `libvips`는 제거했고 부팅 경고는 `variant_processor = :disabled`로 껐다.
+- **문제점**: 쓰지 않는 엔진이 부팅 때 로드되고, 나중에 첨부를 쓰려는 사람이 `variant_processor = :disabled`를 보고 헷갈릴 수 있다.
+- **대안**: `require "active_storage/engine"`과 환경별 `active_storage` 설정, `config/storage.yml`을 지우고 `variant_processor` 줄도 함께 지운다. 첨부가 필요해지면 그때 다시 넣는다. 이미지 변환을 다시 쓰는 절차는 `docs/deployment.md`.
+- **손볼 시점**: 첨부 기능이 없다고 확정된 뒤. 배포에는 영향이 없다.
+
+## 32. 위치 수신이 평문(HTTP)이다 — HTTPS 전환이 필수
+
+- **현재 방식(2026-11-01)**: 첫 배포의 동작 확인을 위해 운전자 앱이 위치를 `http://where-is-my-bus.codefor.kr:5055`(평문)로 보낸다. Rails 사이트는 HTTPS다. 앱의 평문 허용 목록에 이 도메인을 넣은 시험 빌드가 필요하다(커밋하지 않음, 29번).
+- **문제점**: 위치와 `deviceId`가 암호화되지 않고 오간다. `deviceId`는 운행 시작·종료 API의 사실상 비밀번호이고(2번) 5055는 인터넷 전체에 열려 있어, 네트워크에서 엿본 사람이 그 버스의 운행을 시작·종료하거나 가짜 위치를 보낼 수 있다. 앱의 평문 허용이 도메인 단위(포트 구분 없음)라 같은 이름의 웹 서버에도 평문이 허용되고, 앱이 스킴 없는 `adminUrl`에 `http://`를 붙이므로 PIN과 `deviceId`가 평문으로 나갈 수 있다.
+- **대안(결정함)**: 위치 수신에 서브도메인 `traccar-where-is-my-bus.codefor.kr`를 쓰고(Rails와 같은 IP, DNS 전용), Traccar 앞에 nginx(헬스체크용)를 두어 kamal-proxy가 443에서 TLS를 끝낸다. 설계, 로컬 검증, 전환 체크리스트는 `docs/traccar-accessory.md`. 앱이 시작할 때 위치 전송 주소를 다시 받아 오게 하면 전환 때 폰 재등록이 필요 없다. 전환 뒤에는 `TraccarProductionCheck`가 평문 `http://` 위치 수신 주소를 거부하게 규칙을 추가하고 `test/lib/traccar_production_check_test.rb`의 평문 허용 항목을 뺀다.
+- **손볼 시점**: **첫 배포로 동작을 확인한 직후, 승객 공개와 실운행 전에 반드시.** 평문으로 등록한 폰이 늘수록 재등록 비용이 커지므로 서두른다.
+
+## 33. 운영 Traccar 설정 검사가 값의 모양만 본다
+
+- **현재 방식**: `TraccarProductionCheck`(`lib/traccar_production_check.rb`)가 운영 부팅 때 Traccar 설정 네 가지가 있는지, `dev-` 토큰이 아닌지, URL에 `iptime.org`·`localhost`·`127.0.0.1`이 없는지 본다. 이유와 효과는 `docs/deployment.md` "부팅 검사".
+- **문제점**: 호스트 이름이 아니라 URL 문자열 전체에서 찾아서 `https://localhost-bus.codefor.kr` 같은 운영 주소를 오탐한다. 오타 난 호스트, URL이 아닌 값, 스킴 없는 주소, 대문자 `DEV-`, 서로 같은 두 토큰, 너무 짧은 토큰은 통과한다(모두 직접 확인).
+- **대안**: `URI`로 파싱해 호스트 이름만 비교하고 스킴(`http`/`https`)과 호스트 유무를 검사한다. 두 토큰이 같으면 거부하고 최소 길이를 둔다. 대소문자를 구분하지 않고 `dev-`를 거부한다. 연결 여부는 부팅 검사에서 보지 말고 첫 배포 후 확인 절차에 둔다(부팅이 Traccar 장애에 묶이면 안 된다).
+- **손볼 시점**: 오탐으로 배포가 막히거나 HTTPS 전환(32번)으로 스킴 규칙이 필요해질 때.
+
+## 34. 로컬 개발에서 Traccar를 `bin/dev`로 함께 띄우지 못한다
+
+- **현재 방식**: `bin/dev`(Procfile.dev)는 Rails와 Tailwind watch만 띄우고 Traccar는 포함하지 않는다. Traccar는 `docker compose up`으로 Rails까지 같이 올리거나 따로 띄워야 한다. `demo:seed`, 정류장·노선·차량 등록은 Traccar가 떠 있어야 동작한다.
+- **문제점**: 호스트에서 `bin/dev`로 개발할 때 Traccar를 따로 챙겨야 한다. 빼먹으면 등록과 `demo:seed`가 Traccar 연결 실패로 멈춘다.
+- **대안**: `bin/traccar` 스크립트가 Traccar 도커 이미지를 `compose.yaml`의 traccar 서비스와 같은 설정(포트 8082·5055, `docker/traccar/traccar.xml`, 데이터 볼륨)으로 띄운다. Procfile.dev에 `traccar: bin/traccar`를 추가해 `bin/dev`와 overmind에서 함께 쓴다.
+- **결정할 것**: 호스트 Rails는 `TRACCAR_API_BASE_URL`이 `http://localhost:8082`여야 한다(compose는 `http://traccar:8082`). 컨테이너 이름과 데이터 볼륨을 compose와 공유할지, 포트 충돌(compose와 동시 실행)을 어떻게 막을지. 종료 때 컨테이너가 남지 않게 `--rm`과 시그널 처리를 둔다.
+- **손볼 시점**: 호스트에서 `bin/dev`로 개발하는 사람이 늘 때. 이번 PR 범위 밖이다.

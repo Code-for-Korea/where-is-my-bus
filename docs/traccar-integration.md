@@ -35,9 +35,33 @@ Rails가 그 이벤트를 받아 "버스가 어느 정류장에 있는가"를 �
 4. `StopVisitRecorder`가 기기 → 버스, Geofence → 정류장을 찾아 진행 중인 운행에 방문 기록을 남기거나 닫는다.
 5. 승객 화면은 운행별 최신 방문 기록으로 버스 위치를 계산한다 (`RouteBusStatuses`).
 
+## 운전자 앱의 위치 전송
+
+운전자 앱은 위치를 **Traccar에 직접** 보낸다. Rails는 좌표를 받지 않고 운행 시작·종료만 안다.
+
+1. **PIN 등록**: Rails `register`가 `traccarServerUrl`(= `TRACCAR_SERVER_URL`)과 `deviceId`를 돌려주고, 앱이 휴대폰에 저장한다(`driver_registration.dart`). **저장된 주소를 다시 받아 오는 코드는 없다.** 주소를 바꾸면 등록된 기사 폰마다 PIN을 새로 받아 재등록해야 한다.
+2. **운행 시작**: 앱이 Rails `trips/start`를 먼저 부르고, 성공하면 그때 처음 SDK를 `init`·`start`한다. 버튼을 누르기 전에는 GPS가 켜지지 않는다. 종료는 `trips/end`가 성공해야 SDK를 `stop`한다(서버가 기준).
+3. **전송**: SDK(`traccar_client_sdk` 1.0.11)가 백그라운드에서 위치를 모아 `serverUrl`로 HTTP 요청을 보낸다. 형식은 OsmAnd 방식 파라미터(기기 ID, 시각, 위치, 배터리 등)다.
+4. **판정**: Traccar가 위치로 Geofence 진입·이탈을 판정하고 Rails로 이벤트를 보낸다. 앱은 판정에 관여하지 않는다.
+
+앱의 고정 설정(`lib/tracking_controller.dart`, 근거는 `driver_app/mvp-spec.md`): `accuracy: high`, `distanceMeters: 15`, `intervalSeconds: 10`, `heartbeatIntervalSeconds: 30`, `stopDetection: false`, `buffer`는 SDK 기본값(true). 앱은 `init()` 뒤 `setConfig`로 매번 덮어써서 옛 주소로 보내지 않게 한다.
+
+**오프라인 동작** (SDK 공식 문서, 2026-10-31 확인): 보내지 못한 위치는 로컬 큐(SQLite, 앱·OS를 다시 시작해도 남음)에 쌓이고 5초~5분의 지수 백오프로 재시도해 연결이 돌아오면 **원래 시각 그대로** 보낸다.
+- 터널·음영에서 모인 위치가 늦게 도착하면 그 사이 정류장 이벤트가 사라질 수 있다(`future-improvements.md` 18번).
+- **서버를 껐다 켜면** 꺼지기 전 마지막 위치보다 새로운 위치가 몰려 오므로 옛 시각의 이벤트가 생길 수 있다. 운전자가 "종료"를 누른 뒤에는 앱이 위치를 보내지 않아 쌓이지 않는다([traccar-accessory.md](traccar-accessory.md) "껐다 켤 때의 위험").
+
+**SDK 소스로 확인한 것** (`traccar-client-sdk` v1.0.11의 `HttpUploader.kt`, 2026-11-01. 플러그인 `traccar_client_sdk`는 이 네이티브 라이브러리를 감싼 얇은 래퍼다):
+- 위치 한 건을 Ktor `submitForm(url = config.serverUrl, ...)`로 보낸다. **`serverUrl`을 그대로 URL로 쓰고**, 방식은 **POST, `application/x-www-form-urlencoded` 본문**이다(GET 쿼리가 아니다). 본문 항목은 `id`, `lat`, `lon`, `timestamp`(초), `accuracy`, `altitude`, `speed`(노트), `bearing`, `batt`, `charge`, `alarm`이다. Traccar의 OsmAnd 수신이 이 POST 폼을 받는다.
+- **`https://` 주소로 보낼 수 있다.** 별도 앱 코드가 필요 없다. HTTP 엔진은 Android에서 Ktor `Android` 엔진(플랫폼 HTTP 스택), iOS에서 `Darwin` 엔진(URLSession)이고, 인증서·헤더·리다이렉트 설정이 따로 없어 **OS의 신뢰 저장소**를 쓴다. 주소에 경로가 붙어도 URL로 그대로 쓰인다.
+- 응답이 **2xx가 아니면 실패**(`response.status.isSuccess()`)로 보고 큐에 남겨 재시도한다. 큐에서 버리는 조건은 보지 못했다.
+- **로컬 끝까지 확인**: SDK와 같은 형식의 HTTPS POST 폼이 kamal-proxy(TLS, 자체 서명 인증서) → nginx → Traccar를 거쳐 200을 받고, 지오펜스에 진입한 위치가 `geofenceEnter` 이벤트로 Rails 대용 수신기에 도착했다. 등록되지 않은 기기는 400이다.
+- 플랫폼: Android 플러그인 `minSdk = 24`(Android 7.0), iOS 15.0. **Let's Encrypt 인증서는 Android 7.1.1 이상에서만 신뢰된다**(공식 호환성 문서). Android 7.0 폰은 인증서 오류로 위치를 보내지 못한다. iOS는 10 이상이라 문제없다. 앱의 `minSdk`는 `flutter.minSdkVersion`(Flutter 기본값)이라 실제 값은 확인하지 못했다.
+
+**확인하지 못한 것**: SDK가 HTTP(`http://`)로 보냈을 때의 301 리다이렉트를 POST에서 따라가는지(Ktor 기본 리다이렉트는 GET/HEAD만 따라간다고 알고 있으나 확인하지 못했다. 그래서 위치 수신 주소는 처음부터 `https://`로 준다), 실기기에서의 동작. 앱의 `adminUrl` 입력은 스킴이 없으면 `http://`를 붙인다(`driver_app/lib/api_client.dart`). 웹 서버가 HTTPS 전용이면 운전자가 `https://`를 직접 적어야 하고, 기본값을 `https://`로 바꾸는 것은 `driver_app` 후속 작업이다(`future-improvements.md` 29번). SDK `Config`에는 업로드마다 붙는 `headers`가 있으나 앱은 쓰지 않는다(`future-improvements.md` 2번).
+
 ## Traccar 설정
 
-`docker/traccar/traccar.xml`에서 아래 항목을 설정한다.
+로컬 데모는 `docker/traccar/traccar.xml`, **운영은 `config/deploy.yml`의 accessory 환경변수**로 아래 항목을 설정한다. 운영의 환경변수 이름 규칙(camelCase를 `_`로 나눔: `web.serviceAccountToken` → `WEB_SERVICE_ACCOUNT_TOKEN`)과 구성은 [traccar-accessory.md](traccar-accessory.md).
 
 | 키 | 용도 |
 |---|---|
@@ -46,6 +70,8 @@ Rails가 그 이벤트를 받아 "버스가 어느 정류장에 있는가"를 �
 | `database.*` | 데모는 기본 H2. 운영에는 권장되지 않는다 |
 
 Rails 쪽 접속 정보는 환경변수가 credentials보다 우선한다.
+
+**운영에서는 아래 네 값이 모두 있어야 부팅한다**(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`). 비었거나 `dev-` 토큰이거나 개발 서버 주소이면 `TraccarProductionCheck`가 부팅을 막는다. 이유와 한계는 `docs/deployment.md`의 "부팅 검사".
 
 | 환경변수 | 의미 |
 |---|---|

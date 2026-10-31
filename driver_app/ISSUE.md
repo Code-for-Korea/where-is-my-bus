@@ -98,7 +98,7 @@ SDK `Config`엔 "포그라운드일 때만 전송"에 대응하는 옵션이 없
 | 그대로 | | `accuracy: high`, `heartbeatIntervalSeconds: 30`, `stopDetection: false` | |
 
 - 15m / 10초는 **시작값**이다. 시뮬레이터에서는 72km/h까지 정류장 4곳 통과 10회가 모두 기록되었다([`docs/location-sampling-test.md`](../docs/location-sampling-test.md)). 실기기에서 같은 방식으로 측정해 조정한다(미검증).
-- `buffer`는 SDK 기본값(true)이다 — 통신이 끊기면 위치를 큐에 쌓았다가 **원래 시각 그대로** 나중에 보낸다. Traccar는 과거 시각의 위치로는 정류장 이벤트를 만들지 않으므로(`docs/future-improvements.md` 18번) 오프라인 구간의 정류장 방문은 기록되지 않을 수 있다.
+- `buffer`는 SDK 기본값(true)이다 — 통신이 끊기면 위치를 큐에 쌓았다가 **원래 시각 그대로** 나중에 보낸다. Traccar는 과거 시각의 위치로는 정류장 이벤트를 만들지 않으므로(`docs/future-improvements.md` 18번) 오프라인 구간의 정류장 방문은 기록되지 않을 수 있다. 큐는 SQLite에 저장돼 앱·OS를 다시 시작해도 남고, 실패 시 5초~5분 지수 백오프로 재시도한다(SDK 공식 문서). **서버를 껐다 켜는 운영에서는** 꺼지기 전 마지막 위치보다 새로운 위치가 몰려 와 옛 시각 이벤트가 생길 수 있다(`docs/traccar-accessory.md`).
 
 ## 미구현 (구현 필요)
 

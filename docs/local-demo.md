@@ -11,13 +11,13 @@ Rails 앱과 Traccar 서버를 Docker로 띄우고, 폰 없이 시뮬레이터�
 ## 실행
 
 ```bash
-docker compose up -d --build          # 첫 실행은 이미지 빌드와 시드 때문에 몇 분 걸린다
+docker compose up -d --build          # 첫 실행은 이미지 빌드와 데모 시드 때문에 몇 분 걸린다
 ```
 
-첫 기동 때 새 DB가 만들어지면서 **시드가 자동으로 실행된다.** 시드는 관리자 계정, 정류장 6개, 노선 2개, 차량 2대를 만들고
+첫 기동 때 `bin/docker-dev`가 `db:prepare` 다음에 **`demo:seed`를 실행한다.** 이 태스크는 관리자 계정, 정류장 6개, 노선 2개, 차량 2대를 만들고
 **Traccar에도 그룹·Geofence·기기를 만들고, 차량을 노선에 배정해 기기를 그 노선의 그룹에 넣는다**. Traccar가 아직 기동 중이면 잠시 기다렸다가 재시도한다.
 차량의 PIN과 `deviceId`, 관리자 로그인 정보는 `docker compose logs rails`에 출력된다.
-다시 보고 싶으면 `docker compose exec rails bin/rails db:seed`를 실행한다 (여러 번 실행해도 안전하다).
+다시 보고 싶으면 `docker compose exec rails bin/rails demo:seed`를 실행한다 (여러 번 실행해도 안전하다).
 
 | 주소 | 내용 |
 |---|---|
