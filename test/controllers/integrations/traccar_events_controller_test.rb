@@ -3,6 +3,11 @@ require "test_helper"
 class Integrations::TraccarEventsControllerTest < ActionDispatch::IntegrationTest
   INGEST_HEADERS = { "X-Ingest-Token" => "dev-traccar-token" }.freeze
 
+  # 이 테스트는 환경변수가 없을 때의 개발용 기본 토큰을 쓴다. 배포하려고 같은 셸에 TRACCAR_INGEST_TOKEN을 export해 두어도
+  # 실패하지 않도록 테스트 동안만 지운다.
+  setup { @original_ingest_token = ENV.delete("TRACCAR_INGEST_TOKEN") }
+  teardown { ENV["TRACCAR_INGEST_TOKEN"] = @original_ingest_token if @original_ingest_token }
+
   test "records a geofence enter event as a stop visit" do
     assert_difference -> { StopVisit.count }, 1 do
       post integrations_traccar_events_path, params: traccar_event(geofence_id: 203), headers: INGEST_HEADERS, as: :json
