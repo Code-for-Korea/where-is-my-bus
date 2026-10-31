@@ -64,7 +64,7 @@
 | accessory `options` | `stop-timeout: 30` | 서버 종료·재배포 때 DB를 닫을 시간. 효과는 확인하지 못했다 |
 
 - **토큰**: 배포 PC의 환경변수 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`에서 `.kamal/secrets`가 Rails와 Traccar 양쪽 값을 만든다([deployment.md](deployment.md) 5). `openssl rand -hex 32`로 새로 만들고 비밀번호 관리자에도 보관한다. 로컬 데모 토큰(`dev-traccar-*`)은 쓰지 않는다. 쓰면 부팅이 실패한다.
-- **서버를 정하면 `SERVER_IP`를 두 곳**(`servers.web.hosts`, `accessories.traccar.host`)에서 바꾼다.
+- 서버는 SSH 별칭 `web01.where-is-my-bus`로 두 곳(`servers.web.hosts`, `accessories.traccar.host`)에 적는다. IP는 `~/.ssh/config`에 있다.
 - **호스트 검사**: `config/environments/production.rb`의 `config.hosts = [ "where-is-my-bus.codefor.kr", "rails-app" ]`로 **소스에 직접** 적었다(환경변수 `APP_HOST`는 쓰지 않는다. 환경변수화는 후속 작업, `future-improvements.md` 30번). 같은 이름이 `deploy.yml`에도 있으므로(`proxy.host`, `network-alias`, `EVENT_FORWARD_URL`) 어긋나면 테스트가 실패한다. 허용 호스트가 늘어나도 이벤트 수신은 `X-Ingest-Token`으로 인증하므로 내부 이름을 허용한다고 인증이 약해지지는 않는다.
 - 공개 도메인(`https://where-is-my-bus.codefor.kr/...`)으로 포워딩하는 안은 서버가 자기 공인 주소로 되돌아오는 경로에 의존하고 DNS가 틀리면 이벤트가 끊겨서 택하지 않았다.
 
@@ -176,12 +176,12 @@ nginx는 **Traccar 때문에만 필요하다.** Rails 앱에는 필요 없다(Ra
 accessories:
   traccar:                          # 기존 설정에서 port "5055:5055"를 뺀다. 프록시도 없다
     image: traccar/traccar:6.14.4
-    host: SERVER_IP
+    host: web01.where-is-my-bus
     env: ...                        # 지금과 같다
     volumes: [ ... ]
   traccar-proxy:                    # 컨테이너 이름 where-is-my-bus-traccar-proxy
     image: nginx:1.27-alpine
-    host: SERVER_IP
+    host: web01.where-is-my-bus
     files:
       - config/traccar-nginx.conf:/etc/nginx/conf.d/default.conf
     proxy:

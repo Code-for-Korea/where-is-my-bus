@@ -334,7 +334,7 @@ Ubuntu AMI는 root SSH를 막고 `ubuntu` 사용자로 접속한다. `deploy.yml
 
 1. 인스턴스 생성(위 구성) → Elastic IP 연결 → Cloudflare에서 `where-is-my-bus.codefor.kr` A 레코드(프록시 끔).
 2. SSH 접속 → 스왑 파일, 시간대, `daemon.json` → 호스트 디렉터리 두 곳 `/var/lib/where-is-my-bus/storage`(`chown 1000:1000`), `/var/lib/where-is-my-bus/traccar`(컨테이너가 root라 불필요), `sqlite3` 설치.
-3. `deploy.yml`의 `SERVER_IP`(두 곳)과 `ssh.user`를 바꾸고(`builder.arch`는 이미 `arm64`) 스왑 파일을 만든 뒤 `bin/kamal setup` → `bin/kamal accessory details traccar` → 포워딩 확인([traccar-accessory.md](traccar-accessory.md)의 "첫 배포 후 확인").
+3. `~/.ssh/config`의 `web01.where-is-my-bus` 항목(`HostName`, `User`)을 서버에 맞게 만들고(`deploy.yml`은 별칭을 쓴다)(`builder.arch`는 이미 `arm64`) 스왑 파일을 만든 뒤 `bin/kamal setup` → `bin/kamal accessory details traccar` → 포워딩 확인([traccar-accessory.md](traccar-accessory.md)의 "첫 배포 후 확인").
 4. 백업 cron과 DLM 스냅샷 정책을 건다. 껐다 켜는 서버는 **백업 시각에 켜져 있어야** 하므로 끄기 직전 시각에 맞춘다.
 
 서버를 다시 만들 때는 같은 절차 뒤 백업을 복원한다. **`production.key`가 없으면 `production.yml.enc`를 열 수 없으므로** 키의 별도 보관이 복구의 전제다.

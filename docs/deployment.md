@@ -24,7 +24,7 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 | Traccar | 같은 서버의 accessory. 토큰은 배포 PC의 환경변수 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN` | `config/deploy.yml` `accessories`, `.kamal/secrets` |
 | Traccar 접속 설정 | 환경변수가 credentials보다 우선 | [traccar-integration.md](traccar-integration.md) |
 
-`config/deploy.yml`의 `SERVER_IP`(두 곳)는 아직 자리표시자다. 배포 전에 실제 값으로 바꾼다.
+`config/deploy.yml`의 서버는 IP가 아니라 SSH 별칭 `web01.where-is-my-bus`다(두 곳). IP와 접속 사용자는 배포 PC의 `~/.ssh/config`에 둔다(아래 "SSH 별칭").
 
 ## 첫 배포의 위치 수신은 임시로 평문(HTTP)이다 — HTTPS는 꼭 반영해야 한다
 
@@ -53,6 +53,20 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 - `where-is-my-bus.codefor.kr`의 A 레코드를 Rails 서버 IP로 만든다. Let's Encrypt 발급이 이 레코드를 필요로 하므로 `dig +short where-is-my-bus.codefor.kr`로 먼저 확인한다.
 - 서버를 AWS에 만들거나 껐다 켜면 IP가 바뀌는 문제는 [aws-server-operations.md](aws-server-operations.md)를 본다(Elastic IP 권장).
 - 서버에 Docker를 설치하고, 배포하는 PC에서 SSH로 접속할 수 있어야 한다(배포 사용자가 `docker` 그룹). 방화벽에서 80/443을 연다.
+
+#### SSH 별칭
+`deploy.yml`은 서버를 `web01.where-is-my-bus`로 부른다. Kamal이 쓰는 Net::SSH가 `~/.ssh/config`를 읽어 별칭을 실제 주소로 풀어내는 것을 확인했다. **배포하는 PC마다** 아래 항목이 있어야 한다. 서버 IP나 사용자가 바뀌어도 `deploy.yml`은 고치지 않는다.
+
+```
+Host web01.where-is-my-bus
+  HostName <서버 IP 또는 Elastic IP>
+  User ubuntu
+  IdentityFile ~/.ssh/<키 파일>
+```
+
+- `ssh web01.where-is-my-bus docker ps`가 비밀번호 없이 되는지 먼저 확인한다.
+- `deploy.yml`에 `ssh.user`를 쓰면 `~/.ssh/config`의 `User`보다 우선한다. 둘 중 한 곳에만 둔다(지금은 config).
+- 별칭은 PC별 설정이라 저장소에 없다. 새 배포자는 이 항목을 직접 만들어야 한다.
 - 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(8082)은 열지 않는다. 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
 - `deploy.yml`의 `servers.web.hosts`와 `accessories.traccar.host`에 같은 서버를 적는다.
 
