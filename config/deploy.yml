@@ -94,6 +94,11 @@ asset_path: /rails/public/assets
 builder:
   arch: arm64
 
+  # buildx가 기본으로 붙이는 출처·SBOM 증명(attestation)을 끈다. 레지스트리에 이미지와 별도로 이름 없는 매니페스트가
+  # 더 올라가고, push 뒤 buildx가 끝나지 않고 멈추는 일이 있었다(docs/deployment.md "빌드가 멈출 때").
+  provenance: false
+  sbom: false
+
   # # Build image via remote server (useful for faster amd64 builds on arm64 computers)
   # remote: ssh://docker@docker-builder-server
   #
@@ -104,10 +109,8 @@ builder:
   #   - GITHUB_TOKEN
   #   - RAILS_MASTER_KEY
 
-# 접속 정보(HostName, User, IdentityFile)는 배포 PC의 ~/.ssh/config에 있는 web01.where-is-my-bus 항목을 따른다(docs/deployment.md).
-# Use a different ssh user than root
-# ssh:
-#   user: app
+ssh:
+  user: ubuntu
 
 # 같은 서버에 Traccar를 함께 올린다(docs/traccar-accessory.md). 컨테이너 이름은 where-is-my-bus-traccar.
 # 설정은 traccar.xml 파일 없이 환경변수로 한다. 이름은 camelCase를 _로 나눈다(web.serviceAccountToken => WEB_SERVICE_ACCOUNT_TOKEN).
