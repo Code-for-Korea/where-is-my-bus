@@ -1,6 +1,6 @@
 # Traccar를 Rails 서버에 함께 올리기 (Kamal accessory)
 
-외부 Traccar(`testtraccar.codefor.kr`)를 쓰지 않고, Rails를 올리는 서버 한 대에 Traccar 컨테이너를 Kamal **accessory**로 함께 올린다. 같은 서버를 비용 때문에 껐다 켜는 전제다([aws-server-operations.md](aws-server-operations.md)).
+외부 Traccar(`testtraccar.codefor.kr`)를 쓰지 않고, Rails를 올리는 서버 한 대에 Traccar 컨테이너를 Kamal **accessory**로 함께 올린다. 같은 서버를 비용 때문에 껐다 켜는 전제다(Discord로 제어하는 방식은 보류했다. 서버 구성은 [server-spec.md](server-spec.md)).
 
 > **구성은 `config/deploy.yml`에 반영했지만 서버에는 아직 배포하지 않았다.** "확인함"은 로컬 도커에서 실행해 본 것이고, "확인하지 못함"은 서버에서 처음 올릴 때 확인한다.
 
@@ -299,5 +299,5 @@ docker stop <service>-traccar && tar -czf /var/backups/where-is-my-bus/traccar-$
 1. **위치 수신 HTTPS**: **보류, 필수 후속 작업**(2026-11-01). 첫 배포는 동작 확인을 위해 평문 5055로 한다. 전환 방식은 서브도메인 `traccar-where-is-my-bus.codefor.kr` + nginx(로컬 검증)로 정했고, 전환 체크리스트는 위 "HTTPS 전환 체크리스트". **승객 공개와 실운행 전에 한다.**
 2. ~~도메인 검사 삭제~~ → **결정: 유지하되 소스에 직접 적는다**(적용됨). 환경변수화는 후속 작업.
 3. 비밀번호 재설정 메일을 쓸지.
-4. 서버 크기: **결정 `t4g.micro` + 스왑 2GB**([aws-server-operations.md](aws-server-operations.md) 6장).
-5. 껐다 켜는 시간표(운행 시간). [aws-server-operations.md](aws-server-operations.md).
+4. 서버 크기: **결정 `t4g.micro` + 스왑 2GB**([server-spec.md](server-spec.md)).
+5. 껐다 켜는 운영(Discord 제어 등)은 보류했다.

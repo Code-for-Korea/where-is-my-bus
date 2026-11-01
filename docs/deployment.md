@@ -51,7 +51,7 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 
 ### 1. DNS·서버
 - `where-is-my-bus.codefor.kr`의 A 레코드를 Rails 서버 IP로 만든다. Let's Encrypt 발급이 이 레코드를 필요로 하므로 `dig +short where-is-my-bus.codefor.kr`로 먼저 확인한다.
-- 서버를 AWS에 만들거나 껐다 켜면 IP가 바뀌는 문제는 [aws-server-operations.md](aws-server-operations.md)를 본다(Elastic IP 권장).
+- 서버 구성(`t4g.micro` + 스왑 2GB, Elastic IP 권장)과 가격은 [server-spec.md](server-spec.md)를 본다.
 - 서버에 Docker를 설치하고, 배포하는 PC에서 SSH로 접속할 수 있어야 한다(배포 사용자가 `docker` 그룹). 방화벽에서 80/443을 연다.
 
 #### SSH 별칭

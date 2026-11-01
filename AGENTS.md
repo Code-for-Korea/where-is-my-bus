@@ -35,7 +35,7 @@ User ─< Session                     (role: member / operator)
 | 데이터 모델 변경 목적 / ERD | `docs/data-model-rewrite.md`, `docs/erd.md` |
 | 로컬 데모 실행 | `docs/local-demo.md` |
 | 운영 배포(Kamal), 백업, 마이그레이션 | `docs/deployment.md` |
-| AWS 서버 생성, Discord로 끄고 켜기, IP 변경 (설계, 미구현) | `docs/aws-server-operations.md` |
+| 서버 스펙(EC2 구성, 가격, 메모리 실측) | `docs/server-spec.md` |
 | Traccar를 같은 서버에 Kamal accessory로 올리기 | `docs/traccar-accessory.md` |
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
