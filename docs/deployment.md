@@ -51,7 +51,7 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 
 ### 1. DNS·서버
 - `where-is-my-bus.codefor.kr`의 A 레코드를 Rails 서버 IP로 만든다. Let's Encrypt 발급이 이 레코드를 필요로 하므로 `dig +short where-is-my-bus.codefor.kr`로 먼저 확인한다.
-- 서버 구성(`t4g.micro` + 스왑 2GB, Elastic IP 권장)과 가격은 [server-spec.md](server-spec.md)를 본다.
+- 서버 구성(`t4g.micro` + 스왑 2GB, Elastic IP 권장)과 가격은 [server-spec.md](server-spec.md), Ubuntu 설치 절차는 [server-setup-ubuntu.md](server-setup-ubuntu.md)를 본다.
 - 서버에 Docker를 설치하고, 배포하는 PC에서 SSH로 접속할 수 있어야 한다(배포 사용자가 `docker` 그룹). 방화벽에서 80/443을 연다.
 
 #### SSH 별칭
@@ -65,7 +65,7 @@ Host web01.where-is-my-bus
 ```
 
 - `ssh web01.where-is-my-bus docker ps`가 비밀번호 없이 되는지 먼저 확인한다.
-- `deploy.yml`에 `ssh.user`를 쓰면 `~/.ssh/config`의 `User`보다 우선한다. 둘 중 한 곳에만 둔다(지금은 config).
+- 접속 사용자는 `deploy.yml`의 `ssh.user: ubuntu`로 정한다. `deploy.yml`의 값이 `~/.ssh/config`의 `User`보다 우선하므로 config의 `User`는 생략해도 된다(두 값은 같게 둔다).
 - 별칭은 PC별 설정이라 저장소에 없다. 새 배포자는 이 항목을 직접 만들어야 한다.
 - 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(8082)은 열지 않는다. 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
 - `deploy.yml`의 `servers.web.hosts`와 `accessories.traccar.host`에 같은 서버를 적는다.
@@ -83,7 +83,7 @@ sudo apt install -y sqlite3        # bin/backup-storage가 쓴다
 ### 3. 레지스트리: GHCR (처음 비공개, 나중에 공개)
 - `deploy.yml`은 `ghcr.io/code-for-korea/where-is-my-bus`를 쓴다. 첫 push 때 패키지가 **비공개**로 만들어지고, `Dockerfile`의 `org.opencontainers.image.source` 라벨로 이 저장소에 연결된다.
 - **클래식 PAT**를 만든다(GitHub > Settings > Developer settings > Tokens (classic)). 권한은 `write:packages`(받기만 하는 서버용이면 `read:packages`). 이 조직에 SSO가 걸려 있으면 토큰을 조직에 승인(Authorize)해야 한다.
-- 사용자 이름은 **GitHub 사용자 이름**이다. `bin/deploy`가 실행할 때 입력받고(토큰은 화면에 보이지 않는다), 환경변수 `KAMAL_REGISTRY_USERNAME`, `KAMAL_REGISTRY_PASSWORD`가 있으면 묻지 않는다. 파일에는 값을 쓰지 않는다. `.kamal/secrets`는 참조만 한다.
+- 사용자 이름은 **GitHub 사용자 이름**이다. `bin/deploy`가 `.env.deploy` 파일(아래 "배포 값 파일")이나 환경변수에서 읽고, 없으면 **gh 로그인**을 쓰고(아래), 그것도 없으면 실행할 때 입력받는다(토큰은 화면에 보이지 않는다). `.kamal/secrets`는 환경변수를 참조만 한다.
 - 비공개 패키지라도 Kamal이 서버에 같은 토큰으로 로그인해 이미지를 받으므로 서버에 따로 할 일은 없다.
 - 첫 push 뒤 패키지 화면(조직 Packages)에서 저장소 연결과 접근 권한을 확인한다. Actions 등 다른 곳에서 받을 일이 없으면 그대로 둔다.
 - **공개로 바꾸기**: 이미지 내용 점검("이미지에 넣지 않는 것")을 마친 뒤 패키지 설정 "Danger Zone"에서 공개로 바꾼다. **한 번 공개하면 비공개로 되돌릴 수 없다.** 조직 소유자가 공개 패키지 생성을 막았으면 설정 > Packages에서 풀어야 한다(확인하지 못함). 공개한 뒤에는 서버가 로그인 없이 받을 수 있지만 Kamal은 배포 때 로그인하므로 `bin/deploy` 사용은 그대로다.
@@ -173,16 +173,42 @@ docker run --rm --entrypoint sh where-is-my-bus:check -c '
 docker history --no-trunc where-is-my-bus:check --format '{{.CreatedBy}}' | grep -i -E "ENV|ARG"   # 비밀값이 없어야 한다
 ```
 
+## 배포 값 파일 (`.env.deploy`)
+
+`bin/deploy`는 프로젝트 루트의 `.env.deploy`에서 배포에 쓰는 값 네 개를 읽는다. 형식은 `.env`와 같다.
+
+```
+KAMAL_REGISTRY_USERNAME=<GitHub 사용자 이름>
+KAMAL_REGISTRY_PASSWORD=<클래식 PAT>
+TRACCAR_API_TOKEN=<openssl rand -hex 32>
+TRACCAR_INGEST_TOKEN=<openssl rand -hex 32>
+```
+
+- **우선순위**: 이미 있는 환경변수 > `.env.deploy` > **gh 로그인** > 입력 프롬프트. 레지스트리 값(`KAMAL_REGISTRY_*`)은 위에서부터 채워지는 것을 쓰고, 그래도 없으면 묻는다.
+- **읽는 이름은 위 네 개뿐이다.** 다른 이름은 경고하고 무시한다. 파일은 `source`하지 않고 한 줄씩 읽어서 값 안의 `$(...)` 같은 문자열이 실행되지 않는다(확인함). 앞뒤 공백과 따옴표(`"`, `'`)는 벗긴다.
+- **`.env`가 아니라 `.env.deploy`인 이유**: `docker compose`가 `.env`를 자동으로 읽어 로컬 데모 설정(`TRACCAR_SERVER_URL`, `RAILS_PORT`)과 섞인다. `/.env*`가 `.gitignore`와 `.dockerignore`에 있어 `.env.deploy`도 git과 이미지에 들어가지 않는다. 다른 위치를 쓰려면 `DEPLOY_ENV_FILE=<경로> bin/deploy`.
+- **`chmod 600 .env.deploy`**. 다른 사용자가 읽을 수 있으면 경고한다. 이 파일에는 레지스트리 토큰과 운영 토큰이 평문으로 있으므로 비밀번호 관리자에도 보관한다.
+- `bin/kamal`을 직접 실행하면 이 파일을 읽지 않는다. 배포는 `bin/deploy`로 한다.
+
+### gh(GitHub CLI) 로그인으로 레지스트리 인증
+
+`KAMAL_REGISTRY_PASSWORD`가 환경변수와 `.env.deploy`에 없고 `gh`가 로그인되어 있으면, `bin/deploy`가 `gh auth token`을 토큰으로, 로그인한 GitHub 계정을 사용자 이름으로 쓴다(`KAMAL_REGISTRY_USERNAME`이 있으면 그 이름을 쓴다).
+
+- **`write:packages` 권한이 필요하다.** `bin/deploy`가 토큰의 권한을 먼저 확인하고 없으면 서버에 접속하기 전에 멈춘다. 권한은 `gh auth refresh -h github.com -s write:packages`로 추가한다(브라우저 인증).
+- **서버의 Docker 설정에 토큰이 남는다.** Kamal이 서버에서도 같은 토큰으로 `docker login`을 하기 때문이다. `gh` 토큰은 `repo` 등 권한이 넓어서, 서버가 뚫리면 그 범위가 노출된다. 서버에 남기는 토큰의 범위를 줄이려면 `write:packages`만 가진 클래식 PAT을 `.env.deploy`에 두면 된다(우선순위가 gh보다 높다).
+- `gh` OAuth 토큰(`gho_…`)으로 GHCR 로그인이 되는지는 실제 로그인으로 확인한다: `gh auth token | docker login ghcr.io -u <이름> --password-stdin`. 안 되면 클래식 PAT을 쓴다.
+- 동작은 스텁한 `gh`로 확인했다(권한 없음 → 안내 후 종료, 권한 있음 → 계정·토큰 사용, 환경변수가 있으면 gh를 쓰지 않음). 실제 GHCR 로그인은 확인하지 못했다.
+
 ## 첫 배포
 
 ```bash
-export TRACCAR_API_TOKEN=...  TRACCAR_INGEST_TOKEN=...   # 위 5. Traccar 토큰
-bin/deploy setup           # 레지스트리 사용자 이름·토큰을 묻는다. 서버 준비, Traccar accessory 기동, 이미지 빌드·push, Rails 컨테이너 기동, 인증서 발급
+# 위 5. Traccar 토큰과 레지스트리 값을 .env.deploy에 둔다(아래 "배포 값 파일"). 없으면 환경변수로 export하고 프롬프트로 입력한다.
+bin/deploy setup           # 파일에 없는 레지스트리 사용자 이름·토큰은 묻는다. 서버 준비, Traccar accessory 기동, 이미지 빌드·push, Rails 컨테이너 기동, 인증서 발급
 bin/kamal accessory details traccar   # Traccar가 떠 있는지
 bin/kamal app logs         # 부팅 로그
 ```
 
-`bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 환경변수 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
+`bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`(환경변수 또는 `.env.deploy`)이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
 
 - 컨테이너가 부팅할 때 `bin/docker-entrypoint`가 `db:prepare`를 실행한다. 빈 DB면 스키마를 만들고, **운영에서는 시드를 실행하지 않는다**(`db/seeds.rb`는 비어 있고 데모 데이터는 `demo:seed`가 만들며 운영에서 `abort`한다). 데모 시드는 데모 계정(`operator@example.com`/`password123`)과 정류장·노선·차량을 만들고 Traccar에도 만들기 때문이다.
 - 부팅할 때 `TraccarProductionCheck`가 Traccar 설정을 검사한다. 값이 없거나 개발용이면 `운영 Traccar 설정 오류: ...`로 부팅이 실패한다. 로그(`bin/kamal app logs`)에서 이유를 확인한다. 자세한 것은 아래 "부팅 검사".
@@ -209,7 +235,7 @@ bin/kamal app logs         # 부팅 로그
 **다른 안전장치와의 관계.** 셋이 서로 다른 곳을 막는다.
 | 장치 | 보는 것 | 못 보는 것 |
 |---|---|---|
-| `bin/deploy` 사전 점검 | `production.key`, 토큰 두 개가 환경변수에 있는지 | `dev-` 값, 두 URL. `bin/kamal`을 직접 쓰면 거치지 않음 |
+| `bin/deploy` 사전 점검 | `production.key`, 토큰 두 개가 환경변수나 `.env.deploy`에 있는지 | `dev-` 값, 두 URL. `bin/kamal`을 직접 쓰면 거치지 않음 |
 | `test/lib/traccar_production_check_test.rb` | `deploy.yml`이 네 설정을 내려 주고 그 값이 검사를 통과하는지, `.kamal/secrets`에 비밀 이름이 있는지, 부팅 | 배포하는 사람의 셸에서 오는 토큰 값. CI에는 테스트 잡이 없어 로컬에서 돌려야 함 |
 | 이 부팅 검사 | 실제로 컨테이너가 받은 최종 값 | 아래 한계 |
 
@@ -227,6 +253,15 @@ bin/kamal app logs         # 부팅 로그
 - 관리자 화면에서 정류장 1개를 등록한다 → Traccar에 Geofence가 생긴다(Traccar 웹 UI에서 확인).
 - 차량을 등록하고 운전자 앱으로 PIN 등록·운행을 시작한다. 위치를 보내면 Traccar 이벤트가 도착해 `stop_visits`가 생긴다.
 - GA4(`G-V5FQ7DHE99`) 실시간 보고서에 `page_path`와 `arrival_status`가 보인다.
+
+## 빌드가 멈출 때 (첫 배포에서 겪은 것, 2026-11-01)
+
+`bin/deploy setup`이 `#22 pushing manifest … done`과 `DONE`까지 찍은 뒤 아무 반응이 없었다.
+
+- **확인한 것**: GHCR에는 `latest`와 커밋 태그가 올라가 있었고(push 성공), 서버에는 컨테이너·이미지가 하나도 없었다(Kamal이 서버 pull 단계에 못 갔다). 로컬의 `docker buildx build` 프로세스는 CPU 0%로 살아 있었고 buildkit은 유휴였다. 다시 실행해도 같은 지점에서 멈췄고, Docker Desktop에는 완료되지 않은 빌드가 2개 남았다.
+- **원인은 확정하지 못했다.** buildx가 push 뒤 종료하지 못하는 것으로 보인다. buildx는 기본으로 출처·SBOM 증명(attestation)을 붙이며 buildkit 로그에 `forcibly turning on oci-mediatype mode for attestations`가 찍혔고, GHCR에는 이미지 외에 **이름 없는 버전**이 2개 더 올라갔다. 그래서 `deploy.yml`의 `builder`에 `provenance: false`, `sbom: false`를 넣었다(Kamal이 `--provenance false --sbom false`를 넘기는 것을 확인했다). 이 설정으로 멈춤이 사라지는지는 아직 확인하지 못했다.
+- **멈췄을 때**: `Ctrl+C`로 중단하고, Docker Desktop의 Builds 화면에서 남은 활성 빌드를 정리하거나 `docker buildx stop kamal-local-docker-container`로 빌더를 멈춘 뒤 다시 `bin/deploy setup`을 실행한다. 이미지가 레지스트리에 있어 빌드 캐시로 빨리 지나간다. 배포 잠금 오류가 나면 `bin/kamal lock release`.
+- 서버에는 `.kamal/lock-where-is-my-bus` 디렉터리만 남는다. `Ctrl+C`가 서버를 바꾸지는 않는다.
 
 ## 이미지 크기와 레지스트리 무료 한도
 

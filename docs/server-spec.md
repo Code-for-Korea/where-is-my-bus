@@ -1,6 +1,6 @@
 # 서버 스펙 (AWS EC2)
 
-Rails와 Traccar를 한 서버에 올리기 위한 EC2 구성과 가격 비교다. 서버를 만들고 나면 [deployment.md](deployment.md)의 절차를 따른다.
+Rails와 Traccar를 한 서버에 올리기 위한 EC2 구성과 가격 비교다. 서버를 만드는 절차는 [server-setup-ubuntu.md](server-setup-ubuntu.md), 만든 뒤의 배포는 [deployment.md](deployment.md)를 따른다.
 Discord로 서버를 켜고 끄는 방식, 시간표, IP 변경 대응은 보류 중이라 이 저장소에 두지 않았다.
 
 서버 1대라 **콘솔 + 아래 구성**으로 충분하다. 같은 서버를 다시 만들 일이 잦아지면 AWS CLI 스크립트로 옮기고, Terraform은 서버가 늘 때 검토한다.
@@ -168,7 +168,7 @@ Discord로 서버를 켜고 끄는 방식, 시간표, IP 변경 대응은 보류
 
 ## 접속 사용자
 
-Ubuntu AMI는 root SSH를 막고 `ubuntu` 사용자로 접속한다. `~/.ssh/config`의 `web01.where-is-my-bus` 항목에 `User ubuntu`를 두고(`deploy.yml`에는 `ssh.user`를 쓰지 않는다), 그 사용자가 `docker` 그룹에 있어야 한다. `bin/kamal setup`이 Docker를 설치할 때 sudo가 필요하다. **이 동작은 서버에서 확인하지 못했다.** 막히면 `get.docker.com` 스크립트로 직접 설치하고 `sudo usermod -aG docker ubuntu` 한다.
+Ubuntu AMI는 root SSH를 막고 `ubuntu` 사용자로 접속한다. `deploy.yml`의 `ssh.user: ubuntu`로 접속하고(`~/.ssh/config`의 `User`보다 우선한다), 그 사용자가 `docker` 그룹에 있어야 한다. `bin/kamal setup`이 Docker를 설치할 때 sudo가 필요하다. **이 동작은 서버에서 확인하지 못했다.** 막히면 `get.docker.com` 스크립트로 직접 설치하고 `sudo usermod -aG docker ubuntu` 한다.
 
 ## 만든 직후 (`deployment.md`로 이어진다)
 
