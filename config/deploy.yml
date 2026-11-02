@@ -49,7 +49,7 @@ env:
   clear:
     # 같은 서버의 Traccar accessory. 컨테이너 이름은 <service>-<accessory> 이다.
     TRACCAR_API_BASE_URL: http://where-is-my-bus-traccar:8082
-    # 운전자 앱이 위치를 보낼 주소. **임시: 첫 배포는 평문 HTTP 5055.** HTTPS(서브도메인 traccar-where-is-my-bus.codefor.kr + nginx)는
+    # 운전자 앱이 위치를 보낼 주소. **임시: 첫 배포는 평문 HTTP 5055.** HTTPS(서브도메인 traccar.where-is-my-bus.codefor.kr + nginx)는
     # 필수 후속 작업이다(docs/traccar-accessory.md). 도메인을 바꾸면 같이 바꾼다.
     TRACCAR_SERVER_URL: http://where-is-my-bus.codefor.kr:5055
 
@@ -133,7 +133,7 @@ accessories:
     options:
       stop-timeout: 30
       # 임시: 위치 수신(OsmAnd 5055, 평문)과 Traccar 웹/API(8082)를 게시한다. accessory의 port는 하나만 받아 publish로 둘을 연다(배열은 --publish를 반복한다).
-      # Rails는 8082를 도커 네트워크 안에서 부르므로 게시와 무관하다. 둘 다 Cloudflare Tunnel로 옮기면 이 항목을 지운다(docs/cloudflare-tunnel.md).
+      # Rails는 8082를 도커 네트워크 안에서 부르므로 게시와 무관하다. HTTPS 전환(nginx 앞단, 관리 화면은 브라우저 인증)으로 옮기면 이 항목을 지운다(docs/traccar-accessory.md "이름과 구성").
       # 8082는 보안 그룹에서 관리자 IP로 제한한다.
       publish:
         - "5055:5055"

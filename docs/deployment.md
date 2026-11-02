@@ -41,9 +41,9 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 - 보안 그룹에서 **5055를 열어야** 한다(HTTPS 전환 후 닫는다).
 - **평문 주소로 등록한 폰은 나중에 다시 등록해야 한다.** 위치 전송 주소는 PIN 등록 때 폰에 저장되고 다시 받아 오지 않는다(`docs/traccar-integration.md`). HTTPS로 바꾸면 주소가 달라지므로, 임시 평문으로 등록한 폰이 많을수록 재등록이 늘어난다. 시험 폰을 적게 유지한다.
 
-**HTTPS 전환 계획 (필수, 후속)**: 위치 수신에 **서브도메인 `traccar-where-is-my-bus.codefor.kr`**를 쓴다. Rails와 같은 IP(Cloudflare DNS 전용 A 레코드)로 연결하고, Traccar 앞에 nginx(헬스체크용), kamal-proxy가 443에서 TLS와 Let's Encrypt 인증서를 맡는다. 설계, 로컬 검증 결과, 인증서 발급 조건은 [traccar-accessory.md](traccar-accessory.md)의 "위치 수신(5055)을 HTTPS로". 전환할 때 할 일:
-1. Cloudflare에 `traccar-where-is-my-bus.codefor.kr` DNS 전용 A 레코드를 만들고 `dig`로 서버 IP를 확인한다.
-2. `deploy.yml`에 `traccar-proxy`(nginx) accessory와 `config/traccar-nginx.conf`를 추가하고, Traccar accessory의 `port: "5055:5055"`를 지우고, `TRACCAR_SERVER_URL`을 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다.
+**HTTPS 전환 계획 (필수, 후속)**: 위치 수신에 **서브도메인 `traccar.where-is-my-bus.codefor.kr`**를 쓴다. Rails와 같은 IP(Cloudflare DNS 전용 A 레코드)로 연결하고, Traccar 앞에 nginx(헬스체크용), kamal-proxy가 443에서 TLS와 Let's Encrypt 인증서를 맡는다. 설계, 로컬 검증 결과, 인증서 발급 조건은 [traccar-accessory.md](traccar-accessory.md)의 "위치 수신(5055)을 HTTPS로". 전환할 때 할 일:
+1. Cloudflare에 `traccar.where-is-my-bus.codefor.kr`와 `admin.traccar.where-is-my-bus.codefor.kr` DNS 전용 A 레코드를 만들고 `dig`로 서버 IP를 확인한다.
+2. `deploy.yml`에 `traccar-proxy`(nginx) accessory와 `config/traccar-nginx.conf`를 추가하고, Traccar accessory의 `port: "5055:5055"`를 지우고, `TRACCAR_SERVER_URL`을 `https://traccar.where-is-my-bus.codefor.kr`로 바꾼다.
 3. 보안 그룹에서 5055를 닫고 앱의 평문 허용을 걷어낸다.
 4. 기사 폰을 다시 등록한다(PIN 재발급).
 
@@ -67,7 +67,7 @@ Host web01.where-is-my-bus
 - `ssh web01.where-is-my-bus docker ps`가 비밀번호 없이 되는지 먼저 확인한다.
 - 접속 사용자는 `deploy.yml`의 `ssh.user: ubuntu`로 정한다. `deploy.yml`의 값이 `~/.ssh/config`의 `User`보다 우선하므로 config의 `User`는 생략해도 된다(두 값은 같게 둔다).
 - 별칭은 PC별 설정이라 저장소에 없다. 새 배포자는 이 항목을 직접 만들어야 한다.
-- 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(**8082**)도 임시로 열되 **관리자 IP로만** 제한한다([cloudflare-tunnel.md](cloudflare-tunnel.md)에서 터널로 옮기면 닫는다). 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
+- 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(**8082**)도 임시로 열되 **관리자 IP로만** 제한한다(HTTPS + 브라우저 인증으로 옮기면 닫는다, [traccar-accessory.md](traccar-accessory.md) "이름과 구성"). 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
 - `deploy.yml`의 `servers.web.hosts`와 `accessories.traccar.host`에 같은 서버를 적는다.
 
 ### 2. 호스트 데이터 디렉터리
@@ -240,7 +240,7 @@ bin/kamal app logs         # 부팅 로그
 | 이 부팅 검사 | 실제로 컨테이너가 받은 최종 값 | 아래 한계 |
 
 **알려진 한계(모두 직접 확인함).** 이 검사는 값의 *모양*만 본다.
-- **오탐**: 호스트 이름이 아니라 URL 문자열 전체에서 찾는다. `https://localhost-bus.codefor.kr`처럼 이름 일부이거나 `?from=iptime.org`처럼 경로에 들어 있어도 "개발 서버"로 거부한다. 지금 쓰는 주소(`where-is-my-bus.codefor.kr`, `where-is-my-bus-traccar`, `traccar-where-is-my-bus.codefor.kr`)에는 해당 없다.
+- **오탐**: 호스트 이름이 아니라 URL 문자열 전체에서 찾는다. `https://localhost-bus.codefor.kr`처럼 이름 일부이거나 `?from=iptime.org`처럼 경로에 들어 있어도 "개발 서버"로 거부한다. 지금 쓰는 주소(`where-is-my-bus.codefor.kr`, `where-is-my-bus-traccar`, `traccar.where-is-my-bus.codefor.kr`)에는 해당 없다.
 - **놓치는 것**: 오타 난 호스트(`where-is-my-bus-traccr`), URL이 아닌 값(`not a url`), 스킴 없는 주소(`where-is-my-bus.codefor.kr:5055`), 대문자 `DEV-`, 서로 같은 두 토큰, 너무 짧은 토큰은 모두 통과한다. 연결이 되는지와 Traccar 쪽 토큰과 같은지는 보지 못하므로 **첫 배포 후 확인**(`docs/traccar-accessory.md`)으로 확인한다.
 - `iptime.org`는 옛 `credentials.yml.enc`가 이미지에 들어가던 시절의 대비다. 지금은 `.dockerignore`가 그 파일을 막고 운영은 `production.yml.enc`를 쓰므로 주된 용도가 아니다.
 - **HTTPS 전환 때**: 지금은 평문 `http://` 위치 수신 주소를 통과시킨다(임시, 테스트 "운영 주소는 거부하지 않는다"에 그렇게 적혀 있다). 전환 뒤에는 `http://` 위치 수신 주소를 거부하도록 규칙을 추가하고 그 테스트에서 평문 항목을 뺀다(`docs/future-improvements.md` 32번).

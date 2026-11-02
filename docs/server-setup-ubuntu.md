@@ -21,7 +21,7 @@ EC2 콘솔(서울 `ap-northeast-2`)에서 인스턴스를 만들 때 확인한�
    - 22: **관리자 IP만**
    - 80, 443: 전체 (80은 Let's Encrypt 인증서 발급에 필요하다)
    - 5055: 전체. 첫 배포의 평문 위치 수신용 **임시 규칙**이며 HTTPS 전환 뒤 닫는다([traccar-accessory.md](traccar-accessory.md))
-   - 8082(Traccar 웹/API): **관리자 IP만**. 5055와 마찬가지로 임시 규칙이며 Cloudflare Tunnel로 옮기면 닫는다([cloudflare-tunnel.md](cloudflare-tunnel.md)). 전체에 열지 않는다
+   - 8082(Traccar 웹/API): **관리자 IP만**. 5055와 마찬가지로 임시 규칙이며 HTTPS 전환(관리 화면은 브라우저 인증) 때 닫는다([traccar-accessory.md](traccar-accessory.md) "이름과 구성"). 전체에 열지 않는다
 6. 스토리지: gp3 20GB, 암호화 켬
 7. 고급 세부 정보: 메타데이터 버전 **V2만(필수)**, 홉 제한 1, 종료 방지 켬
 8. 생성 뒤 **Elastic IP**를 할당해 연결한다. 연결하지 않으면 중지 후 시작할 때 IP가 바뀌어 DNS와 SSH 설정을 매번 고쳐야 한다
