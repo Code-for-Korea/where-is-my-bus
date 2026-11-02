@@ -37,6 +37,7 @@ User ─< Session                     (role: member / operator)
 | 운영 배포(Kamal), 백업, 마이그레이션 | `docs/deployment.md` |
 | 서버 스펙(EC2 구성, 가격, 메모리 실측), Ubuntu 서버 설치 | `docs/server-spec.md`, `docs/server-setup-ubuntu.md` |
 | Traccar를 같은 서버에 Kamal accessory로 올리기 | `docs/traccar-accessory.md` |
+| Cloudflare Zero Trust Tunnel로 Traccar 관리자 화면·위치 수신 연결(적용 전 초안) | `docs/cloudflare-tunnel.md` |
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
 
