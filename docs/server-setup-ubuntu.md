@@ -21,7 +21,7 @@ EC2 콘솔(서울 `ap-northeast-2`)에서 인스턴스를 만들 때 확인한�
    - 22: **관리자 IP만**
    - 80, 443: 전체 (80은 Let's Encrypt 인증서 발급에 필요하다)
    - 5055: 전체. 첫 배포의 평문 위치 수신용 **임시 규칙**이며 HTTPS 전환 뒤 닫는다([traccar-accessory.md](traccar-accessory.md))
-   - 8082(Traccar 웹)는 열지 않는다
+   - 8082(Traccar 웹/API): **관리자 IP만**. 5055와 마찬가지로 임시 규칙이며 Cloudflare Tunnel로 옮기면 닫는다([cloudflare-tunnel.md](cloudflare-tunnel.md)). 전체에 열지 않는다
 6. 스토리지: gp3 20GB, 암호화 켬
 7. 고급 세부 정보: 메타데이터 버전 **V2만(필수)**, 홉 제한 1, 종료 방지 켬
 8. 생성 뒤 **Elastic IP**를 할당해 연결한다. 연결하지 않으면 중지 후 시작할 때 IP가 바뀌어 DNS와 SSH 설정을 매번 고쳐야 한다
@@ -220,6 +220,6 @@ bin/deploy
 - [ ] `/var/lib/where-is-my-bus/storage`의 소유자가 `1000:1000`이다
 - [ ] `timedatectl`이 `Asia/Seoul`이다
 - [ ] 배포 PC에서 `ssh web01.where-is-my-bus docker ps`가 성공한다
-- [ ] 보안 그룹이 22(관리자 IP만), 80, 443, 5055(임시)이고 8082는 닫혀 있다
+- [ ] 보안 그룹이 22(관리자 IP만), 80, 443, 5055(임시), 8082(임시, 관리자 IP만)이다
 - [ ] Elastic IP가 연결되어 있고 `dig +short where-is-my-bus.codefor.kr`가 그 IP를 돌려준다
 - [ ] `bin/deploy setup` 뒤 `https://where-is-my-bus.codefor.kr/up`이 200이다

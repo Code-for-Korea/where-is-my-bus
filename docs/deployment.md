@@ -67,7 +67,7 @@ Host web01.where-is-my-bus
 - `ssh web01.where-is-my-bus docker ps`가 비밀번호 없이 되는지 먼저 확인한다.
 - 접속 사용자는 `deploy.yml`의 `ssh.user: ubuntu`로 정한다. `deploy.yml`의 값이 `~/.ssh/config`의 `User`보다 우선하므로 config의 `User`는 생략해도 된다(두 값은 같게 둔다).
 - 별칭은 PC별 설정이라 저장소에 없다. 새 배포자는 이 항목을 직접 만들어야 한다.
-- 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(8082)은 열지 않는다. 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
+- 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(**8082**)도 임시로 열되 **관리자 IP로만** 제한한다([cloudflare-tunnel.md](cloudflare-tunnel.md)에서 터널로 옮기면 닫는다). 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
 - `deploy.yml`의 `servers.web.hosts`와 `accessories.traccar.host`에 같은 서버를 적는다.
 
 ### 2. 호스트 데이터 디렉터리
@@ -147,7 +147,7 @@ bin/kamal secrets print | sed -E 's/(RAILS_MASTER_KEY|KAMAL_REGISTRY_PASSWORD)=.
 - **토큰을 비밀번호 관리자에도 보관한다.** 배포 PC를 바꾸면 같은 값을 다시 넣어야 하고, 값이 달라지면 Rails ↔ Traccar가 끊긴다.
 - 로컬 데모 토큰(`dev-traccar-*`)은 공개 저장소에 있으므로 **운영에서 쓰지 않는다.** 쓰거나 값이 비어 있으면 앱이 부팅하지 않는다(`TraccarProductionCheck`).
 - Traccar 설정은 `traccar.xml` 없이 `deploy.yml`의 환경변수로 한다(`web.registration`은 꺼 둔다). 환경변수 이름 규칙, 포워딩 확인 결과, 남은 위험은 [traccar-accessory.md](traccar-accessory.md).
-- 첫 가입 전에 **Traccar에 사람이 로그인할 일이 없다.** 웹(8082)이 서버 밖으로 열려 있지 않다. 보려면 [traccar-accessory.md](traccar-accessory.md)의 SSH 터널 방법을 쓴다.
+- 첫 가입 전에 **Traccar에 사람이 로그인할 일이 없다.** 웹(8082)은 보안 그룹에서 관리자 IP로만 열려 있다. Traccar 관리자 계정을 어떻게 만드는지(`WEB_REGISTRATION=false`라 화면에서 가입할 수 없다)는 **아직 확인하지 않았다.** 첫 접속 전에 확인한다.
 
 ## 이미지에 넣지 않는 것 (공개 이미지)
 

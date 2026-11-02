@@ -119,8 +119,6 @@ accessories:
   traccar:
     image: traccar/traccar:6.14.4
     host: web01.where-is-my-bus
-    # 위치 수신(OsmAnd)만 게시한다(임시 평문. HTTPS 전환 때 이 줄을 지우고 traccar-proxy accessory를 추가한다). 웹/API(8082)는 게시하지 않는다. Rails가 도커 네트워크 안에서 부른다.
-    port: "5055:5055"
     env:
       clear:
         CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
@@ -134,3 +132,9 @@ accessories:
       - /var/lib/where-is-my-bus/traccar:/opt/traccar/data
     options:
       stop-timeout: 30
+      # 임시: 위치 수신(OsmAnd 5055, 평문)과 Traccar 웹/API(8082)를 게시한다. accessory의 port는 하나만 받아 publish로 둘을 연다(배열은 --publish를 반복한다).
+      # Rails는 8082를 도커 네트워크 안에서 부르므로 게시와 무관하다. 둘 다 Cloudflare Tunnel로 옮기면 이 항목을 지운다(docs/cloudflare-tunnel.md).
+      # 8082는 보안 그룹에서 관리자 IP로 제한한다.
+      publish:
+        - "5055:5055"
+        - "8082:8082"

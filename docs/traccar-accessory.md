@@ -16,7 +16,7 @@
 ```
 
 - Rails ↔ Traccar는 같은 도커 네트워크(`kamal`) 안에서만 오간다. 이 네트워크 이름은 Kamal 2.11 소스에서 확인했다(`DEFAULT_NETWORK = "kamal"`).
-- 서버 밖으로 여는 포트는 80/443(Rails)과 **5055(위치 수신)** 뿐이다. Traccar 웹/API(8082)는 **열지 않는다.** Rails가 내부 주소로 부르고, 사람이 Traccar 웹을 봐야 하면 accessory의 `port`에 `"127.0.0.1:8082:8082"`를 추가하고(서버 자신에게만 열린다) `ssh -L 8082:localhost:8082`로 터널을 쓴다. 초안에는 넣지 않았다.
+- 서버 밖으로 여는 포트는 80/443(Rails), **5055(위치 수신)**, **8082(Traccar 웹/API, 임시)** 다. 8082는 보안 그룹에서 **관리자 IP로만** 연다. 열려 있으면 Traccar 로그인 화면과 서비스 토큰 API가 노출되므로 Cloudflare Tunnel + Access로 옮기고 닫는 것이 후속 작업이다([cloudflare-tunnel.md](cloudflare-tunnel.md)). Rails는 8082를 게시와 무관하게 내부 주소로 부른다. accessory의 `port`는 하나만 받아 `options.publish` 배열로 5055와 8082를 함께 게시한다.
 - 기존 외부 Traccar에서 문제였던 것(누구나 계정을 만드는 `registration`, 5055가 응답 없음)이 이 구성에서는 처음부터 우리 설정이다.
 
 ## 확인함 (로컬, `traccar/traccar:6.14.4`)
@@ -58,7 +58,7 @@
 | Rails `env.clear` | `TRACCAR_API_BASE_URL=http://where-is-my-bus-traccar:8082`, `TRACCAR_SERVER_URL=http://where-is-my-bus.codefor.kr:5055` | 내부 통신. 도메인이 바뀌면 `TRACCAR_SERVER_URL`도 같이 바꾼다 |
 | Rails `env.secret` | `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN` | 환경변수가 credentials보다 우선하므로 `production.yml.enc`에는 `traccar.*`를 두지 않는다 |
 | accessory 이미지 | `traccar/traccar:6.14.4` | 버전 고정(`latest`는 배포 때마다 바뀔 수 있다) |
-| accessory `port` | `5055:5055` | 위치 수신만 게시. 8082는 게시하지 않는다 |
+| accessory `options.publish` | `5055:5055`, `8082:8082` | 둘 다 임시. 8082는 보안 그룹에서 관리자 IP만 |
 | accessory `env` | `CONFIG_USE_ENVIRONMENT_VARIABLES`, `WEB_REGISTRATION=false`, `EVENT_FORWARD_URL/TYPE`, 비밀 `WEB_SERVICE_ACCOUNT_TOKEN`, `EVENT_FORWARD_HEADER` | 위 확인함 1~4, 7번 |
 | accessory `volumes` | `/var/lib/where-is-my-bus/traccar:/opt/traccar/data` | H2를 호스트에 둔다 |
 | accessory `options` | `stop-timeout: 30` | 서버 종료·재배포 때 DB를 닫을 시간. 효과는 확인하지 못했다 |
