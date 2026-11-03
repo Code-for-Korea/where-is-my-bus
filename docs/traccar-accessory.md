@@ -4,7 +4,7 @@
 
 > **구성은 `config/deploy.yml`에 반영했지만 서버에는 아직 배포하지 않았다.** "확인함"은 로컬 도커에서 실행해 본 것이고, "확인하지 못함"은 서버에서 처음 올릴 때 확인한다.
 
-> **현재 결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055(`http://where-is-my-bus.codefor.kr:5055`)로 한다. 이 문서의 HTTPS 설계(서브도메인 `traccar.where-is-my-bus.codefor.kr` + nginx)는 보류 중이고 반드시 후속으로 반영해야 한다.** 평문은 위치와 `deviceId`를 보호하지 못하므로 시험(소수의 기기, 실운행 전)에만 쓴다. 위험, 앱 허용 목록, 폰 재등록은 [deployment.md](deployment.md)의 "첫 배포의 위치 수신은 임시로 평문(HTTP)이다".
+> **현재 상태(2026-11-03): 서버에 `traccar-proxy`(nginx)를 올렸고 `https://traccar.where-is-my-bus.codefor.kr`(위치 수신)와 `https://admin.traccar.where-is-my-bus.codefor.kr`(관리 화면, 브라우저 인증)가 인증서 발급과 응답까지 확인됐다. 임시 평문 5055와 8082 게시는 아직 남아 있고, `TRACCAR_SERVER_URL`을 HTTPS로 바꾼 배포와 기사 폰 재등록이 끝나면 게시와 보안 그룹 규칙을 지운다.** 평문은 위치와 `deviceId`를 보호하지 못하므로 시험(소수의 기기, 실운행 전)에만 쓴다. 위험, 앱 허용 목록, 폰 재등록은 [deployment.md](deployment.md)의 "첫 배포의 위치 수신은 임시로 평문(HTTP)이다".
 
 ## 구성
 
@@ -55,7 +55,7 @@
 |---|---|---|
 | `service` | `where-is-my-bus` (이전 `web`) | accessory 컨테이너 이름이 `<service>-traccar`가 되고 Rails가 이 이름으로 부른다 |
 | `servers.web.options.network-alias` | `rails-app` | 배포마다 앱 컨테이너 이름이 바뀌어 Traccar가 부를 고정 이름이 필요하다 |
-| Rails `env.clear` | `TRACCAR_API_BASE_URL=http://where-is-my-bus-traccar:8082`, `TRACCAR_SERVER_URL=http://where-is-my-bus.codefor.kr:5055` | 내부 통신. 도메인이 바뀌면 `TRACCAR_SERVER_URL`도 같이 바꾼다 |
+| Rails `env.clear` | `TRACCAR_API_BASE_URL=http://where-is-my-bus-traccar:8082`, `TRACCAR_SERVER_URL=https://traccar.where-is-my-bus.codefor.kr` | 내부 통신. 도메인이 바뀌면 `TRACCAR_SERVER_URL`도 같이 바꾼다 |
 | Rails `env.secret` | `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN` | 환경변수가 credentials보다 우선하므로 `production.yml.enc`에는 `traccar.*`를 두지 않는다 |
 | accessory 이미지 | `traccar/traccar:6.14.4` | 버전 고정(`latest`는 배포 때마다 바뀔 수 있다) |
 | accessory `options.publish` | `5055:5055`, `8082:8082` | 둘 다 임시. 8082는 보안 그룹에서 관리자 IP만 |
@@ -192,9 +192,9 @@ nginx는 **Traccar 때문에만 필요하다.** Rails 앱에는 필요 없다(Ra
 printf 'admin:%s\n' "$(openssl passwd -apr1)"      # 비밀번호를 물어본다
 ```
 
-`.env.deploy`에 `TRACCAR_ADMIN_HTPASSWD='admin:$apr1$...'`로 둔다(`$`가 있어 작은따옴표 필수). **해시를 저장소에 커밋하지 않는다.** 저장소가 공개라 해시가 오프라인 대입 공격을 받는다. `bin/deploy`의 값 파일 허용 목록(`KAMAL_REGISTRY_USERNAME` 등)에 `TRACCAR_ADMIN_HTPASSWD`를 추가하는 일이 적용 때 필요하다(이 초안에서는 하지 않았다). 계정은 둘 이상 만들 수 있다(여러 줄).
+`.env.deploy`에 `TRACCAR_ADMIN_HTPASSWD='admin:$apr1$...'`로 둔다(`$`가 있어 작은따옴표 필수). **해시를 저장소에 커밋하지 않는다.** 저장소가 공개라 해시가 오프라인 대입 공격을 받는다. `bin/deploy`는 이 이름을 값 파일 허용 목록에 두고, `setup`과 `accessory` 명령 앞에서 값이 있는지와 `이름:$apr1$...` 모양인지 확인한다(따옴표를 빼먹어 깨진 값을 올리기 전에 막는다). 환경변수 한 줄에는 계정을 하나만 둘 수 있다.
 
-### `deploy.yml` 초안 (적용 전)
+### `deploy.yml`과 설정 파일 (코드에는 반영됨, 서버에는 아직 안 올림)
 
 ```yaml
 accessories:
@@ -319,7 +319,7 @@ server {
 
 → 후속 개선 제안: 앱이 시작할 때 `GET /integrations/traccar/bus`처럼 이미 쓰는 호출에서 `traccarServerUrl`을 다시 받아 저장하게 하면 주소를 바꿔도 재등록이 필요 없다. 이 변경은 Rails 응답과 앱 코드를 함께 고쳐야 해서 이번 범위에 넣지 않았다. 구현하려면 `driver-app` 스킬의 절차(로컬 `flutter test`·`flutter analyze`)가 필요하다.
 
-### 분리했을 때 바뀌는 곳 (아직 적용하지 않았다)
+### 분리했을 때 바뀌는 곳 (적용 전 계획. 현재 상태는 이 문서 맨 위)
 
 | 파일 | 바꿀 값 |
 |---|---|

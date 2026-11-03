@@ -28,7 +28,7 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 
 ## 첫 배포의 위치 수신은 임시로 평문(HTTP)이다 — HTTPS는 꼭 반영해야 한다
 
-**결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055로 한다.** 운전자 앱은 `http://where-is-my-bus.codefor.kr:5055`로 위치를 보내고(`TRACCAR_SERVER_URL`, Traccar accessory가 5055를 게시), Rails 사이트(443)는 처음부터 HTTPS다. **HTTPS는 필수 후속 작업이고 보류일 뿐 생략이 아니다.** nginx도 그때까지 쓰지 않는다.
+**결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055로 했다. 2026-11-03에 `traccar-proxy`(nginx)를 올려 HTTPS 이름이 응답하는 것까지 확인했고, 앱 주소 전환과 폰 재등록 뒤 평문 게시를 닫는다([traccar-accessory.md](traccar-accessory.md) 맨 위).** 운전자 앱은 `http://where-is-my-bus.codefor.kr:5055`로 위치를 보내고(`TRACCAR_SERVER_URL`, Traccar accessory가 5055를 게시), Rails 사이트(443)는 처음부터 HTTPS다. **HTTPS는 필수 후속 작업이고 보류일 뿐 생략이 아니다.** nginx도 그때까지 쓰지 않는다.
 
 **HTTPS로 보호해야 하는 이유**
 - 위치와 `deviceId`가 **암호화되지 않고** 오간다. `deviceId`는 운행 시작·종료 API의 사실상 비밀번호다(`AGENTS.md` 함정 6, `docs/future-improvements.md` 2번).
@@ -182,10 +182,11 @@ KAMAL_REGISTRY_USERNAME=<GitHub 사용자 이름>
 KAMAL_REGISTRY_PASSWORD=<클래식 PAT>
 TRACCAR_API_TOKEN=<openssl rand -hex 32>
 TRACCAR_INGEST_TOKEN=<openssl rand -hex 32>
+TRACCAR_ADMIN_HTPASSWD='admin:$apr1$...'   # Traccar 관리 화면 브라우저 인증. 만드는 법은 docs/traccar-accessory.md "계정 값 만들기"
 ```
 
 - **우선순위**: 이미 있는 환경변수 > `.env.deploy` > **gh 로그인** > 입력 프롬프트. 레지스트리 값(`KAMAL_REGISTRY_*`)은 위에서부터 채워지는 것을 쓰고, 그래도 없으면 묻는다.
-- **읽는 이름은 위 네 개뿐이다.** 다른 이름은 경고하고 무시한다. 파일은 `source`하지 않고 한 줄씩 읽어서 값 안의 `$(...)` 같은 문자열이 실행되지 않는다(확인함). 앞뒤 공백과 따옴표(`"`, `'`)는 벗긴다.
+- **읽는 이름은 위 다섯 개뿐이다.** 다른 이름은 경고하고 무시한다. 파일은 `source`하지 않고 한 줄씩 읽어서 값 안의 `$(...)` 같은 문자열이 실행되지 않는다(확인함). 앞뒤 공백과 따옴표(`"`, `'`)는 벗긴다.
 - **`.env`가 아니라 `.env.deploy`인 이유**: `docker compose`가 `.env`를 자동으로 읽어 로컬 데모 설정(`TRACCAR_SERVER_URL`, `RAILS_PORT`)과 섞인다. `/.env*`가 `.gitignore`와 `.dockerignore`에 있어 `.env.deploy`도 git과 이미지에 들어가지 않는다. 다른 위치를 쓰려면 `DEPLOY_ENV_FILE=<경로> bin/deploy`.
 - **`chmod 600 .env.deploy`**. 다른 사용자가 읽을 수 있으면 경고한다. 이 파일에는 레지스트리 토큰과 운영 토큰이 평문으로 있으므로 비밀번호 관리자에도 보관한다.
 - `bin/kamal`을 직접 실행하면 이 파일을 읽지 않는다. 배포는 `bin/deploy`로 한다.
@@ -208,7 +209,7 @@ bin/kamal accessory details traccar   # Traccar가 떠 있는지
 bin/kamal app logs         # 부팅 로그
 ```
 
-`bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`(환경변수 또는 `.env.deploy`)이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
+`TRACCAR_ADMIN_HTPASSWD`(Traccar 관리 화면의 브라우저 인증, `docs/traccar-accessory.md` "이름과 구성")는 `setup`과 `accessory` 명령 앞에서 확인한다. `bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`(환경변수 또는 `.env.deploy`)이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
 
 - 컨테이너가 부팅할 때 `bin/docker-entrypoint`가 `db:prepare`를 실행한다. 빈 DB면 스키마를 만들고, **운영에서는 시드를 실행하지 않는다**(`db/seeds.rb`는 비어 있고 데모 데이터는 `demo:seed`가 만들며 운영에서 `abort`한다). 데모 시드는 데모 계정(`operator@example.com`/`password123`)과 정류장·노선·차량을 만들고 Traccar에도 만들기 때문이다.
 - 부팅할 때 `TraccarProductionCheck`가 Traccar 설정을 검사한다. 값이 없거나 개발용이면 `운영 Traccar 설정 오류: ...`로 부팅이 실패한다. 로그(`bin/kamal app logs`)에서 이유를 확인한다. 자세한 것은 아래 "부팅 검사".
