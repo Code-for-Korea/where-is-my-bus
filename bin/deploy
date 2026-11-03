@@ -7,14 +7,15 @@
 #
 # 값은 이 프로세스의 환경변수로만 둔다(.kamal/secrets가 읽어 간다). 우선순위는
 # 이미 있는 환경변수 > .env.deploy 파일 > gh 로그인 > 입력 프롬프트다. 파일 위치는 DEPLOY_ENV_FILE로 바꾼다.
-# 파일에서 읽는 이름은 아래 네 개뿐이다. 형식은 .env와 같다(KEY=값, 주석 #, 따옴표 허용).
+# 파일에서 읽는 이름은 아래 다섯 개뿐이다. 형식은 .env와 같다(KEY=값, 주석 #, 따옴표 허용).
 #   KAMAL_REGISTRY_USERNAME  KAMAL_REGISTRY_PASSWORD  TRACCAR_API_TOKEN  TRACCAR_INGEST_TOKEN
+#   TRACCAR_ADMIN_HTPASSWD  (Traccar 관리 화면 브라우저 인증. admin:$apr1$... 한 줄, 작은따옴표로 감싼다)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # docker compose가 .env를 자동으로 읽으므로 compose 설정과 섞이지 않게 .env.deploy를 쓴다(둘 다 git에서 무시된다).
 ENV_FILE="${DEPLOY_ENV_FILE:-.env.deploy}"
-ALLOWED=" KAMAL_REGISTRY_USERNAME KAMAL_REGISTRY_PASSWORD TRACCAR_API_TOKEN TRACCAR_INGEST_TOKEN "
+ALLOWED=" KAMAL_REGISTRY_USERNAME KAMAL_REGISTRY_PASSWORD TRACCAR_API_TOKEN TRACCAR_INGEST_TOKEN TRACCAR_ADMIN_HTPASSWD "
 
 # 코드를 실행하지 않도록 source 하지 않고 한 줄씩 읽는다. 이미 설정된 환경변수는 덮어쓰지 않는다.
 load_env_file() {
@@ -115,6 +116,21 @@ case "$1" in
       echo "자세한 설명은 docs/deployment.md" >&2
       exit 1
     fi
+    ;;
+esac
+
+# traccar-proxy accessory(setup은 모든 accessory를 올린다)는 관리 화면 비밀번호 해시가 있어야 설정 파일을 만든다.
+# 해시에 $가 있어 따옴표 없이 쓰면 깨지므로 모양도 본다.
+case "$1" in
+  setup | accessory)
+    if [ -z "${TRACCAR_ADMIN_HTPASSWD:-}" ]; then
+      echo "TRACCAR_ADMIN_HTPASSWD가 없다(환경변수 또는 $ENV_FILE). printf 'admin:%s\n' \"\$(openssl passwd -apr1)\" 로 만든다. docs/traccar-accessory.md" >&2
+      exit 1
+    fi
+    case "$TRACCAR_ADMIN_HTPASSWD" in
+      ?*:\$apr1\$* | ?*:\$2[aby]\$*) ;;
+      *) echo "TRACCAR_ADMIN_HTPASSWD 모양이 이상하다. '이름:\$apr1\$...' 형식이어야 한다(작은따옴표로 감쌌는지 확인)" >&2; exit 1 ;;
+    esac
     ;;
 esac
 

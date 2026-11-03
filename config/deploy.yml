@@ -49,9 +49,9 @@ env:
   clear:
     # 같은 서버의 Traccar accessory. 컨테이너 이름은 <service>-<accessory> 이다.
     TRACCAR_API_BASE_URL: http://where-is-my-bus-traccar:8082
-    # 운전자 앱이 위치를 보낼 주소. **임시: 첫 배포는 평문 HTTP 5055.** HTTPS(서브도메인 traccar-where-is-my-bus.codefor.kr + nginx)는
-    # 필수 후속 작업이다(docs/traccar-accessory.md). 도메인을 바꾸면 같이 바꾼다.
-    TRACCAR_SERVER_URL: http://where-is-my-bus.codefor.kr:5055
+    # 운전자 앱이 위치를 보낼 주소. nginx(traccar-proxy accessory)가 이 이름을 받아 Traccar 5055로 넘기고 kamal-proxy가 TLS를 끝낸다
+    # (docs/traccar-accessory.md "이름과 구성"). 앱은 PIN 등록 때 이 값을 저장하므로 바꾸면 폰을 다시 등록해야 한다. 도메인을 바꾸면 같이 바꾼다.
+    TRACCAR_SERVER_URL: https://traccar.where-is-my-bus.codefor.kr
 
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
@@ -119,8 +119,6 @@ accessories:
   traccar:
     image: traccar/traccar:6.14.4
     host: web01.where-is-my-bus
-    # 위치 수신(OsmAnd)만 게시한다(임시 평문. HTTPS 전환 때 이 줄을 지우고 traccar-proxy accessory를 추가한다). 웹/API(8082)는 게시하지 않는다. Rails가 도커 네트워크 안에서 부른다.
-    port: "5055:5055"
     env:
       clear:
         CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
@@ -134,3 +132,29 @@ accessories:
       - /var/lib/where-is-my-bus/traccar:/opt/traccar/data
     options:
       stop-timeout: 30
+      # 임시: 위치 수신(OsmAnd 5055, 평문)과 Traccar 웹/API(8082)를 게시한다. accessory의 port는 하나만 받아 publish로 둘을 연다(배열은 --publish를 반복한다).
+      # Rails는 8082를 도커 네트워크 안에서 부르므로 게시와 무관하다. HTTPS 전환(nginx 앞단, 관리 화면은 브라우저 인증)으로 옮기면 이 항목을 지운다(docs/traccar-accessory.md "이름과 구성").
+      # 8082는 보안 그룹에서 관리자 IP로 제한한다.
+      publish:
+        - "5055:5055"
+        - "8082:8082"
+
+  # Traccar 앞단 nginx. 위치 수신(traccar.)과 관리 화면(admin.traccar., 브라우저 인증) 두 이름을 한 컨테이너가 Host로 나눈다.
+  # 전환 순서(docs/traccar-accessory.md): DNS 두 개 → `bin/deploy accessory boot traccar-proxy` → TRACCAR_SERVER_URL을 https로 →
+  # Traccar의 options.publish 삭제 → 보안 그룹의 5055·8082 삭제. 이 항목만으로는 기존 5055·8082 게시가 바뀌지 않는다.
+  traccar-proxy:
+    image: nginx:1.27-alpine
+    host: web01.where-is-my-bus
+    files:
+      - config/traccar-nginx.conf:/etc/nginx/conf.d/default.conf
+      - local: config/traccar-htpasswd.erb
+        remote: /etc/nginx/htpasswd
+        mode: "0644"   # nginx 워커(nginx 사용자)가 읽어야 한다. 서버에 사용자가 ubuntu 하나뿐이다
+    proxy:
+      hosts:
+        - traccar.where-is-my-bus.codefor.kr
+        - admin.traccar.where-is-my-bus.codefor.kr
+      ssl: true
+      app_port: 80
+      healthcheck:
+        path: /up

@@ -15,7 +15,7 @@ class TraccarProductionCheckTest < ActiveSupport::TestCase
     "TRACCAR_API_BASE_URL" => "http://where-is-my-bus-traccar:8082",
     "TRACCAR_API_TOKEN" => "prod-api-token-0123456789",
     "TRACCAR_INGEST_TOKEN" => "prod-ingest-token-0123456789",
-    "TRACCAR_SERVER_URL" => "http://where-is-my-bus.codefor.kr:5055"
+    "TRACCAR_SERVER_URL" => "https://traccar.where-is-my-bus.codefor.kr"
   }.freeze
 
   VALID_CREDENTIALS = {
@@ -92,7 +92,7 @@ class TraccarProductionCheckTest < ActiveSupport::TestCase
   test "운영 주소는 거부하지 않는다" do
     api_base_urls = %w[http://where-is-my-bus-traccar:8082 https://traccar.example.org]
     # 첫 배포의 평문 5055와 HTTPS 전환 뒤 서브도메인. HTTPS를 필수로 바꾸면 평문 항목을 이 목록에서 뺀다.
-    server_urls = %w[http://where-is-my-bus.codefor.kr:5055 https://traccar-where-is-my-bus.codefor.kr]
+    server_urls = %w[http://where-is-my-bus.codefor.kr:5055 https://traccar.where-is-my-bus.codefor.kr]
 
     api_base_urls.each { |url| assert_empty problems(env: VALID_ENV.merge("TRACCAR_API_BASE_URL" => url)), url }
     server_urls.each { |url| assert_empty problems(env: VALID_ENV.merge("TRACCAR_SERVER_URL" => url)), url }

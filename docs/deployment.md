@@ -28,7 +28,7 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 
 ## 첫 배포의 위치 수신은 임시로 평문(HTTP)이다 — HTTPS는 꼭 반영해야 한다
 
-**결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055로 한다.** 운전자 앱은 `http://where-is-my-bus.codefor.kr:5055`로 위치를 보내고(`TRACCAR_SERVER_URL`, Traccar accessory가 5055를 게시), Rails 사이트(443)는 처음부터 HTTPS다. **HTTPS는 필수 후속 작업이고 보류일 뿐 생략이 아니다.** nginx도 그때까지 쓰지 않는다.
+**결정(2026-11-01): 동작을 먼저 확인하려고 첫 배포는 위치 수신을 평문 HTTP 5055로 했다. 2026-11-03에 `traccar-proxy`(nginx)를 올려 HTTPS 이름이 응답하는 것까지 확인했고, 앱 주소 전환과 폰 재등록 뒤 평문 게시를 닫는다([traccar-accessory.md](traccar-accessory.md) 맨 위).** 운전자 앱은 `http://where-is-my-bus.codefor.kr:5055`로 위치를 보내고(`TRACCAR_SERVER_URL`, Traccar accessory가 5055를 게시), Rails 사이트(443)는 처음부터 HTTPS다. **HTTPS는 필수 후속 작업이고 보류일 뿐 생략이 아니다.** nginx도 그때까지 쓰지 않는다.
 
 **HTTPS로 보호해야 하는 이유**
 - 위치와 `deviceId`가 **암호화되지 않고** 오간다. `deviceId`는 운행 시작·종료 API의 사실상 비밀번호다(`AGENTS.md` 함정 6, `docs/future-improvements.md` 2번).
@@ -41,9 +41,9 @@ Rails 앱과 Traccar를 **한 서버**에 Kamal로 올린다. Traccar는 Kamal *
 - 보안 그룹에서 **5055를 열어야** 한다(HTTPS 전환 후 닫는다).
 - **평문 주소로 등록한 폰은 나중에 다시 등록해야 한다.** 위치 전송 주소는 PIN 등록 때 폰에 저장되고 다시 받아 오지 않는다(`docs/traccar-integration.md`). HTTPS로 바꾸면 주소가 달라지므로, 임시 평문으로 등록한 폰이 많을수록 재등록이 늘어난다. 시험 폰을 적게 유지한다.
 
-**HTTPS 전환 계획 (필수, 후속)**: 위치 수신에 **서브도메인 `traccar-where-is-my-bus.codefor.kr`**를 쓴다. Rails와 같은 IP(Cloudflare DNS 전용 A 레코드)로 연결하고, Traccar 앞에 nginx(헬스체크용), kamal-proxy가 443에서 TLS와 Let's Encrypt 인증서를 맡는다. 설계, 로컬 검증 결과, 인증서 발급 조건은 [traccar-accessory.md](traccar-accessory.md)의 "위치 수신(5055)을 HTTPS로". 전환할 때 할 일:
-1. Cloudflare에 `traccar-where-is-my-bus.codefor.kr` DNS 전용 A 레코드를 만들고 `dig`로 서버 IP를 확인한다.
-2. `deploy.yml`에 `traccar-proxy`(nginx) accessory와 `config/traccar-nginx.conf`를 추가하고, Traccar accessory의 `port: "5055:5055"`를 지우고, `TRACCAR_SERVER_URL`을 `https://traccar-where-is-my-bus.codefor.kr`로 바꾼다.
+**HTTPS 전환 계획 (필수, 후속)**: 위치 수신에 **서브도메인 `traccar.where-is-my-bus.codefor.kr`**를 쓴다. Rails와 같은 IP(Cloudflare DNS 전용 A 레코드)로 연결하고, Traccar 앞에 nginx(헬스체크용), kamal-proxy가 443에서 TLS와 Let's Encrypt 인증서를 맡는다. 설계, 로컬 검증 결과, 인증서 발급 조건은 [traccar-accessory.md](traccar-accessory.md)의 "위치 수신(5055)을 HTTPS로". 전환할 때 할 일:
+1. Cloudflare에 `traccar.where-is-my-bus.codefor.kr`와 `admin.traccar.where-is-my-bus.codefor.kr` DNS 전용 A 레코드를 만들고 `dig`로 서버 IP를 확인한다.
+2. `deploy.yml`에 `traccar-proxy`(nginx) accessory와 `config/traccar-nginx.conf`를 추가하고, Traccar accessory의 `port: "5055:5055"`를 지우고, `TRACCAR_SERVER_URL`을 `https://traccar.where-is-my-bus.codefor.kr`로 바꾼다.
 3. 보안 그룹에서 5055를 닫고 앱의 평문 허용을 걷어낸다.
 4. 기사 폰을 다시 등록한다(PIN 재발급).
 
@@ -67,7 +67,7 @@ Host web01.where-is-my-bus
 - `ssh web01.where-is-my-bus docker ps`가 비밀번호 없이 되는지 먼저 확인한다.
 - 접속 사용자는 `deploy.yml`의 `ssh.user: ubuntu`로 정한다. `deploy.yml`의 값이 `~/.ssh/config`의 `User`보다 우선하므로 config의 `User`는 생략해도 된다(두 값은 같게 둔다).
 - 별칭은 PC별 설정이라 저장소에 없다. 새 배포자는 이 항목을 직접 만들어야 한다.
-- 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(8082)은 열지 않는다. 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
+- 방화벽(보안 그룹)에서 **5055**(운전자 앱의 위치 전송)도 연다. Traccar 웹(**8082**)도 임시로 열되 **관리자 IP로만** 제한한다(HTTPS + 브라우저 인증으로 옮기면 닫는다, [traccar-accessory.md](traccar-accessory.md) "이름과 구성"). 서버를 새로 만들고 Traccar는 이 서버에서만 돈다. 80/443을 쓰는 다른 프록시가 없는 서버여야 한다.
 - `deploy.yml`의 `servers.web.hosts`와 `accessories.traccar.host`에 같은 서버를 적는다.
 
 ### 2. 호스트 데이터 디렉터리
@@ -147,7 +147,7 @@ bin/kamal secrets print | sed -E 's/(RAILS_MASTER_KEY|KAMAL_REGISTRY_PASSWORD)=.
 - **토큰을 비밀번호 관리자에도 보관한다.** 배포 PC를 바꾸면 같은 값을 다시 넣어야 하고, 값이 달라지면 Rails ↔ Traccar가 끊긴다.
 - 로컬 데모 토큰(`dev-traccar-*`)은 공개 저장소에 있으므로 **운영에서 쓰지 않는다.** 쓰거나 값이 비어 있으면 앱이 부팅하지 않는다(`TraccarProductionCheck`).
 - Traccar 설정은 `traccar.xml` 없이 `deploy.yml`의 환경변수로 한다(`web.registration`은 꺼 둔다). 환경변수 이름 규칙, 포워딩 확인 결과, 남은 위험은 [traccar-accessory.md](traccar-accessory.md).
-- 첫 가입 전에 **Traccar에 사람이 로그인할 일이 없다.** 웹(8082)이 서버 밖으로 열려 있지 않다. 보려면 [traccar-accessory.md](traccar-accessory.md)의 SSH 터널 방법을 쓴다.
+- 첫 가입 전에 **Traccar에 사람이 로그인할 일이 없다.** 웹(8082)은 보안 그룹에서 관리자 IP로만 열려 있다. Traccar 관리자 계정을 어떻게 만드는지(`WEB_REGISTRATION=false`라 화면에서 가입할 수 없다)는 **아직 확인하지 않았다.** 첫 접속 전에 확인한다.
 
 ## 이미지에 넣지 않는 것 (공개 이미지)
 
@@ -182,10 +182,11 @@ KAMAL_REGISTRY_USERNAME=<GitHub 사용자 이름>
 KAMAL_REGISTRY_PASSWORD=<클래식 PAT>
 TRACCAR_API_TOKEN=<openssl rand -hex 32>
 TRACCAR_INGEST_TOKEN=<openssl rand -hex 32>
+TRACCAR_ADMIN_HTPASSWD='admin:$apr1$...'   # Traccar 관리 화면 브라우저 인증. 만드는 법은 docs/traccar-accessory.md "계정 값 만들기"
 ```
 
 - **우선순위**: 이미 있는 환경변수 > `.env.deploy` > **gh 로그인** > 입력 프롬프트. 레지스트리 값(`KAMAL_REGISTRY_*`)은 위에서부터 채워지는 것을 쓰고, 그래도 없으면 묻는다.
-- **읽는 이름은 위 네 개뿐이다.** 다른 이름은 경고하고 무시한다. 파일은 `source`하지 않고 한 줄씩 읽어서 값 안의 `$(...)` 같은 문자열이 실행되지 않는다(확인함). 앞뒤 공백과 따옴표(`"`, `'`)는 벗긴다.
+- **읽는 이름은 위 다섯 개뿐이다.** 다른 이름은 경고하고 무시한다. 파일은 `source`하지 않고 한 줄씩 읽어서 값 안의 `$(...)` 같은 문자열이 실행되지 않는다(확인함). 앞뒤 공백과 따옴표(`"`, `'`)는 벗긴다.
 - **`.env`가 아니라 `.env.deploy`인 이유**: `docker compose`가 `.env`를 자동으로 읽어 로컬 데모 설정(`TRACCAR_SERVER_URL`, `RAILS_PORT`)과 섞인다. `/.env*`가 `.gitignore`와 `.dockerignore`에 있어 `.env.deploy`도 git과 이미지에 들어가지 않는다. 다른 위치를 쓰려면 `DEPLOY_ENV_FILE=<경로> bin/deploy`.
 - **`chmod 600 .env.deploy`**. 다른 사용자가 읽을 수 있으면 경고한다. 이 파일에는 레지스트리 토큰과 운영 토큰이 평문으로 있으므로 비밀번호 관리자에도 보관한다.
 - `bin/kamal`을 직접 실행하면 이 파일을 읽지 않는다. 배포는 `bin/deploy`로 한다.
@@ -208,7 +209,7 @@ bin/kamal accessory details traccar   # Traccar가 떠 있는지
 bin/kamal app logs         # 부팅 로그
 ```
 
-`bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`(환경변수 또는 `.env.deploy`)이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
+`TRACCAR_ADMIN_HTPASSWD`(Traccar 관리 화면의 브라우저 인증, `docs/traccar-accessory.md` "이름과 구성")는 `setup`과 `accessory` 명령 앞에서 확인한다. `bin/deploy`는 `deploy`·`setup`·`redeploy` 앞에서 `config/credentials/production.key`와 `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`(환경변수 또는 `.env.deploy`)이 있는지 확인하고 없으면 이미지를 올리기 전에 멈춘다(없는 채로 올리면 부팅하지 못하는 컨테이너가 만들어진다). 그 밖의 명령(`rollback` 등)은 그대로 `bin/kamal`에 넘긴다.
 
 - 컨테이너가 부팅할 때 `bin/docker-entrypoint`가 `db:prepare`를 실행한다. 빈 DB면 스키마를 만들고, **운영에서는 시드를 실행하지 않는다**(`db/seeds.rb`는 비어 있고 데모 데이터는 `demo:seed`가 만들며 운영에서 `abort`한다). 데모 시드는 데모 계정(`operator@example.com`/`password123`)과 정류장·노선·차량을 만들고 Traccar에도 만들기 때문이다.
 - 부팅할 때 `TraccarProductionCheck`가 Traccar 설정을 검사한다. 값이 없거나 개발용이면 `운영 Traccar 설정 오류: ...`로 부팅이 실패한다. 로그(`bin/kamal app logs`)에서 이유를 확인한다. 자세한 것은 아래 "부팅 검사".
@@ -240,7 +241,7 @@ bin/kamal app logs         # 부팅 로그
 | 이 부팅 검사 | 실제로 컨테이너가 받은 최종 값 | 아래 한계 |
 
 **알려진 한계(모두 직접 확인함).** 이 검사는 값의 *모양*만 본다.
-- **오탐**: 호스트 이름이 아니라 URL 문자열 전체에서 찾는다. `https://localhost-bus.codefor.kr`처럼 이름 일부이거나 `?from=iptime.org`처럼 경로에 들어 있어도 "개발 서버"로 거부한다. 지금 쓰는 주소(`where-is-my-bus.codefor.kr`, `where-is-my-bus-traccar`, `traccar-where-is-my-bus.codefor.kr`)에는 해당 없다.
+- **오탐**: 호스트 이름이 아니라 URL 문자열 전체에서 찾는다. `https://localhost-bus.codefor.kr`처럼 이름 일부이거나 `?from=iptime.org`처럼 경로에 들어 있어도 "개발 서버"로 거부한다. 지금 쓰는 주소(`where-is-my-bus.codefor.kr`, `where-is-my-bus-traccar`, `traccar.where-is-my-bus.codefor.kr`)에는 해당 없다.
 - **놓치는 것**: 오타 난 호스트(`where-is-my-bus-traccr`), URL이 아닌 값(`not a url`), 스킴 없는 주소(`where-is-my-bus.codefor.kr:5055`), 대문자 `DEV-`, 서로 같은 두 토큰, 너무 짧은 토큰은 모두 통과한다. 연결이 되는지와 Traccar 쪽 토큰과 같은지는 보지 못하므로 **첫 배포 후 확인**(`docs/traccar-accessory.md`)으로 확인한다.
 - `iptime.org`는 옛 `credentials.yml.enc`가 이미지에 들어가던 시절의 대비다. 지금은 `.dockerignore`가 그 파일을 막고 운영은 `production.yml.enc`를 쓰므로 주된 용도가 아니다.
 - **HTTPS 전환 때**: 지금은 평문 `http://` 위치 수신 주소를 통과시킨다(임시, 테스트 "운영 주소는 거부하지 않는다"에 그렇게 적혀 있다). 전환 뒤에는 `http://` 위치 수신 주소를 거부하도록 규칙을 추가하고 그 테스트에서 평문 항목을 뺀다(`docs/future-improvements.md` 32번).
