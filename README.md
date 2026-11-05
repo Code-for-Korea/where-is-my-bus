@@ -74,7 +74,7 @@ docker compose exec rails bin/rails "demo:drive[1번]"   # 폰 없이 버스 한
 
 - 승객 화면 <http://localhost:3000/> · 관리자 <http://localhost:3000/admin> · Traccar <http://localhost:8082>
 - 관리자 계정과 차량 PIN·`deviceId`는 `docker compose logs rails`에 출력됩니다.
-- 자세한 시연 순서·문제 해결: [docs/local-demo.md](docs/local-demo.md)
+- 자세한 시연 순서·문제 해결, compose와 bin/dev 중 고르는 법: [docs/local-demo.md](docs/local-demo.md)
 
 ### Rails를 직접 실행
 

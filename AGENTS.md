@@ -33,7 +33,7 @@ User ─< Session                     (role: member / operator)
 | Traccar 자원 대응, 이벤트 흐름, 설정, 실측 동작, 보안 | `docs/traccar-integration.md` |
 | 설계 결정과 근거, 이벤트 페이로드(6절) | `docs/design-event-driven-rewrite.md` |
 | 데이터 모델 변경 목적 / ERD | `docs/data-model-rewrite.md`, `docs/erd.md` |
-| 로컬 데모 실행 | `docs/local-demo.md` |
+| 로컬 데모 실행(compose, bin/dev), 운전자 앱 로컬 시험 | `docs/local-demo.md` |
 | 운영 배포(Kamal), 백업, 마이그레이션 | `docs/deployment.md` |
 | 서버 스펙(EC2 구성, 가격, 메모리 실측), Ubuntu 서버 설치 | `docs/server-spec.md`, `docs/server-setup-ubuntu.md` |
 | Traccar를 같은 서버에 Kamal accessory로 올리기, 위치 수신·관리 화면 HTTPS 이름 구성 | `docs/traccar-accessory.md` |
