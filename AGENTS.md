@@ -55,6 +55,7 @@ Traccar 연동·`driver_app` 코드를 고칠 때는 프로젝트 스킬 `tracca
 bin/setup                           # 초기 세팅
 bin/dev                             # Rails + Tailwind watch + 로컬 Traccar 컨테이너(Procfile.dev, TRACCAR=0이면 제외)
 bin/traccar [up|down|status|logs|reset]  # 호스트 개발용 Traccar. reset 뒤 bin/rails traccar:sync로 다시 등록
+bin/rails traccar:create_admin      # Traccar 웹 화면 관리자 계정 생성(서비스 토큰, 운영은 bin/kamal app exec로. docs/deployment.md)
 docker compose up -d --build        # Rails + 로컬 Traccar 데모 (docs/local-demo.md)
 bin/rails "demo:drive[1번]"         # 시뮬레이터로 버스 한 대 운행 (compose 안이면 docker compose exec rails ...)
 bin/rails db:prepare                # 스키마 준비 (운영에는 시드 데이터가 없다)

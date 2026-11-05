@@ -52,6 +52,8 @@
 
 ## iOS 시뮬레이터로 e2e 확인하기
 
+환경 준비(Flutter 버전, 시뮬레이터 기기 만들기)와 막혔던 지점은 [`docs/local-demo.md`](../docs/local-demo.md)의 "운전자 앱 로컬 시험"에 있다. 서버는 `docker compose`와 `bin/dev` 중 어느 쪽이든 된다.
+
 Mac의 iOS 시뮬레이터는 PC와 네트워크를 공유하므로 `localhost`로 Docker 서버에 바로 붙는다.
 
 1. **서버 실행**: 저장소 루트에서 `docker compose up -d`. 호스트 3000번이 이미 쓰이면 `RAILS_PORT=3300 docker compose up -d`(아래 주소의 3000을 그 포트로 바꿔 읽는다). 첫 기동이면 시드가 차량 2대(1번 → 1번 노선, 2번 → 2번 노선)를 만든다.
