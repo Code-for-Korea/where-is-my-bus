@@ -42,6 +42,37 @@ namespace :traccar do
     original&.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
   end
 
+  desc "Traccar 웹 화면용 관리자 계정을 만든다(서비스 토큰 사용, 이미 있으면 건너뜀). TRACCAR_ADMIN_EMAIL, 비밀번호는 TRACCAR_ADMIN_PASSWORD 또는 입력 프롬프트"
+  task create_admin: :environment do
+    # 비밀번호는 인자로 받지 않는다(셸 기록·ps에 남는다). 환경변수는 한 번만 쓰고 지운다.
+    email = ENV["TRACCAR_ADMIN_EMAIL"].presence
+    abort "TRACCAR_ADMIN_EMAIL을 지정하세요. 예: TRACCAR_ADMIN_EMAIL=me@example.org bin/rails traccar:create_admin" unless email
+
+    password = ENV.delete("TRACCAR_ADMIN_PASSWORD").presence
+    if password.nil?
+      abort "비밀번호는 TRACCAR_ADMIN_PASSWORD로 주거나 터미널(TTY)에서 실행해 입력하세요." unless $stdin.tty?
+
+      require "io/console"
+      print "Traccar 관리자 비밀번호: "
+      password = $stdin.noecho(&:gets).to_s.chomp
+      puts
+    end
+
+    # 운영은 컨테이너의 환경변수(TRACCAR_API_*)를 그대로 쓴다. 로컬 개발에서만 기본값을 채워 credentials의 원격 서버로 새지 않게 한다.
+    original = local_defaults.keys.to_h { |key| [ key, ENV[key] ] }
+    unless Rails.env.production?
+      local_defaults.each { |key, value| ENV[key] = value if ENV[key].blank? }
+    end
+    puts "대상 Traccar: #{ENV["TRACCAR_API_BASE_URL"].presence || "(credentials)"}"
+
+    result = TraccarAdminUser.call(email: email, password: password)
+    abort result.error if result.failure?
+
+    puts result.created ? "관리자 계정을 만들었습니다: #{email}" : "이미 있는 계정입니다(변경하지 않았습니다): #{email}"
+  ensure
+    original&.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+  end
+
   desc "저장된 traccar_*_id를 비운다. Traccar 데이터를 지웠을 때(bin/traccar reset)만 쓴다 — 남아 있는 Traccar 자원과 중복·충돌될 수 있다"
   task reset_ids: :environment do
     abort "운영 환경에서는 실행하지 않습니다(로컬 개발용)." if Rails.env.production?

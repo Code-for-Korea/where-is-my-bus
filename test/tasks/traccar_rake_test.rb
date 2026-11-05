@@ -78,4 +78,35 @@ class TraccarRakeTest < ActiveSupport::TestCase
     assert Stop.all.all? { |stop| stop.traccar_geofence_id.nil? }
     assert Bus.all.all? { |bus| bus.traccar_device_id.nil? }
   end
+  test "create_admin은 관리자 계정을 만들고 이미 있으면 건너뛴다" do
+    TraccarAdminUser.stub_credentials(base_url: TRACCAR_API, token: "t")
+    stub_request(:get, "#{TRACCAR_API}/api/users").to_return(
+      { status: 200, body: [].to_json }, { status: 200, body: [ { id: 7, email: "me@example.org" } ].to_json }
+    )
+    stub_request(:post, "#{TRACCAR_API}/api/users").to_return(status: 200, body: { id: 7 }.to_json)
+
+    ENV["TRACCAR_ADMIN_EMAIL"] = "me@example.org"
+    ENV["TRACCAR_ADMIN_PASSWORD"] = "pw-secret"
+    out, = run_task("traccar:create_admin")
+    assert_match "만들었습니다", out
+    assert_requested(:post, "#{TRACCAR_API}/api/users", times: 1) do |req|
+      body = JSON.parse(req.body)
+      body["administrator"] == true && body["email"] == "me@example.org" && body["password"] == "pw-secret"
+    end
+    assert_nil ENV["TRACCAR_ADMIN_PASSWORD"]
+
+    ENV["TRACCAR_ADMIN_PASSWORD"] = "other"
+    out, = run_task("traccar:create_admin")
+    assert_match "이미 있는 계정", out
+    assert_requested :post, "#{TRACCAR_API}/api/users", times: 1
+  ensure
+    ENV.delete("TRACCAR_ADMIN_EMAIL")
+    ENV.delete("TRACCAR_ADMIN_PASSWORD")
+    TraccarAdminUser.stub_credentials(base_url: nil, email: nil, password: nil)
+  end
+
+  test "create_admin은 이메일이 없으면 중단한다" do
+    ENV.delete("TRACCAR_ADMIN_EMAIL")
+    assert_raises(SystemExit) { run_task("traccar:create_admin") }
+  end
 end
