@@ -29,6 +29,10 @@ INGEST_TOKEN="${TRACCAR_INGEST_TOKEN:-dev-traccar-token}"
 CONSOLE_EMAIL="${TRACCAR_CONSOLE_EMAIL:-admin@localbus.test}"
 CONSOLE_PASSWORD="${TRACCAR_CONSOLE_PASSWORD:-localbus}"
 
+# 환경변수 값의 예약 문자(& < > " ')가 XML·JSON 문법을 깨뜨리지 않게 직렬화한다.
+# Ruby는 이 값을 쓰는 up/reset에서만 부른다(down·status·logs는 Docker만 있으면 된다).
+xml_escape() { VALUE="$1" ruby -rcgi -e 'print CGI.escapeHTML(ENV.fetch("VALUE"))'; }
+
 # Docker 데몬이 10초 안에 응답하지 않으면 실패로 본다.
 docker_ready() {
   command -v docker >/dev/null 2>&1 || { echo "docker가 설치되어 있지 않습니다." >&2; return 1; }
@@ -62,6 +66,9 @@ check_ports() {
 # 시작할 때마다 새로 만든다. DB는 Traccar 내장 H2(파일). docker/traccar/traccar.xml과 달리
 # 이벤트 포워딩 주소만 호스트 Rails(host.docker.internal)로 가리킨다.
 write_config() {
+  local api_token_xml ingest_token_xml
+  api_token_xml="$(xml_escape "$API_TOKEN")"
+  ingest_token_xml="$(xml_escape "$INGEST_TOKEN")"
   mkdir -p "${DATA_DIR}/conf" "${DATA_DIR}/data" "${DATA_DIR}/logs"
   cat >"${DATA_DIR}/conf/traccar.xml" <<EOF
 <?xml version='1.0' encoding='UTF-8'?>
@@ -74,11 +81,11 @@ write_config() {
   <entry key='database.user'>sa</entry>
   <entry key='database.password'></entry>
 
-  <entry key='web.serviceAccountToken'>${API_TOKEN}</entry>
+  <entry key='web.serviceAccountToken'>${api_token_xml}</entry>
 
   <entry key='event.forward.url'>http://host.docker.internal:${RAILS_PORT}/integrations/traccar/events</entry>
   <entry key='event.forward.type'>json</entry>
-  <entry key='event.forward.header'>X-Ingest-Token: ${INGEST_TOKEN}</entry>
+  <entry key='event.forward.header'>X-Ingest-Token: ${ingest_token_xml}</entry>
 </properties>
 EOF
 }
@@ -96,9 +103,12 @@ wait_for_api() {
 # Traccar는 처음 등록한 사용자가 관리자다. 이미 있으면 등록이 거절되므로 로그인 가능 여부로 확인한다.
 # (/api/server는 인증 없이도 200이라 /api/devices로 확인한다.)
 ensure_console_user() {
+  local user_json
+  user_json="$(CONSOLE_EMAIL="$CONSOLE_EMAIL" CONSOLE_PASSWORD="$CONSOLE_PASSWORD" \
+    ruby -rjson -e 'print JSON.generate(name: "admin", email: ENV.fetch("CONSOLE_EMAIL"), password: ENV.fetch("CONSOLE_PASSWORD"))')"
   curl -sS -o /dev/null -X POST "http://localhost:${API_PORT}/api/users" \
     -H 'Content-Type: application/json' \
-    -d "{\"name\":\"admin\",\"email\":\"${CONSOLE_EMAIL}\",\"password\":\"${CONSOLE_PASSWORD}\"}" || true
+    -d "$user_json" || true
   if curl -fsS -o /dev/null -u "${CONSOLE_EMAIL}:${CONSOLE_PASSWORD}" "http://localhost:${API_PORT}/api/devices"; then
     return 0
   fi
