@@ -20,7 +20,7 @@
 
 ## 1. 운행(Trip)이 끝나지 않는다 — 높음
 
-- `ended_at`을 읽는 곳은 `RouteProgress#trip`, `Integrations::TraccarController#positions`, `StopsController#debug_bus`뿐이고, **값을 쓰는 곳은 `db/seeds.rb`의 생성 시점 외에 없다.** 운행 종료 API도 없다(`config/routes.rb`).
+- `ended_at`을 읽는 곳은 `RouteProgress#trip`, `Integrations::TraccarController#positions`, `StopsController#debug_bus`뿐이고, **값을 쓰는 곳은 `lib/demo/seed.rb`(`demo:seed`)의 생성 시점 외에 없다.** 운행 종료 API도 없다(`config/routes.rb`).
 - 결과:
   - 버스당 `Trip`은 첫 GPS 수신 때 생성된 뒤 영구히 활성이다. `no_trip` 상태는 한 번도 GPS를 못 받은 버스에서만 나온다.
   - GPS 신선도 검사가 없다(`RouteProgress#latest_gps`는 `recorded_at` 최신 1건을 시각과 무관하게 사용). 운행이 끝나 차고지에 선 버스, 꺼진 단말의 마지막 위치가 계속 "현재 위치"로 ETA에 반영된다.

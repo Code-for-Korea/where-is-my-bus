@@ -1,13 +1,18 @@
 # Name of your application. Used to uniquely configure containers.
-service: web
+service: where-is-my-bus
 
 # Name of the container image (use your-user/app-name on external registries).
-image: web
+# GitHub 컨테이너 레지스트리(ghcr.io). 처음에는 비공개 패키지로 쓰고, 이미지 내용을 점검한 뒤 공개로 바꾼다(docs/deployment.md).
+# 이름은 소문자여야 한다.
+image: code-for-korea/where-is-my-bus
 
 # Deploy to these servers.
 servers:
   web:
-    - 192.168.0.1
+    hosts:
+      - web01.where-is-my-bus
+    options:
+      network-alias: rails-app
   # job:
   #   hosts:
   #     - 192.168.0.1
@@ -20,27 +25,34 @@ servers:
 #
 # Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
 #
-# proxy:
-#   ssl: true
-#   host: app.example.com
+proxy:
+  ssl: true
+  host: where-is-my-bus.codefor.kr
+  healthcheck:
+    path: /up
 
 # Where you keep your container images.
 registry:
-  # Alternatives: hub.docker.com / registry.digitalocean.com / ghcr.io / ...
-  server: localhost:5555
+  server: ghcr.io
+  username:
+    - KAMAL_REGISTRY_USERNAME
 
-  # Needed for authenticated registries.
-  # username: your-user
-
-  # Always use an access token rather than real password when possible.
-  # password:
-  #   - KAMAL_REGISTRY_PASSWORD
+  password:
+    - KAMAL_REGISTRY_PASSWORD
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   secret:
     - RAILS_MASTER_KEY
+    - TRACCAR_API_TOKEN
+    - TRACCAR_INGEST_TOKEN
   clear:
+    # 같은 서버의 Traccar accessory. 컨테이너 이름은 <service>-<accessory> 이다.
+    TRACCAR_API_BASE_URL: http://where-is-my-bus-traccar:8082
+    # 운전자 앱이 위치를 보낼 주소. nginx(traccar-proxy accessory)가 이 이름을 받아 Traccar 5055로 넘기고 kamal-proxy가 TLS를 끝낸다
+    # (docs/traccar-accessory.md "이름과 구성"). 앱은 PIN 등록 때 이 값을 저장하므로 바꾸면 폰을 다시 등록해야 한다. 도메인을 바꾸면 같이 바꾼다.
+    TRACCAR_SERVER_URL: https://traccar.where-is-my-bus.codefor.kr
+
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
     SOLID_QUEUE_IN_PUMA: true
@@ -66,10 +78,12 @@ aliases:
   logs: app logs -f
   dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
 
-# Use a persistent storage volume for sqlite database files and local Active Storage files.
-# Recommended to change this to a mounted volume path that is backed up off server.
+# SQLite 4개(production, cache, queue, cable)와 Active Storage 파일은 컨테이너 밖 호스트 디렉터리에 둔다.
+# 컨테이너·이미지를 바꿔도 데이터가 남고 호스트에서 바로 백업한다(bin/backup-storage).
+# 최초 1회 호스트에서: sudo mkdir -p /var/lib/where-is-my-bus/storage && sudo chown 1000:1000 /var/lib/where-is-my-bus/storage
+# (컨테이너는 uid 1000 rails 사용자로 돈다. 권한이 없으면 db:prepare가 실패해 부팅하지 못한다.)
 volumes:
-  - "web_storage:/rails/storage"
+  - "/var/lib/where-is-my-bus/storage:/rails/storage"
 
 # Bridge fingerprinted assets, like JS and CSS, between versions to avoid
 # hitting 404 on in-flight requests. Combines all files from new and old
@@ -78,7 +92,12 @@ asset_path: /rails/public/assets
 
 # Configure the image builder.
 builder:
-  arch: amd64
+  arch: arm64
+
+  # buildx가 기본으로 붙이는 출처·SBOM 증명(attestation)을 끈다. 레지스트리에 이미지와 별도로 이름 없는 매니페스트가
+  # 더 올라가고, push 뒤 buildx가 끝나지 않고 멈추는 일이 있었다(docs/deployment.md "빌드가 멈출 때").
+  provenance: false
+  sbom: false
 
   # # Build image via remote server (useful for faster amd64 builds on arm64 computers)
   # remote: ssh://docker@docker-builder-server
@@ -90,30 +109,52 @@ builder:
   #   - GITHUB_TOKEN
   #   - RAILS_MASTER_KEY
 
-# Use a different ssh user than root
-# ssh:
-#   user: app
+ssh:
+  user: ubuntu
 
-# Use accessory services (secrets come from .kamal/secrets).
-# accessories:
-#   db:
-#     image: mysql:8.0
-#     host: 192.168.0.2
-#     # Change to 3306 to expose port to the world instead of just local network.
-#     port: "127.0.0.1:3306:3306"
-#     env:
-#       clear:
-#         MYSQL_ROOT_HOST: '%'
-#       secret:
-#         - MYSQL_ROOT_PASSWORD
-#     files:
-#       - config/mysql/production.cnf:/etc/mysql/my.cnf
-#       - db/production.sql:/docker-entrypoint-initdb.d/setup.sql
-#     directories:
-#       - data:/var/lib/mysql
-#   redis:
-#     image: valkey/valkey:8
-#     host: 192.168.0.2
-#     port: 6379
-#     directories:
-#       - data:/data
+# 같은 서버에 Traccar를 함께 올린다(docs/traccar-accessory.md). 컨테이너 이름은 where-is-my-bus-traccar.
+# 설정은 traccar.xml 파일 없이 환경변수로 한다. 이름은 camelCase를 _로 나눈다(web.serviceAccountToken => WEB_SERVICE_ACCOUNT_TOKEN).
+# 이름을 틀리면 오류 없이 무시되고 서비스 토큰만 적용되지 않는다.
+accessories:
+  traccar:
+    image: traccar/traccar:6.14.4
+    host: web01.where-is-my-bus
+    env:
+      clear:
+        CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+        WEB_REGISTRATION: "false"
+        EVENT_FORWARD_URL: http://rails-app:80/integrations/traccar/events
+        EVENT_FORWARD_TYPE: json
+      secret:
+        - WEB_SERVICE_ACCOUNT_TOKEN
+        - EVENT_FORWARD_HEADER
+    volumes:
+      - /var/lib/where-is-my-bus/traccar:/opt/traccar/data
+    options:
+      stop-timeout: 30
+      # 임시: 위치 수신(OsmAnd 5055, 평문)과 Traccar 웹/API(8082)를 게시한다. accessory의 port는 하나만 받아 publish로 둘을 연다(배열은 --publish를 반복한다).
+      # Rails는 8082를 도커 네트워크 안에서 부르므로 게시와 무관하다. HTTPS 전환(nginx 앞단, 관리 화면은 브라우저 인증)으로 옮기면 이 항목을 지운다(docs/traccar-accessory.md "이름과 구성").
+      # 8082는 보안 그룹에서 관리자 IP로 제한한다.
+      publish:
+        - "5055:5055"
+        - "8082:8082"
+
+  # Traccar 앞단 nginx. 위치 수신(traccar.)과 관리 화면(admin.traccar., 브라우저 인증) 두 이름을 한 컨테이너가 Host로 나눈다.
+  # 전환 순서(docs/traccar-accessory.md): DNS 두 개 → `bin/deploy accessory boot traccar-proxy` → TRACCAR_SERVER_URL을 https로 →
+  # Traccar의 options.publish 삭제 → 보안 그룹의 5055·8082 삭제. 이 항목만으로는 기존 5055·8082 게시가 바뀌지 않는다.
+  traccar-proxy:
+    image: nginx:1.27-alpine
+    host: web01.where-is-my-bus
+    files:
+      - config/traccar-nginx.conf:/etc/nginx/conf.d/default.conf
+      - local: config/traccar-htpasswd.erb
+        remote: /etc/nginx/htpasswd
+        mode: "0644"   # nginx 워커(nginx 사용자)가 읽어야 한다. 서버에 사용자가 ubuntu 하나뿐이다
+    proxy:
+      hosts:
+        - traccar.where-is-my-bus.codefor.kr
+        - admin.traccar.where-is-my-bus.codefor.kr
+      ssl: true
+      app_port: 80
+      healthcheck:
+        path: /up

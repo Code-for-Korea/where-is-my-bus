@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# 호스트에서 실행하는 백업 스크립트 (컨테이너 안이 아님). 사용법과 복원은 docs/deployment.md.
+#
+# 실행 중인 SQLite 파일을 cp 하면 쓰는 도중에 복사돼 깨질 수 있으므로 `sqlite3 .backup`으로
+# 일관된 스냅샷을 만들고, 무결성을 확인한 뒤 gzip 한다. Active Storage 등 SQLite 외 파일은 tar로 묶는다.
+#
+#   STORAGE_DIR  원본 (기본 /var/lib/where-is-my-bus/storage)
+#   BACKUP_DIR   백업 위치 (기본 /var/backups/where-is-my-bus)
+#   KEEP_DAYS    보관 일수 (기본 14)
+set -euo pipefail
+
+STORAGE_DIR="${STORAGE_DIR:-/var/lib/where-is-my-bus/storage}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/where-is-my-bus}"
+KEEP_DAYS="${KEEP_DAYS:-14}"
+
+command -v sqlite3 >/dev/null || { echo "sqlite3가 필요합니다 (apt install sqlite3)" >&2; exit 1; }
+[ -d "$STORAGE_DIR" ] || { echo "원본 디렉터리가 없습니다: $STORAGE_DIR" >&2; exit 1; }
+
+dest="$BACKUP_DIR/$(date +%Y%m%d-%H%M%S)"
+[ -e "$dest" ] && dest="$dest-$$" # 같은 초에 다시 실행해도 덮어쓰지 않는다
+mkdir -p "$dest"
+
+count=0
+shopt -s nullglob
+for db in "$STORAGE_DIR"/*.sqlite3; do
+  name="$(basename "$db")"
+  sqlite3 "$db" ".timeout 10000" ".backup '$dest/$name'"
+  result="$(sqlite3 "$dest/$name" "PRAGMA integrity_check;")"
+  if [ "$result" != "ok" ]; then
+    echo "무결성 검사 실패: $name ($result)" >&2
+    exit 1
+  fi
+  # 복사본을 WAL 모드로 열었으므로 -wal/-shm 이 남는다. 파일 하나로 합쳐 복원을 단순하게 한다.
+  sqlite3 "$dest/$name" "PRAGMA journal_mode=DELETE;" >/dev/null
+  gzip "$dest/$name"
+  rm -f "$dest/$name-shm" "$dest/$name-wal"
+  count=$((count + 1))
+done
+
+# SQLite 외 파일(Active Storage 업로드 등). -wal/-shm 은 .backup 이 이미 반영했으므로 제외한다.
+others=()
+while IFS= read -r -d '' file; do others+=("${file#"$STORAGE_DIR"/}"); done < <(
+  find "$STORAGE_DIR" -type f ! -name '*.sqlite3' ! -name '*.sqlite3-*' ! -name '.keep' -print0
+)
+if [ "${#others[@]}" -gt 0 ]; then
+  tar -czf "$dest/files.tar.gz" -C "$STORAGE_DIR" "${others[@]}"
+fi
+
+if [ "$count" -eq 0 ]; then
+  echo "백업할 *.sqlite3가 없습니다: $STORAGE_DIR" >&2
+  rmdir "$dest" 2>/dev/null || true
+  exit 1
+fi
+
+# 보관 기간이 지난 백업 삭제 (방금 만든 것은 항상 남는다)
+find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -mtime +"$KEEP_DAYS" -exec rm -rf {} +
+
+echo "백업 완료: $dest (SQLite ${count}개)"
