@@ -100,7 +100,7 @@ flutter pub get
 flutter run
 ```
 
-[Flutter SDK](https://docs.flutter.dev/get-started/install) 필요. Windows 빌드 시 알려진 이슈는 `ISSUE.md` 참고.
+[Flutter SDK](https://docs.flutter.dev/get-started/install) 필요. 버전은 `driver_app/.tool-versions`에 고정했다(asdf: `asdf plugin add flutter && asdf install`, Dart 3.13 포함). Windows 빌드 시 알려진 이슈는 `ISSUE.md` 참고.
 
 ## CI / 배포
 
