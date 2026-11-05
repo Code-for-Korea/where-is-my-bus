@@ -15,7 +15,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NAME="wimb-traccar"
+NAME="where-is-my-bus-traccar"
 IMAGE="${TRACCAR_IMAGE:-traccar/traccar:6.14.4}"
 API_PORT=8082
 DEVICE_PORT=5055

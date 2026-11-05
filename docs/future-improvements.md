@@ -316,5 +316,5 @@
 ## 34. 로컬 개발에서 Traccar를 `bin/dev`로 함께 띄우지 못한다 (구현 완료, 실기기 확인 남음)
 
 - **현재 방식**: `bin/traccar`가 Traccar 도커 이미지를 `compose.yaml`과 같은 포트(8082·5055)·같은 토큰으로 띄우고, Procfile.dev의 `traccar: bin/traccar dev`가 `bin/dev`와 함께 올린다. 이벤트 포워딩 주소만 호스트 Rails(`host.docker.internal:<Rails 포트>`)로 가리키는 설정 파일을 `tmp/docker/volumes/traccar/conf/`에 매번 새로 만든다. `bin/dev`는 Docker가 있으면 Rails에 `TRACCAR_API_BASE_URL=http://localhost:8082` 등을 넘기고(credentials의 원격 서버로 새지 않게) 컨테이너가 닿을 수 있도록 `0.0.0.0`에 바인딩한다. `TRACCAR=0`이면 이 모두를 건너뛴다.
-- **결정한 것**: 컨테이너 이름은 `wimb-traccar`(compose와 공유하지 않는다). 데이터는 호스트 `tmp/docker/volumes/traccar`에 둔다(compose의 이름 있는 볼륨과 별개). 포트가 compose의 Traccar와 겹치면 그쪽을 멈추지 않고 안내만 하고 실패한다. `--rm`과 종료 시그널 처리로 `bin/dev`를 끄면 컨테이너도 정지한다.
+- **결정한 것**: 컨테이너 이름은 `where-is-my-bus-traccar`(compose와 공유하지 않는다). 데이터는 호스트 `tmp/docker/volumes/traccar`에 둔다(compose의 이름 있는 볼륨과 별개). 포트가 compose의 Traccar와 겹치면 그쪽을 멈추지 않고 안내만 하고 실패한다. `--rm`과 종료 시그널 처리로 `bin/dev`를 끄면 컨테이너도 정지한다.
 - **남은 일**: `bin/traccar reset`으로 데이터를 지운 뒤에는 `bin/rails traccar:sync`로 노선·정류장·차량을 다시 등록해야 한다(`reset`이 저장된 `traccar_*_id`는 비운다). 실제 Docker에서의 `bin/dev` 기동·종료와 `demo:drive` 이벤트 도착은 아직 확인하지 않았다.

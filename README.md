@@ -85,7 +85,7 @@ bundle install
 bin/dev            # Rails 서버 + Tailwind watch + 로컬 Traccar(Docker가 있으면 bin/traccar가 함께 뜬다. TRACCAR=0이면 제외)
 ```
 
-노선·정류장·차량을 등록하거나 데모 시드(`bin/rails demo:seed`)를 실행하려면 **Traccar 서버가 떠 있어야** 합니다(등록이 Traccar 호출과 한 트랜잭션으로 묶여 있음). Traccar 접속 정보는 환경변수(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)가 credentials보다 우선하며, 표와 설정 방법은 [docs/traccar-integration.md](docs/traccar-integration.md)에 있습니다. `bin/dev`는 Docker가 있으면 Traccar 컨테이너를 함께 띄우고 Rails가 그 Traccar(`localhost:8082`)를 쓰도록 위 환경변수를 채웁니다(`bin/traccar`, 컨테이너 이름 `wimb-traccar`, 데이터는 `tmp/docker/volumes/traccar`). Traccar만 따로 다루려면 `bin/traccar up|down|status|logs|reset`을 씁니다. `reset`으로 Traccar 데이터를 지웠다면 `bin/rails traccar:sync`로 노선·정류장·차량을 다시 등록합니다. `docker compose`의 Traccar와는 같은 포트(8082·5055)를 쓰므로 동시에 띄울 수 없습니다.
+노선·정류장·차량을 등록하거나 데모 시드(`bin/rails demo:seed`)를 실행하려면 **Traccar 서버가 떠 있어야** 합니다(등록이 Traccar 호출과 한 트랜잭션으로 묶여 있음). Traccar 접속 정보는 환경변수(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)가 credentials보다 우선하며, 표와 설정 방법은 [docs/traccar-integration.md](docs/traccar-integration.md)에 있습니다. `bin/dev`는 Docker가 있으면 Traccar 컨테이너를 함께 띄우고 Rails가 그 Traccar(`localhost:8082`)를 쓰도록 위 환경변수를 채웁니다(`bin/traccar`, 컨테이너 이름 `where-is-my-bus-traccar`, 데이터는 `tmp/docker/volumes/traccar`). Traccar만 따로 다루려면 `bin/traccar up|down|status|logs|reset`을 씁니다. `reset`으로 Traccar 데이터를 지웠다면 `bin/rails traccar:sync`로 노선·정류장·차량을 다시 등록합니다. `docker compose`의 Traccar와는 같은 포트(8082·5055)를 쓰므로 동시에 띄울 수 없습니다.
 
 - 회원가입: <http://localhost:3000/registration/new> — **첫 가입자가 운영자**가 됩니다
 - 로컬 개발 DB를 이전 구조에서 가져왔다면 `bin/rails db:reset`이 필요합니다.
