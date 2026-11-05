@@ -7,16 +7,33 @@
           class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
   </div>
 
-  <div class="flex gap-4">
-    <div class="flex-1">
-      <%= f.label :lat, "위도", class: "block text-sm font-medium text-gray-700 mb-1" %>
-      <%= f.text_field :lat, placeholder: "예: 34.973100", inputmode: "decimal",
-            class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+  <% content_for :head do %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+  <% end %>
+
+  <div class="space-y-5"
+       data-controller="stop-map"
+       data-stop-map-center-value="<%= (Stop.center || []).to_json %>"
+       data-stop-map-fallback-value="<%= Stop::MAP_FALLBACK_CENTER.to_json %>">
+    <div class="flex gap-4">
+      <div class="flex-1">
+        <%= f.label :lat, "위도", class: "block text-sm font-medium text-gray-700 mb-1" %>
+        <%= f.text_field :lat, placeholder: "예: 34.973100", inputmode: "decimal",
+              data: { stop_map_target: "lat", action: "input->stop-map#syncFromInputs" },
+              class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+      </div>
+      <div class="flex-1">
+        <%= f.label :lng, "경도", class: "block text-sm font-medium text-gray-700 mb-1" %>
+        <%= f.text_field :lng, placeholder: "예: 128.322200", inputmode: "decimal",
+              data: { stop_map_target: "lng", action: "input->stop-map#syncFromInputs" },
+              class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+      </div>
     </div>
-    <div class="flex-1">
-      <%= f.label :lng, "경도", class: "block text-sm font-medium text-gray-700 mb-1" %>
-      <%= f.text_field :lng, placeholder: "예: 128.322200", inputmode: "decimal",
-            class: "w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+
+    <div>
+      <div data-stop-map-target="canvas" class="isolate h-72 w-full rounded-lg border border-gray-300 bg-gray-100"></div>
+      <p data-stop-map-target="status" class="mt-1 text-xs text-gray-400">지도를 클릭하거나 마커를 끌어 좌표를 조정하세요.</p>
     </div>
   </div>
   <p class="text-xs text-gray-400">저장하면 이 좌표를 중심으로 한 변 30m 정사각형 영역이 Traccar의 정류장 영역으로 자동 생성됩니다.</p>

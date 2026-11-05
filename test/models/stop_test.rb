@@ -30,4 +30,19 @@ class StopTest < ActiveSupport::TestCase
       stops(:school).destroy!
     end
   end
+
+  test "center is the mean of all stop coordinates" do
+    lat, lng = Stop.center
+
+    assert_in_delta Stop.average(:lat).to_f, lat, 1e-6
+    assert_in_delta Stop.average(:lng).to_f, lng, 1e-6
+  end
+
+  test "center is nil when there are no stops" do
+    StopVisit.delete_all
+    RouteStop.delete_all
+    Stop.delete_all
+
+    assert_nil Stop.center
+  end
 end
