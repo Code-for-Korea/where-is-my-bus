@@ -65,10 +65,18 @@ namespace :traccar do
     end
     puts "대상 Traccar: #{ENV["TRACCAR_API_BASE_URL"].presence || "(credentials)"}"
 
-    result = TraccarAdminUser.call(email: email, password: password)
-    abort result.error if result.failure?
+    begin
+      if TraccarAdminUser.exists?(email)
+        puts "이미 있는 계정입니다(변경하지 않았습니다): #{email}"
+      else
+        result = TraccarAdminUser.call(email: email, password: password)
+        abort result.error if result.failure?
 
-    puts result.created ? "관리자 계정을 만들었습니다: #{email}" : "이미 있는 계정입니다(변경하지 않았습니다): #{email}"
+        puts "관리자 계정을 만들었습니다: #{email}"
+      end
+    rescue *TraccarApiClient::RESCUED_ERRORS => e
+      abort "Traccar 관리자 계정 확인 실패: #{e.message}"
+    end
   ensure
     original&.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
   end

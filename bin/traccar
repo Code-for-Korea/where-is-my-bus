@@ -184,12 +184,26 @@ idle() {
   exec tail -f /dev/null
 }
 
+# 기동(최대 90초)을 기다리는 동안에도 종료 신호를 받아야 하므로 트랩을 먼저 걸고, 기동은 백그라운드로 돌려 wait로 기다린다.
+# (foreground로 돌리면 bash가 트랩을 기동이 끝난 뒤에야 실행해, 그 사이 bin/dev를 끄면 컨테이너가 남는다.)
+UP_PID=""
+stop_on_signal() {
+  [[ -n "$UP_PID" ]] && kill "$UP_PID" 2>/dev/null
+  echo "${NAME} 정지"
+  docker stop -t 5 "$NAME" >/dev/null 2>&1
+  exit 0
+}
+
 cmd_dev() {
   [[ "${TRACCAR:-1}" == "0" ]] && idle "TRACCAR=0 이라 로컬 Traccar를 띄우지 않습니다."
   docker_ready || idle "  Docker를 쓸 수 없어 로컬 Traccar를 띄우지 않습니다. Docker Desktop을 실행하고 bin/dev를 다시 시작하세요."
-  (cmd_up) || idle "  로컬 Traccar를 띄우지 못했습니다. 위 메시지를 확인하세요."
 
-  trap 'echo "${NAME} 정지"; docker stop -t 5 "$NAME" >/dev/null 2>&1; exit 0' TERM INT
+  trap stop_on_signal TERM INT
+  (cmd_up) &
+  UP_PID=$!
+  wait "$UP_PID" || idle "  로컬 Traccar를 띄우지 못했습니다. 위 메시지를 확인하세요."
+  UP_PID=""
+
   docker logs -f --tail 0 "$NAME" &
   wait $! || true
   idle "  Traccar 컨테이너가 멈췄습니다. bin/traccar up으로 다시 띄우세요."

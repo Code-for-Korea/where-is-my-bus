@@ -5,28 +5,22 @@ class TraccarAdminUser
   include TraccarApiClient
 
   class << self
-    # 같은 이메일이 이미 있으면 만들지 않고(덮어쓰지 않는다) 성공으로 알린다. created가 true일 때만 새로 만든 것이다.
+    # 관리자 계정을 만든다. 같은 이메일이 있으면 Traccar가 거절하므로 실패로 돌아온다(덮어쓰지 않는다).
+    # 먼저 있는지 알고 싶으면 exists?를 쓴다.
     def call(email:, password:, name: "admin")
       return Result.new(success: false, error: "이메일과 비밀번호가 필요합니다") if email.blank? || password.blank?
 
-      existing = find_by_email(email)
-      return Created.new(success: true, created: false, id: existing["id"]) if existing
-
-      res = request(:post, "/api/users", { name: name, email: email, password: password, administrator: true })
-      Created.new(success: true, created: true, id: JSON.parse(res.body)["id"])
+      request(:post, "/api/users", { name: name, email: email, password: password, administrator: true })
+      Result.new(success: true)
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       Rails.logger.error("[TraccarAdminUser] #{e.class} #{e.message}")
       Result.new(success: false, error: "Traccar 관리자 계정 생성 실패: #{e.message}")
     end
 
-    private
-
-    def find_by_email(email)
-      JSON.parse(request(:get, "/api/users").body).find { |user| user["email"].to_s.casecmp?(email) }
+    # Traccar API에는 이메일로 찾는 방법이 없어 전체 사용자를 읽는다. 관리 화면 계정 수만큼이라 적다.
+    # 연결 실패는 호출한 쪽에서 TraccarApiClient::RESCUED_ERRORS로 처리한다.
+    def exists?(email)
+      JSON.parse(request(:get, "/api/users").body).any? { |user| user["email"].to_s.casecmp?(email) }
     end
-  end
-
-  Created = Struct.new(:success, :created, :id, :error, keyword_init: true) do
-    def failure? = !success
   end
 end
