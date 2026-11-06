@@ -384,6 +384,7 @@ sqlite3 /tmp/restore/production.sqlite3 "select count(*) from users;"
 | 목적 | 지우는 것 | Traccar | 쓰는 때 |
 |---|---|---|---|
 | **A. 운행 기록만** | `stop_visits`, `trips` | 그대로 | 시험 운행 기록을 비우고 노선·정류장·차량은 유지 |
+| **A'. 계정만 남기고 초기화** | 방문·운행·차량·정류장·노선(Rails) | Rails가 아는 device·geofence·group을 함께 지움 | 계정은 유지하고 시험 데이터를 모두 버림(`ops:reset_data`) |
 | **B. 전체 초기화** | Rails DB 4개 + Traccar DB | 함께 지움 | 시험 데이터를 모두 버리고 처음부터 다시 입력 |
 | ~~Rails만 지움~~ | Rails DB만 | 남음 | **하지 않는다.** Traccar에 Geofence·그룹·기기가 남아 ID가 어긋난다(`future-improvements.md` 19번) |
 
@@ -411,6 +412,22 @@ bin/kamal app exec --interactive --reuse "bin/rails runner 'StopVisit.delete_all
 ```
 
 노선·정류장·차량·PIN은 그대로라 운전자 앱을 다시 등록할 필요가 없다. Traccar의 이벤트 ID는 계속 이어지므로 중복 방지 키(이벤트 ID와 시각을 합친 키) 충돌도 없다.
+
+### A'. 로그인 계정만 남기고 초기화 (`ops:reset_data`)
+
+운영자·사용자 계정(`users`, `sessions`)은 두고 **방문·운행·차량·정류장·노선과 Rails가 아는 Traccar 자원(device/geofence/group)** 을 함께 지운다. B처럼 서버 파일을 옮기지 않고 앱 안에서 끝난다. 운전자 폰의 등록은 무효가 되므로 모두 다시 등록해야 한다.
+
+```bash
+# 1) 백업(위 "공통: 백업"). 2) 먼저 건수만 확인한다 — 아무것도 지우지 않는다.
+bin/kamal app exec --interactive --reuse "bin/rails ops:reset_data"
+# 3) 건수가 맞으면 확인 변수를 붙여 실행한다.
+bin/kamal app exec --interactive --reuse "env OPS_RESET_CONFIRM=reset bin/rails ops:reset_data"
+```
+
+- 진행 중인 운행(`ended_at` nil)이 있으면 중단한다.
+- Traccar를 **먼저** 지우고(이미 없으면 건너뜀) 하나라도 실패하면 Rails는 지우지 않고 멈춘다. 다시 실행해도 안전하다.
+- Rails가 ID를 모르는 Traccar 자원(수동 생성분)과 Traccar 사용자 계정은 지우지 않는다. 남은 것은 Traccar 웹 화면에서 확인한다.
+- Traccar 이벤트 ID는 이어지므로 중복 방지 키 충돌은 없다. 이후 "초기 데이터 입력 순서" 2번부터 다시 입력한다.
 
 ### B. 전체 초기화
 
