@@ -5,12 +5,20 @@ namespace :traccar do
     "TRACCAR_API_TOKEN" => "dev-traccar-api-token"
   }
 
+  # 로컬에서만 접속 기본값을 채우고(fill), 블록이 끝나면 원래 환경변수로 되돌린다.
+  with_local_env = lambda do |fill: true, &block|
+    original = local_defaults.keys.to_h { |key| [ key, ENV[key] ] }
+    local_defaults.each { |key, value| ENV[key] = value if ENV[key].blank? } if fill
+    block.call
+  ensure
+    original&.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+  end
+
   desc "Route/Stop/Bus/RouteStop을 로컬 Traccar에 다시 동기화한다(group → geofence → device → 정류장 연결). bin/traccar reset 뒤에 쓴다"
   task sync: :environment do
     abort "운영 환경에서는 실행하지 않습니다(로컬 개발용)." if Rails.env.production?
 
-    original = local_defaults.keys.to_h { |key| [ key, ENV[key] ] }
-    local_defaults.each { |key, value| ENV[key] = value if ENV[key].blank? }
+    with_local_env.call do
     puts "대상 Traccar: #{ENV["TRACCAR_API_BASE_URL"]}"
 
     failures = []
@@ -38,8 +46,7 @@ namespace :traccar do
       abort
     end
     puts "완료."
-  ensure
-    original&.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+    end
   end
 
   desc "Traccar 웹 화면용 관리자 계정을 만든다(서비스 토큰 사용, 이미 있으면 건너뜀). TRACCAR_ADMIN_EMAIL, 비밀번호는 TRACCAR_ADMIN_PASSWORD 또는 입력 프롬프트"
@@ -59,10 +66,7 @@ namespace :traccar do
     end
 
     # 운영은 컨테이너의 환경변수(TRACCAR_API_*)를 그대로 쓴다. 로컬 개발에서만 기본값을 채워 credentials의 원격 서버로 새지 않게 한다.
-    original = local_defaults.keys.to_h { |key| [ key, ENV[key] ] }
-    unless Rails.env.production?
-      local_defaults.each { |key, value| ENV[key] = value if ENV[key].blank? }
-    end
+    with_local_env.call(fill: !Rails.env.production?) do
     puts "대상 Traccar: #{ENV["TRACCAR_API_BASE_URL"].presence || "(credentials)"}"
 
     begin
@@ -77,8 +81,7 @@ namespace :traccar do
     rescue *TraccarApiClient::RESCUED_ERRORS => e
       abort "Traccar 관리자 계정 확인 실패: #{e.message}"
     end
-  ensure
-    original&.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+    end
   end
 
   desc "저장된 traccar_*_id를 비운다. Traccar 데이터를 지웠을 때(bin/traccar reset)만 쓴다 — 남아 있는 Traccar 자원과 중복·충돌될 수 있다"

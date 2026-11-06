@@ -20,7 +20,7 @@ class TraccarRakeTest < ActiveSupport::TestCase
   end
 
   teardown do
-    SERVICES.each { |service| service.stub_credentials(base_url: nil, email: nil, password: nil) }
+    SERVICES.each { |service| service.clear_stubbed_credentials }
   end
 
   def run_task(name)
@@ -78,6 +78,7 @@ class TraccarRakeTest < ActiveSupport::TestCase
     assert Stop.all.all? { |stop| stop.traccar_geofence_id.nil? }
     assert Bus.all.all? { |bus| bus.traccar_device_id.nil? }
   end
+
   test "create_admin은 관리자 계정을 만들고 이미 있으면 건너뛴다" do
     TraccarAdminUser.stub_credentials(base_url: TRACCAR_API, token: "t")
     stub_request(:get, "#{TRACCAR_API}/api/users").to_return(
@@ -102,7 +103,7 @@ class TraccarRakeTest < ActiveSupport::TestCase
   ensure
     ENV.delete("TRACCAR_ADMIN_EMAIL")
     ENV.delete("TRACCAR_ADMIN_PASSWORD")
-    TraccarAdminUser.stub_credentials(base_url: nil, email: nil, password: nil)
+    TraccarAdminUser.clear_stubbed_credentials
   end
 
   test "create_admin은 이메일이 없으면 중단한다" do

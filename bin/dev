@@ -13,7 +13,7 @@ export RAILS_PORT="$PORT"
 # Procfile.dev의 traccar(bin/traccar dev)는 도커 컨테이너다. Rails는 그 Traccar를 쓰도록 접속 값을 맞추고(credentials의
 # 원격 서버로 새지 않게), 컨테이너가 호스트 Rails로 이벤트를 포워딩할 수 있게 모든 인터페이스에 바인딩한다.
 # Traccar를 쓰지 않으면(TRACCAR=0) 아무것도 바꾸지 않는다.
-if [ "${TRACCAR:-1}" != "0" ] && command -v docker >/dev/null 2>&1; then
+if [ "${TRACCAR:-1}" != "0" ] && command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   export TRACCAR_API_BASE_URL="${TRACCAR_API_BASE_URL:-http://localhost:8082}"
   export TRACCAR_API_TOKEN="${TRACCAR_API_TOKEN:-dev-traccar-api-token}"
   export TRACCAR_INGEST_TOKEN="${TRACCAR_INGEST_TOKEN:-dev-traccar-token}"

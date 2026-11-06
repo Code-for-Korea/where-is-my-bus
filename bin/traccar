@@ -69,7 +69,7 @@ write_config() {
   local api_token_xml ingest_token_xml
   api_token_xml="$(xml_escape "$API_TOKEN")"
   ingest_token_xml="$(xml_escape "$INGEST_TOKEN")"
-  mkdir -p "${DATA_DIR}/conf" "${DATA_DIR}/data" "${DATA_DIR}/logs"
+  mkdir -p "${DATA_DIR}/conf" "${DATA_DIR}/data" "${DATA_DIR}/logs" || exit 1
   cat >"${DATA_DIR}/conf/traccar.xml" <<EOF
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
@@ -127,21 +127,21 @@ print_ready() {
 cmd_up() {
   require_docker
   check_ports
-  write_config
+  write_config || exit 1
 
   # --rm이라 정지하면 컨테이너가 사라진다(데이터는 DATA_DIR에 남는다). 떠 있을 때만 재시작해 새 설정을 읽힌다.
   if docker ps -q --filter "name=^${NAME}$" | grep -q .; then
     echo "${NAME} 재시작..."
-    docker restart "$NAME" >/dev/null
+    docker restart "$NAME" >/dev/null || exit 1
   else
     echo "${NAME} 기동..."
     docker run -d --rm --name "$NAME" \
       --add-host=host.docker.internal:host-gateway \
-      -p "${API_PORT}:8082" -p "${DEVICE_PORT}:5055" \
+      -p "127.0.0.1:${API_PORT}:8082" -p "${DEVICE_PORT}:5055" \
       -v "${DATA_DIR}/conf/traccar.xml:/opt/traccar/conf/traccar.xml:ro" \
       -v "${DATA_DIR}/data:/opt/traccar/data" \
       -v "${DATA_DIR}/logs:/opt/traccar/logs" \
-      "$IMAGE" >/dev/null
+      "$IMAGE" >/dev/null || exit 1
   fi
 
   wait_for_api
@@ -172,7 +172,8 @@ cmd_logs() {
 cmd_reset() {
   require_docker
   docker rm -f "$NAME" >/dev/null 2>&1 || true
-  rm -rf "${DATA_DIR}"
+  # Linux에서는 컨테이너(root)가 만든 파일이라 호스트 사용자가 지우지 못할 수 있어 컨테이너로 한 번 더 시도한다.
+  rm -rf "${DATA_DIR}" 2>/dev/null || docker run --rm -v "$(dirname "${DATA_DIR}"):/v" alpine rm -rf /v/traccar || exit 1
   echo "Traccar 데이터(${DATA_DIR})를 지웠습니다."
   # Rails에 저장된 traccar_*_id가 사라진 자원을 가리키므로 함께 비운다. 새로 기동한 뒤 bin/rails traccar:sync로 다시 만든다.
   (cd "$ROOT" && bin/rails traccar:reset_ids) || echo "traccar_*_id를 비우지 못했습니다. bin/rails traccar:reset_ids를 직접 실행하세요." >&2
