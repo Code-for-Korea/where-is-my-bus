@@ -147,7 +147,7 @@ bin/kamal secrets print | sed -E 's/(RAILS_MASTER_KEY|KAMAL_REGISTRY_PASSWORD)=.
 - **토큰을 비밀번호 관리자에도 보관한다.** 배포 PC를 바꾸면 같은 값을 다시 넣어야 하고, 값이 달라지면 Rails ↔ Traccar가 끊긴다.
 - 로컬 데모 토큰(`dev-traccar-*`)은 공개 저장소에 있으므로 **운영에서 쓰지 않는다.** 쓰거나 값이 비어 있으면 앱이 부팅하지 않는다(`TraccarProductionCheck`).
 - Traccar 설정은 `traccar.xml` 없이 `deploy.yml`의 환경변수로 한다(`web.registration`은 꺼 둔다). 환경변수 이름 규칙, 포워딩 확인 결과, 남은 위험은 [traccar-accessory.md](traccar-accessory.md).
-- 첫 가입 전에 **Traccar에 사람이 로그인할 일이 없다.** 웹(8082)은 보안 그룹에서 관리자 IP로만 열려 있다. Traccar 관리자 계정을 어떻게 만드는지(`WEB_REGISTRATION=false`라 화면에서 가입할 수 없다)는 **아직 확인하지 않았다.** 첫 접속 전에 확인한다.
+- Rails는 서비스 토큰으로 Traccar를 부르므로 **Rails 동작에는 Traccar 계정이 필요 없다.** 사람이 Traccar 관리 화면에 들어갈 때만 계정이 필요하다. 관리 화면은 `https://admin.traccar.where-is-my-bus.codefor.kr`(브라우저 인증 뒤 Traccar 로그인, [traccar-accessory.md](traccar-accessory.md) "이름과 구성")이고, 임시 8082는 보안 그룹에서 관리자 IP로만 열려 있다. `WEB_REGISTRATION=false`라 화면에서 가입할 수 없으므로 **서버에서 `traccar:create_admin`으로 만든다**(아래 "Traccar 관리자 계정 만들기").
 
 ## 이미지에 넣지 않는 것 (공개 이미지)
 
@@ -255,6 +255,57 @@ bin/kamal app logs         # 부팅 로그
 - 차량을 등록하고 운전자 앱으로 PIN 등록·운행을 시작한다. 위치를 보내면 Traccar 이벤트가 도착해 `stop_visits`가 생긴다.
 - GA4(`G-V5FQ7DHE99`) 실시간 보고서에 `page_path`와 `arrival_status`가 보인다.
 
+## 운영 정보 인수인계
+
+운영을 넘겨받는 사람(운영자, 배포 담당)에게 **무엇을 어디로 전달하는지** 정리한다. 이 절에는 값을 적지 않는다. 저장소가 공개라 비밀번호·토큰·해시를 문서나 PR에 쓰면 안 된다. 값은 비밀번호 관리자의 공유 항목처럼 **저장소 밖**에서 전달한다(채팅·메일 본문에 평문으로 보내지 않는다).
+
+### 전달할 항목 (양식)
+
+| 항목 | 값 | 받는 사람 |
+|---|---|---|
+| 관리자 화면 주소 | `https://where-is-my-bus.codefor.kr/admin` | 운영자 |
+| 관리자 로그인 | 이메일 주소 / 비밀번호 (첫 가입자 = operator, 위 "첫 가입자가 운영자다") | 운영자 |
+| 위치 수신 주소 | `https://traccar.where-is-my-bus.codefor.kr` (`TRACCAR_SERVER_URL`) | 운영자·운전자(앱이 등록 때 자동으로 받는다) |
+| Traccar 관리 화면 | `https://admin.traccar.where-is-my-bus.codefor.kr` | Traccar를 직접 볼 사람 |
+| ㄴ 브라우저 인증 | 아이디 / 비밀번호 (`TRACCAR_ADMIN_HTPASSWD`의 계정) | 위와 같음 |
+| ㄴ Traccar 로그인 | 이메일 주소 / 비밀번호 (`traccar:create_admin`으로 생성, 아래 "Traccar 관리자 계정 만들기") | 위와 같음 |
+| `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN` | 배포 PC의 환경변수 또는 `.env.deploy` | **배포 담당만** |
+| `production.key`, 레지스트리 토큰, 서버 SSH | 위 "배포 전 준비" | **배포 담당만** |
+
+Traccar 관리 화면은 **두 단계**다. 먼저 브라우저 인증 창에서 아이디/비밀번호를 넣고, 통과하면 Traccar 로그인 화면에서 이메일 주소/비밀번호로 로그인한다. 인수인계 때 이 순서대로 접속되는지 받는 사람과 한 번 같이 확인한다.
+
+### 운전자 앱에는 토큰이 필요 없다
+
+`TRACCAR_API_TOKEN`과 `TRACCAR_INGEST_TOKEN`은 **서버끼리**(Rails ↔ Traccar) 쓰는 값이다. 운전자 앱에 입력하거나 운전자에게 알려 주지 않는다. 운전자 앱에 필요한 것은 두 가지뿐이다.
+
+1. **서버 주소**: `https://where-is-my-bus.codefor.kr` (앱 등록 화면에 입력)
+2. **차량 PIN**: 관리자 화면의 차량 상세. 1회용이고 쓰이면 소모된다.
+
+등록하면 앱이 위치 수신 주소(`TRACCAR_SERVER_URL`)와 기기 ID를 서버에서 받아 간다(`driver_app/ISSUE.md`). 토큰이 앱 쪽에 새면 이벤트 위조나 Traccar 제어가 가능해지므로 앱 설정 안내에 토큰이 들어 있다면 빼야 한다.
+
+### Traccar 관리자 계정 만들기
+
+Traccar 관리 화면에 사람이 로그인할 계정은 서버의 Rails 컨테이너에서 만든다. 컨테이너에 이미 `TRACCAR_API_BASE_URL`·`TRACCAR_API_TOKEN`이 있어 **서비스 토큰으로 `POST /api/users`**를 부르고 `administrator: true`로 만든다(`app/services/traccar_admin_user.rb`, `lib/tasks/traccar.rake`).
+
+```bash
+# 비밀번호는 인자로 받지 않는다(셸 기록·ps에 남는다). TTY에서 실행하면 입력 프롬프트가 뜬다.
+bin/kamal app exec --interactive --reuse "env TRACCAR_ADMIN_EMAIL=<이메일> bin/rails traccar:create_admin"
+```
+
+- **이미 있는 이메일은 건드리지 않는다**(비밀번호를 덮어쓰지 않고 "이미 있는 계정입니다"로 끝난다). 여러 번 실행해도 안전하다. 비밀번호를 잊었으면 Traccar 관리 화면의 사용자 편집에서 바꾼다.
+- `TRACCAR_ADMIN_PASSWORD` 환경변수로 줄 수도 있지만 명령줄에 남으므로 프롬프트를 권한다. 값은 저장소·PR에 쓰지 않는다.
+- 이 계정은 Rails 동작과 무관하다. 관리 화면에 들어갈 사람 수만큼만 만든다.
+- **로컬 Traccar에서 확인한 것**: 서비스 토큰으로 계정이 만들어지고, 그 계정이 관리자이며(`/api/users` 목록 조회 200, 틀린 비밀번호 401), 같은 이메일 재실행은 건너뛴다. **확인하지 못한 것**: `WEB_REGISTRATION=false`인 운영 Traccar에서의 동작(로컬 `bin/traccar`는 가입을 막지 않는다). 관리자가 서비스 토큰으로 사용자를 만드는 경로는 가입 허용 여부와 무관할 것으로 보지만, 첫 실행 때 응답(`403` 등)을 확인한다. 막히면 Traccar를 잠깐 `WEB_REGISTRATION=true`로 올려 첫 계정을 만들고 되돌리는 방법이 있으나, 그동안 누구나 가입할 수 있으므로 권하지 않는다.
+
+### 인수인계 확인 목록
+
+- [ ] 관리자 이메일/비밀번호로 `/admin` 로그인
+- [ ] Traccar 관리 화면: 브라우저 인증 → Traccar 로그인 순서로 접속
+- [ ] 비밀번호 관리자에 위 값들이 보관돼 있다(배포 PC를 바꿔도 복구 가능)
+- [ ] 배포 담당이 `bin/deploy`를 실행할 수 있다(`gh` 로그인, `.env.deploy`, `production.key`)
+- [ ] 운전자에게는 서버 주소와 PIN만 전달했다
+- [ ] 임시 평문 5055·8082 게시와 보안 그룹 규칙이 남아 있다면 담당자와 정리 시점을 정했다("첫 배포의 위치 수신은 임시로 평문(HTTP)이다")
+
 ## 빌드가 멈출 때 (첫 배포에서 겪은 것, 2026-11-01)
 
 `bin/deploy setup`이 `#22 pushing manifest … done`과 `DONE`까지 찍은 뒤 아무 반응이 없었다.
@@ -323,6 +374,87 @@ sqlite3 /tmp/restore/production.sqlite3 "select count(*) from users;"
 
 - 실제 복원: 컨테이너를 멈추고(`bin/kamal app stop`) 호스트 `storage/`의 해당 파일을 백업본으로 바꾼 뒤 `chown 1000:1000`, `bin/kamal app boot`.
 - **Traccar DB(H2, `/var/lib/where-is-my-bus/traccar`)도 이 서버에 있다.** 실행 중인 H2 파일을 `cp`하면 깨질 수 있어 Traccar를 잠깐 멈추고 복사한다([traccar-accessory.md](traccar-accessory.md) "데이터와 백업"). Rails만 복원하면 Traccar와 ID가 어긋나므로 **같은 시각에 함께 백업·복원한다**(`docs/future-improvements.md` 19번).
+
+## 운영 데이터 초기화와 초기 데이터 입력 (제안)
+
+> **제안이며 실제 서버에서 실행해 보지 않았다.** 운영에는 시드가 없으므로(`demo:seed`는 운영에서 `abort`) 처음 채우는 일과 시험 데이터를 지우는 일은 모두 이 절을 따른다. 데이터를 지우는 작업이라 **실행 전에 백업을 먼저 하고, 무엇을 지우는지 확인한 뒤 사람이 직접 실행한다.**
+
+### 먼저 무엇을 지울지 고른다
+
+| 목적 | 지우는 것 | Traccar | 쓰는 때 |
+|---|---|---|---|
+| **A. 운행 기록만** | `stop_visits`, `trips` | 그대로 | 시험 운행 기록을 비우고 노선·정류장·차량은 유지 |
+| **B. 전체 초기화** | Rails DB 4개 + Traccar DB | 함께 지움 | 시험 데이터를 모두 버리고 처음부터 다시 입력 |
+| ~~Rails만 지움~~ | Rails DB만 | 남음 | **하지 않는다.** Traccar에 Geofence·그룹·기기가 남아 ID가 어긋난다(`future-improvements.md` 19번) |
+
+Rails DB와 Traccar DB는 **같은 시각에 함께** 다룬다. A는 Traccar를 건드리지 않아 위험이 적고, B는 되돌릴 수 없다.
+
+### 공통: 백업
+
+```bash
+# 서버에서. Rails(SQLite 4개)와 Traccar(H2)를 같은 시각에 받는다.
+./backup-storage                      # 위 "데이터와 백업"
+bin/kamal accessory stop traccar      # H2는 멈춘 뒤에 복사한다
+sudo cp -a /var/lib/where-is-my-bus/traccar /var/backups/where-is-my-bus/traccar-$(date +%Y%m%d-%H%M%S)
+bin/kamal accessory boot traccar      # A만 할 거라면 다시 올린다
+```
+
+백업이 실제로 열리는지(`sqlite3 ... "select count(*) from users;"`)까지 본 뒤에 다음으로 간다.
+
+### A. 운행 기록만 지우기
+
+운행 중인 버스가 없을 때 한다. 운행이 열려 있으면(`ended_at` nil) 먼저 종료한다.
+
+```bash
+bin/kamal app exec --interactive --reuse "bin/rails runner 'p Trip.where(ended_at: nil).count'"   # 0이어야 한다
+bin/kamal app exec --interactive --reuse "bin/rails runner 'StopVisit.delete_all; Trip.delete_all; puts :done'"
+```
+
+노선·정류장·차량·PIN은 그대로라 운전자 앱을 다시 등록할 필요가 없다. Traccar의 이벤트 ID는 계속 이어지므로 중복 방지 키(이벤트 ID와 시각을 합친 키) 충돌도 없다.
+
+### B. 전체 초기화
+
+```bash
+bin/kamal app stop                    # Rails 정지(이벤트 수신 중단)
+bin/kamal accessory stop traccar
+# 지우지 말고 옮긴다. 확인 후에 지운다.
+sudo mkdir -p /var/backups/where-is-my-bus/reset-$(date +%Y%m%d)
+sudo mv /var/lib/where-is-my-bus/storage/*.sqlite3* /var/backups/where-is-my-bus/reset-$(date +%Y%m%d)/
+sudo mv /var/lib/where-is-my-bus/traccar/* /var/backups/where-is-my-bus/reset-$(date +%Y%m%d)/
+bin/kamal accessory boot traccar      # 빈 H2로 시작. 서비스 토큰은 환경변수라 계정을 따로 만들 필요가 없다
+bin/kamal app boot                    # db:prepare가 빈 DB 4개를 만든다(시드 없음)
+```
+
+- 경로를 눈으로 확인한 뒤 실행한다. `storage/` 안의 `*.sqlite3*`만 옮기고 디렉터리 자체와 소유자(`1000:1000`)는 그대로 둔다.
+- 끝나면 `https://<도메인>/up`이 200이고 `users`가 0이어야 한다. **운전자 폰의 등록 정보는 무효가 된다**(차량·PIN이 새로 생기므로). 모든 기기가 다시 등록해야 한다.
+- 이 상태에서는 **첫 가입자가 자동 operator**다. 아래 순서의 1번을 바로 이어서 한다.
+
+### 초기 데이터 입력 순서
+
+관리자 화면(`/admin`)에서 입력한다. 정류장·노선·차량 등록은 Traccar 호출과 한 트랜잭션이라, 입력하는 순간 Traccar에 Geofence·그룹·기기가 만들어진다.
+
+1. **운영자 가입**: `/registration/new`에서 가장 먼저 가입한다(첫 가입자가 operator).
+2. **정류장**: 이름과 좌표(`lat`, `lng`)를 입력한다 → Geofence 생성. 좌표는 입력 전에 표로 정리해 둔다.
+3. **노선**: 이름을 입력한다 → Traccar 그룹 생성. 이름은 중복되면 안 된다.
+4. **노선에 정류장 연결**: 노선 상세에서 정차 순서대로 추가한다(순서는 나중에 바꾸기 어렵다, `future-improvements.md` 11번).
+5. **차량**: 번호판(필수, 중복 불가)을 입력하고 **노선을 배정한다**. PIN(6자리)과 `traccar_unique_id`가 자동 생성된다.
+6. **PIN 전달**: 차량 상세의 PIN과 서버 주소를 운전자에게 전달한다. PIN은 1회용이라 쓰이면 소모되고, 분실·기기 교체는 "PIN 재발급".
+7. **확인**: Traccar 웹 UI에서 Geofence·그룹·기기 개수가 Rails의 정류장·노선·차량 수와 같은지, 승객 화면에 노선·정류장이 보이는지 본다. 어긋나면 admin의 `sync_geofence`·`sync_group`·`sync_device`로 다시 맞춘다.
+
+입력할 값을 미리 표로 만들어 두면 실수가 준다:
+
+| 항목 | 필요한 값 |
+|---|---|
+| 정류장 | 이름, 위도, 경도 |
+| 노선 | 이름, 정류장 순서 목록 |
+| 차량 | 번호판, 차량 번호(선택), 배정 노선 |
+
+### 자동화가 필요해지면 (후속 제안)
+
+지금 규모(정류장 몇 개, 노선 몇 개)는 위 수동 입력이 가장 안전하다. 규모가 늘거나 B를 자주 하게 되면 **CSV/YAML을 읽어 `*Registration` 서비스로 등록하는 rake 작업**(예: `ops:bootstrap`)을 만든다.
+- `Stop.create` 같은 직접 생성이 아니라 `StopRegistration` 등을 통해야 Traccar 동기화와 롤백 규칙이 적용된다(`docs/traccar-integration.md`).
+- 이미 있으면 건너뛰도록 멱등하게 만들고, `demo:seed`처럼 운영 가드는 두되 **명시적 확인 환경변수가 있을 때만** 실행한다.
+- 파일에는 PIN·토큰을 넣지 않는다(저장소가 공개다).
 
 ## 마이그레이션
 

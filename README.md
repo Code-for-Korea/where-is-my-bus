@@ -36,6 +36,210 @@ GPS 좌표를 쌓아 두고 가까운 정류장을 계산하는 방식이 아니
 
 ---
 
+## 시스템 구성도
+
+세 환경 모두 같은 구조(Rails ↔ Traccar)이고, **누가 어디서 도느냐와 주소**만 다릅니다. 자세한 설정은 [docs/local-demo.md](docs/local-demo.md)(로컬), [docs/deployment.md](docs/deployment.md)·[docs/traccar-accessory.md](docs/traccar-accessory.md)(운영)에 있습니다.
+
+### 로컬 개발 — A. `docker compose`
+
+Rails와 Traccar가 모두 컨테이너입니다. 서로 서비스 이름(`rails`, `traccar`)으로 부릅니다.
+
+```mermaid
+flowchart LR
+  subgraph PC["내 PC"]
+    BR["브라우저 / 시뮬레이터 demo:drive"]
+    subgraph DC["docker compose 네트워크"]
+      RA["rails 컨테이너 :3000 SQLite 볼륨"]
+      TR["traccar 컨테이너 :8082 API · :5055 위치 수신"]
+    end
+  end
+  BR -->|"웹 화면 :3000"| RA
+  BR -->|"위치 OsmAnd :5055"| TR
+  RA -->|"http://traccar:8082 서비스 토큰"| TR
+  TR -->|"http://rails:3000/integrations/traccar/events X-Ingest-Token"| RA
+```
+
+### 로컬 개발 — B. `bin/dev`
+
+Rails는 내 PC에서 직접 돌고(`foreman`: web, css, traccar), Traccar만 컨테이너입니다. 컨테이너가 호스트 Rails를 `host.docker.internal`로 부릅니다.
+
+```mermaid
+flowchart LR
+  subgraph PC["내 PC"]
+    BR["브라우저 / 운전자 앱 시뮬레이터 / demo:drive"]
+    subgraph FM["bin/dev (foreman)"]
+      WEB["web: Rails Puma :3000 (0.0.0.0)"]
+      CSS["css: Tailwind watch"]
+      TRP["traccar: bin/traccar dev"]
+    end
+    TRC["where-is-my-bus-traccar 컨테이너 :8082 · :5055 데이터 tmp/docker/volumes/traccar"]
+  end
+  TRP -.->|"기동·정지"| TRC
+  BR -->|"웹 화면 :3000"| WEB
+  BR -->|"위치 OsmAnd :5055"| TRC
+  WEB -->|"http://localhost:8082 서비스 토큰"| TRC
+  TRC -->|"http://host.docker.internal:3000/integrations/traccar/events"| WEB
+```
+
+두 방식은 같은 포트(8082·5055)를 쓰므로 동시에 띄울 수 없습니다. 고르는 법은 [docs/local-demo.md](docs/local-demo.md)의 "어떤 방식으로 띄울까"를 보세요.
+
+### 실서버 (Kamal, 서버 1대)
+
+Rails와 Traccar가 **한 서버의 도커 네트워크**에 같이 있고, 서버 밖에서는 `kamal-proxy`(80/443)만 HTTPS로 받습니다.
+
+```mermaid
+flowchart TB
+  P["승객 · 운영자 브라우저"]
+  D["운전자 앱 (Flutter)"]
+  A["Traccar 관리자 브라우저"]
+  subgraph DEV["배포 PC"]
+    KM["bin/deploy (Kamal) .env.deploy production.key"]
+  end
+  REG[("GHCR 이미지 저장소")]
+  subgraph SRV["서버 web01 (도커)"]
+    KP["kamal-proxy :80/:443 Let's Encrypt TLS"]
+    RAILS["Rails 컨테이너 Thruster → Puma + Solid Queue"]
+    NGX["traccar-proxy (nginx) Host로 분기, 관리 이름만 Basic 인증"]
+    TRA["Traccar 컨테이너 :5055 위치 · :8082 API"]
+    DB1[("/var/lib/where-is-my-bus/storage SQLite 4개")]
+    DB2[("/var/lib/where-is-my-bus/traccar H2")]
+  end
+  P -->|"https://where-is-my-bus.codefor.kr"| KP
+  D -->|"등록 · 운행 시작/종료 (같은 주소)"| KP
+  D -->|"위치 https://traccar.where-is-my-bus.codefor.kr"| KP
+  A -->|"https://admin.traccar.where-is-my-bus.codefor.kr"| KP
+  KP --> RAILS
+  KP --> NGX
+  NGX -->|"5055"| TRA
+  NGX -->|"8082"| TRA
+  RAILS -->|"http://where-is-my-bus-traccar:8082 Bearer 서비스 토큰"| TRA
+  TRA -->|"http://rails-app:80/integrations/traccar/events X-Ingest-Token"| RAILS
+  RAILS --- DB1
+  TRA --- DB2
+  KM -->|"이미지 빌드·push"| REG
+  KM -->|"SSH로 배포"| SRV
+  SRV -->|"이미지 pull"| REG
+```
+
+| 구분 | 로컬 compose | 로컬 `bin/dev` | 실서버 |
+|---|---|---|---|
+| Rails | 컨테이너 | 내 PC | 컨테이너(Kamal, GHCR 이미지) |
+| Traccar | compose 서비스 | 컨테이너 1개 | Kamal accessory + nginx 앞단 |
+| Rails → Traccar | `http://traccar:8082` | `http://localhost:8082` | `http://where-is-my-bus-traccar:8082` |
+| Traccar → Rails | `http://rails:3000` | `http://host.docker.internal:3000` | `http://rails-app:80` |
+| 위치 수신 주소(`TRACCAR_SERVER_URL`) | `http://localhost:5055` | `http://localhost:5055` | `https://traccar.where-is-my-bus.codefor.kr` |
+| HTTPS | 없음 | 없음 | kamal-proxy가 인증서 발급·종단 |
+| 데이터 | 도커 볼륨 | `storage/`, `tmp/docker/volumes/traccar` | 서버 호스트 디렉터리(컨테이너 밖) |
+| 토큰 | `dev-traccar-*`(공개 값) | 같음 | 새로 만든 값(`.env.deploy`), 개발 값이면 부팅 실패 |
+
+- 서버 밖에서 Rails ↔ Traccar 호출이 오가지 않습니다. 이벤트 포워딩과 API 호출은 모두 서버 안 도커 네트워크입니다.
+- 임시로 평문 5055와 8082가 서버 밖에 게시되어 있습니다. HTTPS 전환이 끝나면 게시와 보안 그룹 규칙을 지웁니다(`docs/deployment.md`).
+- 위 구성도에서 Rails 컨테이너 앞 `Thruster`는 정적 파일 캐시·압축을 맡는 프록시이고, `Solid Queue`는 Puma 안에서 돕니다(`SOLID_QUEUE_IN_PUMA`).
+
+---
+
+## 동작 프로세스
+
+버스 한 대가 정류장을 지나는 것이 승객 화면에 나타나기까지를 네 단계로 나눠 봅니다. 환경(로컬·실서버)과 무관하게 같습니다.
+
+### 1. 준비 — 운영자가 등록한다
+
+정류장·노선·차량을 저장하면 **같은 트랜잭션 안에서 Traccar에도 만들어집니다.** Traccar 호출이 실패하면 Rails 변경도 취소됩니다(`*Registration`).
+
+```mermaid
+sequenceDiagram
+  actor OP as 운영자
+  participant RA as Rails 관리 화면
+  participant TR as Traccar
+  OP->>RA: 정류장 등록 (이름, 좌표)
+  RA->>TR: Geofence 생성
+  OP->>RA: 노선 등록
+  RA->>TR: Group 생성
+  OP->>RA: 노선에 정류장을 정차 순서대로 추가
+  RA->>TR: Geofence를 노선 Group에 연결
+  OP->>RA: 차량 등록 후 노선 배정
+  RA->>TR: Device 생성 후 노선 Group으로 이동
+  RA-->>OP: 차량 PIN 발급 (6자리, 1회용)
+```
+
+노선별 Group 구조 덕분에 **그 노선의 정류장 영역을 지날 때만** 이벤트가 옵니다(2번 버스가 1번 노선의 시장 정류장을 지나도 기록되지 않습니다).
+
+### 2. 기기 등록 — 운전자 앱이 PIN으로 연결한다
+
+```mermaid
+sequenceDiagram
+  actor DR as 운전자
+  participant AP as 운전자 앱
+  participant RA as Rails
+  DR->>AP: 서버 주소와 PIN 입력
+  AP->>RA: POST /integrations/traccar/register (PIN)
+  Note over RA: PIN을 한 번 쓰고 소모, IP당 5회 실패 시 15분 잠금
+  RA-->>AP: deviceId, 위치 수신 주소, 차량, 배정 노선
+  AP->>AP: 값을 기기에 저장하고 위치 SDK를 초기화
+```
+
+기기를 바꾸거나 PIN이 새면 운영자가 "PIN 재발급"을 합니다.
+
+### 3. 운행 — 위치가 정류장 방문 기록이 된다
+
+```mermaid
+sequenceDiagram
+  actor DR as 운전자
+  participant AP as 운전자 앱
+  participant RA as Rails
+  participant TR as Traccar
+  DR->>AP: 운행 시작
+  AP->>RA: POST trips/start (deviceId)
+  Note over RA: 배정된 노선으로 Trip 생성, 버스당 진행 중 1개, Traccar는 부르지 않음
+  RA-->>AP: 운행 정보
+  loop 운행 중 (15m 또는 10초마다)
+    AP->>TR: 위치 전송 (OsmAnd, :5055)
+  end
+  TR->>TR: 노선 Group의 정류장 영역 진입 또는 이탈 판정
+  TR->>RA: POST /integrations/traccar/events (geofenceEnter 또는 geofenceExit, X-Ingest-Token)
+  Note over RA: StopVisitRecorder가 진행 중 Trip의 정류장 방문(stop_visits)으로 기록
+  RA-->>TR: 항상 200 (기록하지 않을 때는 status ignored와 사유)
+  DR->>AP: 운행 종료
+  AP->>RA: POST trips/end (deviceId)
+  Note over RA: Trip 종료 (진행 중 운행이 없어도 200)
+```
+
+Rails는 좌표를 받지도 저장하지도 않습니다. 인증 실패(401)를 뺀 모든 이벤트에 200으로 답하는 것은 4xx를 주면 Traccar의 재시도가 폭주하기 때문입니다.
+
+이벤트를 받았을 때의 판단:
+
+```mermaid
+flowchart TD
+  E["Geofence 이벤트 수신"] --> T{"진입 또는 이탈인가"}
+  T -->|"아니오"| I["무시 (200, 사유 기록)"]
+  T -->|"예"| K{"단말·정류장을 아는가"}
+  K -->|"아니오"| I
+  K -->|"예"| R{"진행 중인 운행이 있고 그 노선의 정류장인가"}
+  R -->|"아니오"| I
+  R -->|"예"| D{"이미 처리한 이벤트인가"}
+  D -->|"예"| I
+  D -->|"아니오"| X{"진입인가 이탈인가"}
+  X -->|"진입"| V1["방문 기록 생성 (entered_at)"]
+  X -->|"이탈"| V2["열린 방문 기록에 exited_at 저장"]
+```
+
+### 4. 조회 — 승객이 정류장 단위로 본다
+
+```mermaid
+sequenceDiagram
+  actor PA as 승객
+  participant WB as 승객 화면
+  participant RA as Rails
+  PA->>WB: 정류장과 노선 선택
+  loop 5초마다
+    WB->>RA: 도착 정보 요청
+    Note over RA: 진행 중 운행의 stop_visits로 계산 (좌표·ETA 없음)
+    RA-->>WB: N정거장 전에 있습니다 또는 정차 중 또는 이미 지나갔어요
+  end
+```
+
+---
+
 ## 기술 스택
 
 - **Ruby** 4.0.9 / **Rails** 8.1 (`.tool-versions`로 asdf 고정)
@@ -44,7 +248,7 @@ GPS 좌표를 쌓아 두고 가까운 정류장을 계산하는 방식이 아니
 - **인증**: Rails 8 내장 인증(세션 + `has_secure_password`)
 - 백그라운드/캐시/케이블: Solid Queue / Solid Cache / Solid Cable
 - 위치 서버: Traccar (Docker, `compose.yaml`)
-- 배포: Kamal (`config/deploy.yml`은 아직 placeholder)
+- 배포: Kamal + GHCR 이미지, 운영 Traccar는 같은 서버의 accessory ([docs/deployment.md](docs/deployment.md))
 
 ---
 
@@ -74,7 +278,7 @@ docker compose exec rails bin/rails "demo:drive[1번]"   # 폰 없이 버스 한
 
 - 승객 화면 <http://localhost:3000/> · 관리자 <http://localhost:3000/admin> · Traccar <http://localhost:8082>
 - 관리자 계정과 차량 PIN·`deviceId`는 `docker compose logs rails`에 출력됩니다.
-- 자세한 시연 순서·문제 해결: [docs/local-demo.md](docs/local-demo.md)
+- 자세한 시연 순서·문제 해결, compose와 bin/dev 중 고르는 법: [docs/local-demo.md](docs/local-demo.md)
 
 ### Rails를 직접 실행
 
@@ -82,10 +286,10 @@ docker compose exec rails bin/rails "demo:drive[1번]"   # 폰 없이 버스 한
 
 ```bash
 bundle install
-bin/dev            # Rails 서버 + Tailwind watch (Traccar는 포함되지 않음)
+bin/dev            # Rails 서버 + Tailwind watch + 로컬 Traccar(Docker가 있으면 bin/traccar가 함께 뜬다. TRACCAR=0이면 제외)
 ```
 
-노선·정류장·차량을 등록하거나 데모 시드(`bin/rails demo:seed`)를 실행하려면 **Traccar 서버가 떠 있어야** 합니다(등록이 Traccar 호출과 한 트랜잭션으로 묶여 있음). Traccar 접속 정보는 환경변수(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)가 credentials보다 우선하며, 표와 설정 방법은 [docs/traccar-integration.md](docs/traccar-integration.md)에 있습니다. 가장 간단한 방법은 `docker compose up -d traccar`로 Traccar만 띄우는 것입니다.
+노선·정류장·차량을 등록하거나 데모 시드(`bin/rails demo:seed`)를 실행하려면 **Traccar 서버가 떠 있어야** 합니다(등록이 Traccar 호출과 한 트랜잭션으로 묶여 있음). Traccar 접속 정보는 환경변수(`TRACCAR_API_BASE_URL`, `TRACCAR_API_TOKEN`, `TRACCAR_INGEST_TOKEN`, `TRACCAR_SERVER_URL`)가 credentials보다 우선하며, 표와 설정 방법은 [docs/traccar-integration.md](docs/traccar-integration.md)에 있습니다. `bin/dev`는 Docker가 있으면 Traccar 컨테이너를 함께 띄우고 Rails가 그 Traccar(`localhost:8082`)를 쓰도록 위 환경변수를 채웁니다(`bin/traccar`, 컨테이너 이름 `where-is-my-bus-traccar`, 데이터는 `tmp/docker/volumes/traccar`). Traccar만 따로 다루려면 `bin/traccar up|down|status|logs|reset`을 씁니다. `reset`으로 Traccar 데이터를 지웠다면 `bin/rails traccar:sync`로 노선·정류장·차량을 다시 등록합니다. `docker compose`의 Traccar와는 같은 포트(8082·5055)를 쓰므로 동시에 띄울 수 없습니다.
 
 - 회원가입: <http://localhost:3000/registration/new> — **첫 가입자가 운영자**가 됩니다
 - 로컬 개발 DB를 이전 구조에서 가져왔다면 `bin/rails db:reset`이 필요합니다.

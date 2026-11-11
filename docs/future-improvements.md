@@ -313,10 +313,8 @@
 - **대안**: `URI`로 파싱해 호스트 이름만 비교하고 스킴(`http`/`https`)과 호스트 유무를 검사한다. 두 토큰이 같으면 거부하고 최소 길이를 둔다. 대소문자를 구분하지 않고 `dev-`를 거부한다. 연결 여부는 부팅 검사에서 보지 말고 첫 배포 후 확인 절차에 둔다(부팅이 Traccar 장애에 묶이면 안 된다).
 - **손볼 시점**: 오탐으로 배포가 막히거나 HTTPS 전환(32번)으로 스킴 규칙이 필요해질 때.
 
-## 34. 로컬 개발에서 Traccar를 `bin/dev`로 함께 띄우지 못한다
+## 34. 로컬 개발에서 Traccar를 `bin/dev`로 함께 띄우지 못한다 (구현 완료, 실기기 확인 남음)
 
-- **현재 방식**: `bin/dev`(Procfile.dev)는 Rails와 Tailwind watch만 띄우고 Traccar는 포함하지 않는다. Traccar는 `docker compose up`으로 Rails까지 같이 올리거나 따로 띄워야 한다. `demo:seed`, 정류장·노선·차량 등록은 Traccar가 떠 있어야 동작한다.
-- **문제점**: 호스트에서 `bin/dev`로 개발할 때 Traccar를 따로 챙겨야 한다. 빼먹으면 등록과 `demo:seed`가 Traccar 연결 실패로 멈춘다.
-- **대안**: `bin/traccar` 스크립트가 Traccar 도커 이미지를 `compose.yaml`의 traccar 서비스와 같은 설정(포트 8082·5055, `docker/traccar/traccar.xml`, 데이터 볼륨)으로 띄운다. Procfile.dev에 `traccar: bin/traccar`를 추가해 `bin/dev`와 overmind에서 함께 쓴다.
-- **결정할 것**: 호스트 Rails는 `TRACCAR_API_BASE_URL`이 `http://localhost:8082`여야 한다(compose는 `http://traccar:8082`). 컨테이너 이름과 데이터 볼륨을 compose와 공유할지, 포트 충돌(compose와 동시 실행)을 어떻게 막을지. 종료 때 컨테이너가 남지 않게 `--rm`과 시그널 처리를 둔다.
-- **손볼 시점**: 호스트에서 `bin/dev`로 개발하는 사람이 늘 때. 이번 PR 범위 밖이다.
+- **현재 방식**: `bin/traccar`가 Traccar 도커 이미지를 `compose.yaml`과 같은 포트(8082·5055)·같은 토큰으로 띄우고, Procfile.dev의 `traccar: bin/traccar dev`가 `bin/dev`와 함께 올린다. 이벤트 포워딩 주소만 호스트 Rails(`host.docker.internal:<Rails 포트>`)로 가리키는 설정 파일을 `tmp/docker/volumes/traccar/conf/`에 매번 새로 만든다. `bin/dev`는 Docker가 있으면 Rails에 `TRACCAR_API_BASE_URL=http://localhost:8082` 등을 넘기고(credentials의 원격 서버로 새지 않게) 컨테이너가 닿을 수 있도록 `0.0.0.0`에 바인딩한다. `TRACCAR=0`이면 이 모두를 건너뛴다.
+- **결정한 것**: 컨테이너 이름은 `where-is-my-bus-traccar`(compose와 공유하지 않는다). 데이터는 호스트 `tmp/docker/volumes/traccar`에 둔다(compose의 이름 있는 볼륨과 별개). 포트가 compose의 Traccar와 겹치면 그쪽을 멈추지 않고 안내만 하고 실패한다. `--rm`과 종료 시그널 처리로 `bin/dev`를 끄면 컨테이너도 정지한다.
+- **남은 일**: `bin/traccar reset`으로 데이터를 지운 뒤에는 `bin/rails traccar:sync`로 노선·정류장·차량을 다시 등록해야 한다(`reset`이 저장된 `traccar_*_id`는 비운다). 실제 Docker에서의 `bin/dev` 기동·종료와 `demo:drive` 이벤트 도착은 아직 확인하지 않았다.
