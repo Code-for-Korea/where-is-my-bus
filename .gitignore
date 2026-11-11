@@ -47,3 +47,7 @@
 /.mcp.json
 /.docs/
 /PR_NOTES.md
+
+# Python bytecode (script/regions)
+__pycache__/
+*.pyc
