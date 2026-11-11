@@ -4,10 +4,12 @@ module Admin
 
     def index
       @routes = Route.ordered.includes(:route_stops)
+      @regions_by_route = Route.regions_by_route(@routes)
     end
 
     def show
       @route_stops = @route.route_stops.includes(:stop)
+      @regions = @route.regions.includes(Route::PRELOAD_ANCESTORS)
       @candidate_stops = Stop.where.not(id: @route.stop_ids).ordered
       @next_sequence = (@route_stops.map(&:sequence).max || 0) + 1
       @buses = @route.buses.ordered.includes(:active_trip)

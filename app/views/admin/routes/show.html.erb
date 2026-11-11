@@ -20,6 +20,11 @@
     </div>
   </div>
 
+  <div>
+    <div class="text-xs text-gray-400">지역</div>
+    <div class="font-medium" data-role="route-regions"><%= @regions.any? ? @regions.map(&:full_name).join(", ") : "지역 미정" %></div>
+  </div>
+
   <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
     <%= link_to "수정", edit_admin_route_path(@route),
           class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
