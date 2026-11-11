@@ -20,19 +20,29 @@ class Admin::StopsControllerTest < ActionDispatch::IntegrationTest
       .to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: { id: 88 }.to_json)
 
     assert_difference -> { Stop.count }, 1 do
-      post admin_stops_path, params: { stop: { name: "신규 정류장", lat: "34.99", lng: "128.34" } }
+      post admin_stops_path, params: { stop: { name: "신규 정류장", lat: "34.99", lng: "128.34", region_id: regions(:goseong).id } }
     end
 
     stop = Stop.find_by!(name: "신규 정류장")
     assert_redirected_to admin_stop_path(stop)
     assert_equal 88, stop.traccar_geofence_id
+    assert_equal regions(:goseong), stop.region
+  end
+
+  test "create without a region is rejected without calling Traccar" do
+    assert_no_difference -> { Stop.count } do
+      post admin_stops_path, params: { stop: { name: "신규 정류장", lat: "34.99", lng: "128.34" } }
+    end
+
+    assert_response :unprocessable_entity
+    assert_not_requested :post, "#{TRACCAR_API}/api/geofences"
   end
 
   test "create shows the Traccar failure and creates nothing" do
     stub_request(:post, "#{TRACCAR_API}/api/geofences").to_return(status: 500, body: "boom")
 
     assert_no_difference -> { Stop.count } do
-      post admin_stops_path, params: { stop: { name: "신규 정류장", lat: "34.99", lng: "128.34" } }
+      post admin_stops_path, params: { stop: { name: "신규 정류장", lat: "34.99", lng: "128.34", region_id: regions(:goseong).id } }
     end
 
     assert_response :unprocessable_entity
@@ -55,6 +65,26 @@ class Admin::StopsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to admin_stop_path(stop)
     assert_requested put
     assert_in_delta 34.9825, stop.reload.lat.to_f, 1e-6
+  end
+
+  test "update changes the region" do
+    stop = stops(:school)
+    stub_request(:put, "#{TRACCAR_API}/api/geofences/#{stop.traccar_geofence_id}").to_return(status: 200, body: "")
+
+    patch admin_stop_path(stop), params: { stop: { region_id: regions(:ulleung_eup).id } }
+
+    assert_redirected_to admin_stop_path(stop)
+    assert_equal regions(:ulleung_eup), stop.reload.region
+  end
+
+  test "sync_geofence works for a legacy stop without a region" do
+    stop = stops(:legacy)
+    put = stub_request(:put, "#{TRACCAR_API}/api/geofences/#{stop.traccar_geofence_id}").to_return(status: 200, body: "")
+
+    post sync_geofence_admin_stop_path(stop)
+
+    assert_redirected_to admin_stop_path(stop)
+    assert_requested put
   end
 
   test "destroy is refused when the stop has visit records and leaves the geofence alone" do

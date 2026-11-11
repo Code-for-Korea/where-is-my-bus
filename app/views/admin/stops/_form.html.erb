@@ -1,6 +1,8 @@
 <%= form_with model: [:admin, stop], class: "space-y-5 max-w-lg" do |f| %>
   <%= render "admin/shared/errors", record: stop %>
 
+  <%= render "admin/stops/region_select", f: f, stop: stop %>
+
   <div>
     <%= f.label :name, "정류장명", class: "block text-sm font-medium text-gray-700 mb-1" %>
     <%= f.text_field :name, placeholder: "예: 고성터미널",
@@ -14,8 +16,9 @@
 
   <div class="space-y-5"
        data-controller="stop-map"
-       data-stop-map-center-value="<%= (Stop.center || []).to_json %>"
-       data-stop-map-fallback-value="<%= Stop::MAP_FALLBACK_CENTER.to_json %>">
+       data-action="region-select:changed@window->stop-map#fitRegion"
+       data-stop-map-region-bounds-value="<%= (stop.region&.bounds || []).to_json %>"
+       data-stop-map-country-bounds-value="<%= (Region.country_bounds || []).to_json %>">
     <div class="flex gap-4">
       <div class="flex-1">
         <%= f.label :lat, "위도", class: "block text-sm font-medium text-gray-700 mb-1" %>

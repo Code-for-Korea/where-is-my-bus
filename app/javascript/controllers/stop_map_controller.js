@@ -3,15 +3,20 @@ import { Controller } from "@hotwired/stimulus"
 // 정류장 폼의 좌표 선택 지도. 위도/경도 입력칸과 Leaflet 마커를 양방향으로 맞춘다.
 // 지도는 보조 수단이라 Leaflet을 못 불러와도 입력칸으로 등록할 수 있다.
 //
-// 시작 위치: 입력칸의 좌표 → 등록된 정류장들의 중심 → 브라우저 현재 위치 → 고정 기본 위치
+// 시작 위치: 입력칸의 좌표 → 정류장에 고른 지역의 범위
+//           → 브라우저 현재 위치 → 전국 범위 → 세계 지도
+// 지역을 새로 고르면 마커·좌표가 있어도 지도는 그 지역으로 옮긴다(좌표는 바꾸지 않는다).
+// 위치 응답을 기다리는 동안은 전국(없으면 세계) 지도를 보여 주고, 마커가 없고 지도를 움직이지 않았고
+// 지역도 고르지 않았을 때만 현재 위치로 옮긴다.
 export default class extends Controller {
   static targets = ["lat", "lng", "canvas", "status"]
   static values = {
-    center: Array,   // 등록된 정류장 좌표의 평균. 정류장이 없으면 빈 배열
-    fallback: Array  // 마지막 수단인 고정 위치
+    regionBounds: Array,   // 정류장에 고른 지역의 [[남, 서], [북, 동]]. 없으면 빈 배열
+    countryBounds: Array   // 활성 최상위 지역 전체의 범위. 없으면 빈 배열
   }
 
-  static ZOOM = { stop: 17, center: 14, located: 16, fallback: 14 }
+  static ZOOM = { stop: 17, located: 16, world: 2 }
+  static WORLD_CENTER = [ 20, 0 ]
   static LOCATE_TIMEOUT_MS = 5000
 
   async connect() {
@@ -61,24 +66,49 @@ export default class extends Controller {
     if (position) {
       this.placeMarker(position, { writeInputs: false })
       this.map.setView(position, ZOOM.stop)
-    } else if (this.centerValue.length === 2) {
-      this.map.setView(this.centerValue, ZOOM.center)
+    } else if (this.hasBounds(this.regionBoundsValue)) {
+      this.fitBounds(this.regionBoundsValue)
     } else {
-      // 위치 응답을 기다리는 동안 기본 위치를 보여 주고, 얻으면 옮긴다.
-      this.map.setView(this.fallbackValue, ZOOM.fallback)
+      // 위치 응답을 기다리는 동안 전국(없으면 세계) 지도를 보여 주고, 얻으면 옮긴다.
+      this.showCountry()
       this.moveToCurrentLocation()
     }
+  }
+
+  // 지역 선택이 바뀌면 그 범위로 지도를 옮긴다. 마커와 입력한 좌표는 그대로 둔다(옮기는 건 보는 위치뿐).
+  fitRegion(event) {
+    if (!this.map) return
+    this.regionChosen = true
+    const bounds = event.detail?.bounds
+    if (this.hasBounds(bounds)) this.fitBounds(bounds)
+  }
+
+  showCountry() {
+    if (this.hasBounds(this.countryBoundsValue)) {
+      this.fitBounds(this.countryBoundsValue)
+    } else {
+      this.map.setView(this.constructor.WORLD_CENTER, this.constructor.ZOOM.world)
+    }
+  }
+
+  hasBounds(bounds) {
+    return Array.isArray(bounds) && bounds.length === 2
+  }
+
+  // 아주 작은 영역이라도 정류장 입력에 적당한 확대 수준을 넘지 않게 한다.
+  fitBounds(bounds) {
+    this.map.fitBounds(bounds, { maxZoom: this.constructor.ZOOM.stop })
   }
 
   moveToCurrentLocation() {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        // 그 사이 사용자가 마커를 놓았거나 지도를 움직였으면 건드리지 않는다.
-        if (!this.map || this.marker || this.userMovedMap) return
+        // 그 사이 사용자가 마커를 놓았거나 지도를 움직였거나 지역을 골랐으면 건드리지 않는다.
+        if (!this.map || this.marker || this.userMovedMap || this.regionChosen) return
         this.map.setView([coords.latitude, coords.longitude], this.constructor.ZOOM.located)
       },
-      () => {}, // 거부·시간 초과·미지원이면 기본 위치를 그대로 쓴다.
+      () => {}, // 거부·시간 초과·미지원이면 보이는 지도를 그대로 쓴다.
       { timeout: this.constructor.LOCATE_TIMEOUT_MS }
     )
   }
