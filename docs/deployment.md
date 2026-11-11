@@ -462,11 +462,39 @@ bin/kamal app boot                    # db:prepare가 빈 DB 4개를 만든다(�
 
 | DB | 마이그레이션 | 비고 |
 |---|---|---|
-| `production` | `create_users`, `create_sessions`, `create_domain_tables`, `add_route_to_buses` | 4개 모두 적용 |
+| `production` | `create_users`, `create_sessions`, `create_domain_tables`, `add_route_to_buses`, `create_regions` | 5개 모두 적용 |
 | `production_cache`, `production_queue`, `production_cable` | 스키마 파일(`db/*_schema.rb`)로 생성 | 상태에 `001 NO FILE`로 보이는 것은 정상이다 |
 
 - 마이그레이션 파일이 늘어나면 컨테이너가 새 버전으로 뜰 때 `db:prepare`가 자동으로 적용한다. 배포 전에 `bin/rails db:migrate:status`로 대기 중인 것을 확인한다.
 - **재작성(#23) 이전 구조의 DB를 옮겨 오는 것은 지원하지 않는다.** 옛 테이블(`regions`, `areas`, `gps_logs` 등)이 있으면 `create_table`이 충돌한다. 운영은 빈 DB에서 시작한다.
+
+## 지역(Region) 도입 배포 (단계적)
+
+지역 설계는 `docs/plans/2026-11-11-region-design.md` 6절. 정류장의 `region_id`를 한 번에 NOT NULL로 만들 수 없어서(기존 정류장에 지역이 없다) 배포를 두 번에 나눈다.
+
+1. **배포 1**: 마이그레이션 `create_regions`가 `regions` 테이블과 nullable `stops.region_id`를 만든다. 이 단계에서는 지역 없는 기존 정류장도 저장된다(새로 만들거나 지역을 바꿀 때만 지역이 필수).
+2. **지역 적재**: 로컬에서 `script/regions/build_kr_regions.py`로 CSV를 만든다(사용법과 입력 파일은 `script/regions/README.md`. 데이터 파일은 커밋하지 않는다). CSV를 서버로 올린 뒤 컨테이너 안에서 `regions:import`를 실행한다. 새 코드만 추가하고 기존 행은 건드리지 않으며, 원본과 다른 행은 보고만 한다. 컨테이너에서 보이는 서버 디렉터리는 `storage/` 볼륨(`/var/lib/where-is-my-bus/storage`, 소유자 uid 1000)뿐이다(위 "호스트 데이터 디렉터리").
+3. **기존 정류장 백필**: 관리자 정류장 수정 화면에서 정류장마다 지역을 지정한다. **정류장을 지우지 않는다.** 방문 기록이 있으면 삭제가 막히고(`restrict_with_error`), 지우면 Traccar geofence가 남는다.
+4. **확인**: 지역 없는 정류장이 0개여야 한다.
+5. **배포 2** (아직 구현하지 않았다. 4번이 끝나기 전에는 하지 않는다): `stops.region_id`를 NOT NULL로 바꾼다.
+   - 새 마이그레이션(`require_region_on_stops`): 시작할 때 `region_id`가 빈 정류장이 있으면 개수를 알리고 중단한다(조용히 실패하지 않게). 없으면 컬럼을 NOT NULL로 바꾼다.
+   - `app/models/stop.rb`: 지역 검증에서 "새로 만들 때·바꿀 때만" 조건을 없애 항상 필수로 만든다.
+   - 테스트: "지역 없는 기존 정류장은 저장된다"는 레거시 보호 테스트(`test/models/stop_test.rb`의 "a legacy stop without a region can still be saved…", "a legacy stop can be given a region")를 삭제·조정하고, 지역 없는 정류장 저장이 항상 실패하는 테스트로 바꾼다. `db/schema.rb`도 갱신한다(임시 DB로 `db:schema:load db:migrate`. 개발 DB는 옛 스키마라 직접 마이그레이션하지 않는다).
+   - 커밋 메시지 예: `chore: 정류장 지역을 필수(NOT NULL)로 전환`
+
+```bash
+# 예시 (이 저장소에 없던 운영 명령이다. 경로와 서버 별칭은 환경에 맞게 바꾼다)
+scp kr_regions.csv web01.where-is-my-bus:/var/lib/where-is-my-bus/storage/   # 업로드 (SSH 별칭: "SSH 별칭")
+ssh web01.where-is-my-bus sudo chown 1000:1000 /var/lib/where-is-my-bus/storage/kr_regions.csv
+bin/kamal app exec --reuse "bin/rails 'regions:import[storage/kr_regions.csv]'"   # 컨테이너 안의 /rails/storage
+
+# 지역 없는 정류장 수 (0이어야 배포 2)
+bin/kamal app exec --reuse "bin/rails runner 'puts Stop.where(region_id: nil).count'"
+```
+
+- 적재 결과는 "추가 N / 변경 없음 N / 원본과 다름 N" 한 줄과 차이 목록(최대 50건)으로 출력된다. 같은 CSV를 다시 실행해도 안전하다.
+- `bin/kamal app exec --reuse`를 쓰는 이유는 위 "이후 배포·롤백"의 콘솔 명령과 같다. 서버 파일 경로 인자(`storage/kr_regions.csv`)는 컨테이너의 `/rails` 기준이다.
+- 위 명령은 서버에서 실행해 보지 않았다(미확인). 적재 전에 `bin/backup-storage`로 백업해 둔다.
 
 ## 도메인 변경
 
