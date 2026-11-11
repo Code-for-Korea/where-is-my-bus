@@ -1,0 +1,82 @@
+<% content_for :page_title, @region.full_name %>
+
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg space-y-4">
+  <div>
+    <div class="text-xs text-gray-400">지역</div>
+    <div class="font-medium"><%= @region.full_name %></div>
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <div class="text-xs text-gray-400">코드</div>
+      <div class="font-medium font-mono"><%= @region.code %></div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-400">상위 지역</div>
+      <% if @region.parent %>
+        <%= link_to @region.parent.full_name, admin_region_path(@region.parent), class: "font-medium text-indigo-600 hover:underline" %>
+      <% else %>
+        <div class="font-medium">—</div>
+      <% end %>
+    </div>
+    <div>
+      <div class="text-xs text-gray-400">레벨</div>
+      <div class="font-medium"><%= @region.level %></div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-400">종류</div>
+      <div class="font-medium"><%= @region.kind %></div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-400">상태</div>
+      <div class="font-medium"><%= @region.active? ? "활성" : "비활성" %></div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-400">정류장</div>
+      <div class="font-medium" data-role="stop-count"><%= @stop_count %></div>
+    </div>
+  </div>
+
+  <% content_for :head do %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+  <% end %>
+  <div data-controller="region-view-map"
+       data-region-view-map-own-bounds-value="<%= (@region.own_bounds || []).to_json %>"
+       data-region-view-map-fallback-bounds-value="<%= (@region.bounds || []).to_json %>">
+    <div data-region-view-map-target="canvas" class="isolate h-72 w-full rounded-lg border border-gray-300 bg-gray-100"></div>
+  </div>
+
+  <div data-role="bounds">
+    <div class="text-xs text-gray-400">영역 (남·서·북·동)</div>
+    <% if @region.own_bounds %>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-1 font-mono text-sm">
+        <% { south: "남", west: "서", north: "북", east: "동" }.each do |attr, label| %>
+          <div data-column="<%= attr %>"><span class="text-gray-400"><%= label %></span> <%= @region[attr].to_s("F") %></div>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="text-sm text-gray-500">
+        없음<%= " (가까운 상위 지역의 영역을 씁니다)" if @region.bounds %>
+      </div>
+    <% end %>
+  </div>
+
+  <div data-role="children">
+    <div class="text-xs text-gray-400">하위 지역</div>
+    <div class="flex items-center gap-3">
+      <div class="font-medium" data-column="children"><%= @child_count %></div>
+      <% if @child_count.positive? %>
+        <%= link_to "하위 지역 보기", admin_regions_path(region_id: @region.id), class: "text-sm text-indigo-600 hover:underline" %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
+    <%= link_to "수정", edit_admin_region_path(@region),
+          class: "px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700" %>
+    <%= button_to "삭제", admin_region_path(@region), method: :delete,
+          form: { data: { turbo_confirm: "삭제하시겠습니까?" }, class: "inline" },
+          class: "px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50 cursor-pointer" %>
+    <%= link_to "목록", admin_regions_path(region_id: @region.parent_id), class: "text-sm text-gray-500 hover:text-gray-900" %>
+  </div>
+</div>
