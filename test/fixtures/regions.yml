@@ -1,0 +1,90 @@
+gyeongnam:
+  code: "4800000000"
+  level: 1
+  kind: 시도
+  name: 경상남도
+
+goseong:
+  code: "4882000000"
+  parent: gyeongnam
+  level: 2
+  kind: 시군구
+  name: 고성군
+  south: 34.800000
+  west: 128.100000
+  north: 35.100000
+  east: 128.500000
+
+gyeongbuk:
+  code: "4700000000"
+  level: 1
+  kind: 시도
+  name: 경상북도
+
+ulleung:
+  code: "4794000000"
+  parent: gyeongbuk
+  level: 2
+  kind: 시군구
+  name: 울릉군
+  south: 37.400000
+  west: 130.800000
+  north: 37.600000
+  east: 131.000000
+
+ulleung_eup:
+  code: "4794025000"
+  parent: ulleung
+  level: 3
+  kind: 읍면동
+  name: 울릉읍
+
+gyeonggi:
+  code: "4100000000"
+  level: 1
+  kind: 시도
+  name: 경기도
+
+suwon:
+  code: "4111000000"
+  parent: gyeonggi
+  level: 2
+  kind: 시군구
+  name: 수원시
+
+# 일반구는 시의 하위가 아니라 같은 레벨의 형제로 둔다.
+suwon_jangan:
+  code: "4111100000"
+  parent: gyeonggi
+  level: 2
+  kind: 시군구
+  name: 수원시 장안구
+
+pajang:
+  code: "4111112900"
+  parent: suwon_jangan
+  level: 3
+  kind: 읍면동
+  name: 파장동
+
+# 시도 바로 아래가 읍면동인 지역(레벨을 건너뜀)
+sejong:
+  code: "3600000000"
+  level: 1
+  kind: 시도
+  name: 세종특별자치시
+
+bangok:
+  code: "3600025000"
+  parent: sejong
+  level: 3
+  kind: 읍면동
+  name: 반곡동
+
+abolished:
+  code: "4199000000"
+  parent: gyeonggi
+  level: 2
+  kind: 시군구
+  name: 폐지시
+  active: false

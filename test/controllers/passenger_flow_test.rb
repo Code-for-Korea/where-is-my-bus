@@ -22,7 +22,7 @@ class PassengerFlowTest < ActionDispatch::IntegrationTest
   end
 
   test "the selector sheet lists the stops and routes that have service" do
-    Stop.create!(name: "외딴 정류장", lat: 35.0, lng: 128.0)
+    Stop.create!(name: "외딴 정류장", lat: 35.0, lng: 128.0, region: regions(:goseong))
 
     get root_path
 
