@@ -389,6 +389,20 @@ sqlite3 /tmp/restore/production.sqlite3 "select count(*) from users;"
 - 실제 복원: 컨테이너를 멈추고(`bin/kamal app stop`) 호스트 `storage/`의 해당 파일을 백업본으로 바꾼 뒤 `chown 1000:1000`, `bin/kamal app boot`.
 - **Traccar DB(H2, `/var/lib/where-is-my-bus/traccar`)도 이 서버에 있다.** 실행 중인 H2 파일을 `cp`하면 깨질 수 있어 `bin/backup-traccar`로 컨테이너를 잠깐 멈추고 복사한 뒤 다시 띄운다(방법과 근거: [traccar-accessory.md](traccar-accessory.md) "데이터와 백업"). Rails만 복원하면 Traccar와 ID가 어긋나므로 **같은 시각대에 함께 백업·복원한다**(`docs/future-improvements.md` 19번).
 
+## 서버 데이터를 로컬로 가져오기 (검토)
+
+`bin/pull-server-data`는 서버의 최신 백업 스냅샷(위 "데이터와 백업")을 `tmp/production-<서버 백업 시각>/`로 내려받는다 — `rails/`(SQLite gzip + 푼 것)와 `traccar/`(H2). 서버 쪽은 **백업 파일만 읽고 아무것도 정지하지 않는다.** `--fresh`를 주면 서버에서 새 백업을 만들어 그것을 받는다(Traccar가 수 초 정지). 받아온 디렉터리는 gitignore(`tmp/*`)라 커밋되지 않는다. 2026-11-12 실서버에서 1회 실행해 검증했다(무결성 `ok`, users 4).
+
+**로컬 DB로 대체할 때 주의할 점** — 아래는 아직 실제로 대체해 보지 않은 검토 사항이다:
+
+1. **`production.sqlite3`만 필요하다.** `production_cache`(Solid Cache), `production_cable`(Solid Cable)은 캐시·전송 상태라 언제든 다시 만들어지는 값이고, `production_queue`(Solid Queue)는 실패·예약 잡이 그대로 와서 로컬에서 Solid Queue가 돌면(기본: Puma 안에서) 남은 잡이 처리될 수 있다. 이 3개는 로컬에서 **버리는 편이 낫다** — `production.sqlite3`만 `development.sqlite3`로 바꿔 `storage/`에 두고 나머지는 새로 만들어지게 둔다. (서버 복원용 백업은 4개를 다 두는 것이 맞다 — 어느 쪽이 손상됐는지 모르므로.)
+2. **Rails와 Traccar는 세트로 대체한다.** Rails DB의 `traccar_*` ID와 Traccar의 기기·지오펜스·그룹은 짝이다(위 "데이터와 백업", `future-improvements.md` 19번). 한쪽만 바꾸면 Traccar 이벤트가 전부 `ignored`가 되고 방문 기록이 안 쌓인다. 내려받은 H2를 로컬 Traccar 데이터에 넣는다(`bin/traccar reset` 뒤 `tmp/docker/volumes/traccar`에 복사).
+3. **파일명을 바꿔 development DB로 쓴다.** 스냅샷은 `production_*` 이름이다. 기본인 `RAILS_ENV=development`로 쓰려면 `development.sqlite3`로 바꿔 `storage/`에 둔다. **`RAILS_ENV=production`으로 로컬 실행은 피한다** — 부팅 검사(`lib/traccar_production_check.rb`)가 localhost·`dev-` 값을 전부 막고 `config/credentials/production.key`도 필요하다.
+4. **스키마 버전을 맞춘다.** 스냅샷은 서버 이미지의 마이그레이션 상태다. 로컬 코드가 앞서면 `bin/rails db:migrate`로 맞추고, 데이터가 있는 DB에 마이그레이션이 어떻게 적용되는지는 로컬이라도 먼저 확인한다.
+5. **비밀·개인정보가 그대로 온다.** 사용자 비밀번호 해시, 세션, 차량 `deviceId`(사실상 비밀번호, 함정 6번), 소모된 PIN, 방문 이력. 커밋은 안 되지만 오래 두지 말고 쓴 뒤 지운다.
+6. **방문 기록의 시각은 과거다.** 승객 화면 계산("N정거장 전", "이미 지나갔어요")은 스냅샷 시각 기준이 된다. 데모용으로는 자연스럽지 않을 수 있다. 진행 중 운행(Trip)이 스냅샷에 남아 있으면 로컬에서 종료 처리해야 한다(2026-11-12 스냅샷 기준 0건).
+7. **운전자 앱과 연결하면 실데이터 시험이 된다.** H2를 넣은 로컬 Traccar는 실서버와 같은 기기·지오펜스를 갖는다. `bin/dev`가 환경변수를 localhost로 채우므로 앱에서 서버 주소만 로컬로 바꾸면 된다(주소가 다른 것 외에는 실서버와 동일).
+
 ## 운영 데이터 초기화와 초기 데이터 입력 (제안)
 
 > **제안이며 실제 서버에서 실행해 보지 않았다.** 운영에는 시드가 없으므로(`demo:seed`는 운영에서 `abort`) 처음 채우는 일과 시험 데이터를 지우는 일은 모두 이 절을 따른다. 데이터를 지우는 작업이라 **실행 전에 백업을 먼저 하고, 무엇을 지우는지 확인한 뒤 사람이 직접 실행한다.**
