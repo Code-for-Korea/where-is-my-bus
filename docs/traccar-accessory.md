@@ -337,15 +337,20 @@ server {
 ## 데이터와 백업
 
 - Traccar 데이터(H2 파일)는 호스트 `/var/lib/where-is-my-bus/traccar`에 둔다. 컨테이너를 지워도 남는다.
-- **실행 중인 H2 파일을 `cp`하면 깨질 수 있다.** SQLite와 같은 이유다. 안전한 방법은 Traccar를 잠깐 멈추고 복사하는 것이다.
+- **실행 중인 H2 파일을 `cp`하면 깨질 수 있다.** SQLite와 같은 이유다. H2 유지관리자도 "실행 중 DB 파일 복사는 지원된 적 없다"고 명시한다([h2database#2428](https://github.com/h2database/h2database/issues/2428)).
+- **Traccar 공식 백업 문서는 H2에 대해 "정지 → data 폴더 복사 → 재시작"만 안내한다**([traccar.org/backup](https://www.traccar.org/backup/)). H2의 온라인 `BACKUP TO` SQL은 이론상 무중단 일관 백업이지만, Traccar가 H2를 임베디드 모드로 열어 다른 프로세스가 같은 파일에 접근하는 것이 차단되고(traccar#687) Traccar에는 SQL 콘솔·백업 API가 없어 쓸 방법이 없다. Traccar 자체 백업 기능도 없다.
 
 ```bash
-docker stop <service>-traccar && tar -czf /var/backups/where-is-my-bus/traccar-$(date +%Y%m%d).tar.gz -C /var/lib/where-is-my-bus traccar; docker start <service>-traccar
+docker stop -t 30 <service>-traccar \
+  && tar -czf /var/backups/where-is-my-bus/traccar-$(date +%Y%m%d-%H%M%S).tar.gz -C /var/lib/where-is-my-bus traccar \
+  && docker start <service>-traccar
 ```
 
-  멈춰 있는 몇 초 동안의 위치는 못 받는다. 서버를 어차피 하루 한 번 껐다 켠다면 **끄기 직전에 백업**하는 편이 자연스럽다. 이 방법은 **확인하지 못함.**
+  - `-t 30`: 공식 이미지는 JVM을 exec form PID 1로 띄워 `docker stop`의 SIGTERM이 JVM 종료 훅(H2 플러시)에 전달된다. Docker 기본 유예는 10초라 SIGKILL로 죽을 위험이 있으므로 30초로 늘린다.
+  - **백업 파일에 Traccar 버전을 함께 기록한다**(현재 `traccar/traccar:6.14.4`). H2 파일 형식은 버전 간 호환이 안 되므로 복원은 같은 버전 이미지에서 한다(traccar#5164 사례).
+  - 멈춰 있는 몇 초 동안의 위치는 못 받는다. 앱의 `buffer`가 큐잉·재전송하므로(위 "껐다 켤 때의 위험") 운행이 끝난 시간대에 돌리면 실질 손실은 없다. 방법은 공식 문서로 확정했으나 **실서버에서 실행한 적은 아직 없다.** Rails 백업(`bin/backup-storage`, `docs/deployment.md`)과 같은 시각대에 cron으로 함께 돌리는 것을 목표로 한다.
 - Traccar에 있는 것(기기, 그룹, 지오펜스)은 Rails DB의 `traccar_*` ID와 짝이다. **한쪽만 복원하면 어긋난다**(`future-improvements.md` 19번). Rails DB와 Traccar 데이터를 같은 시각에 백업한다.
-- 운영에 H2는 권장되지 않는다고 이 저장소가 적고 있다(`compose.yaml` 주변 설정 주석, `future-improvements.md` 14번). 규모가 작아 지금은 H2로 시작하고, 문제가 생기면 그때 다른 DB를 검토한다.
+- 운영에 H2는 권장되지 않는다(Traccar 공식도 운영에는 MySQL/TimescaleDB를 권한다. 전환하면 `mysqldump` 같은 무중단 백업이 가능해진다). 규모가 작아 지금은 H2로 시작하고, 문제가 생기면 그때 다른 DB를 검토한다(`compose.yaml` 주변 설정 주석, `future-improvements.md` 14번).
 
 ## 껐다 켤 때의 위험
 
