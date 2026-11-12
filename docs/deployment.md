@@ -359,8 +359,10 @@ bin/kamal app exec --interactive --reuse "bin/rails console"
 # 서버에서 (이 저장소의 bin/backup-storage를 서버로 복사해 둔다)
 STORAGE_DIR=/var/lib/where-is-my-bus/storage BACKUP_DIR=/var/backups/where-is-my-bus KEEP_DAYS=14 ./backup-storage
 
-# cron 예: 매일 03:10
+# cron 예: 매일 03:10 (등록 완료, 2026-11-12 첫 실행·검증)
 10 3 * * *  /opt/where-is-my-bus/backup-storage >> /var/log/where-is-my-bus-backup.log 2>&1
+# Traccar H2 백업: 매일 03:25 (등록 완료, 2026-11-12 첫 실행·검증 — traccar-accessory.md "데이터와 백업")
+25 3 * * *  /opt/where-is-my-bus/backup-traccar >> /var/log/where-is-my-bus-traccar-backup.log 2>&1
 ```
 
 - 같은 디스크의 백업만으로는 디스크 장애에 대비하지 못한다. `rclone`·`rsync`로 **다른 서버나 오브젝트 스토리지에 사본을 하나 더** 둔다.
@@ -373,7 +375,7 @@ sqlite3 /tmp/restore/production.sqlite3 "select count(*) from users;"
 ```
 
 - 실제 복원: 컨테이너를 멈추고(`bin/kamal app stop`) 호스트 `storage/`의 해당 파일을 백업본으로 바꾼 뒤 `chown 1000:1000`, `bin/kamal app boot`.
-- **Traccar DB(H2, `/var/lib/where-is-my-bus/traccar`)도 이 서버에 있다.** 실행 중인 H2 파일을 `cp`하면 깨질 수 있어 Traccar를 잠깐 멈추고 복사한다([traccar-accessory.md](traccar-accessory.md) "데이터와 백업"). Rails만 복원하면 Traccar와 ID가 어긋나므로 **같은 시각에 함께 백업·복원한다**(`docs/future-improvements.md` 19번).
+- **Traccar DB(H2, `/var/lib/where-is-my-bus/traccar`)도 이 서버에 있다.** 실행 중인 H2 파일을 `cp`하면 깨질 수 있어 `bin/backup-traccar`로 컨테이너를 잠깐 멈추고 복사한 뒤 다시 띄운다(방법과 근거: [traccar-accessory.md](traccar-accessory.md) "데이터와 백업"). Rails만 복원하면 Traccar와 ID가 어긋나므로 **같은 시각대에 함께 백업·복원한다**(`docs/future-improvements.md` 19번).
 
 ## 운영 데이터 초기화와 초기 데이터 입력 (제안)
 
