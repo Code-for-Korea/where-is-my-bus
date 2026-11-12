@@ -37,6 +37,7 @@ User ─< Session                     (role: member / operator)
 | 운영 배포(Kamal), 백업, 마이그레이션 | `docs/deployment.md` |
 | 서버 스펙(EC2 구성, 가격, 메모리 실측), Ubuntu 서버 설치 | `docs/server-spec.md`, `docs/server-setup-ubuntu.md` |
 | Traccar를 같은 서버에 Kamal accessory로 올리기, 위치 수신·관리 화면 HTTPS 이름 구성 | `docs/traccar-accessory.md` |
+| H3 공간 인덱스 기반 판정 제안(검토용, 미결정) | `docs/proposal-h3-spatial-index.md` |
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
 
