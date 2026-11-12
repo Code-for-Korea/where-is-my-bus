@@ -472,8 +472,8 @@ bin/kamal app boot                    # db:prepare가 빈 DB 4개를 만든다(�
 
 지역 설계는 `docs/plans/2026-11-11-region-design.md` 6절. 정류장의 `region_id`를 한 번에 NOT NULL로 만들 수 없어서(기존 정류장에 지역이 없다) 배포를 두 번에 나눈다.
 
-1. **배포 1**: 마이그레이션 `create_regions`가 `regions` 테이블과 nullable `stops.region_id`를 만든다. 이 단계에서는 지역 없는 기존 정류장도 저장된다(새로 만들거나 지역을 바꿀 때만 지역이 필수).
-2. **지역 적재**: 로컬에서 `script/regions/build_kr_regions.py`로 CSV를 만든다(사용법과 입력 파일은 `script/regions/README.md`. 데이터 파일은 커밋하지 않는다). CSV를 서버로 올린 뒤 컨테이너 안에서 `regions:import`를 실행한다. 새 코드만 추가하고 기존 행은 건드리지 않으며, 원본과 다른 행은 보고만 한다. 컨테이너에서 보이는 서버 디렉터리는 `storage/` 볼륨(`/var/lib/where-is-my-bus/storage`, 소유자 uid 1000)뿐이다(위 "호스트 데이터 디렉터리").
+1. **배포 1**: 머지해도 자동 배포되지 않는다(`.github/workflows/ci.yml`에 배포 단계가 없다). 위 "이후 배포·롤백"의 `bin/deploy`로 직접 배포한다. 마이그레이션 `create_regions`가 `regions` 테이블과 nullable `stops.region_id`를 만든다. 이 단계에서는 지역 없는 기존 정류장도 저장된다(새로 만들거나 지역을 바꿀 때만 지역이 필수).
+2. **지역 적재**: **적재하기 전에는 새 정류장을 등록할 수 없으므로(지역이 필수인데 고를 지역이 없다) 배포 직후 바로 한다.** 로컬에서 `script/regions/build_kr_regions.py`로 CSV를 만든다(사용법과 입력 파일은 `script/regions/README.md`. 데이터 파일은 커밋하지 않는다). CSV를 서버로 올린 뒤 컨테이너 안에서 `regions:import`를 실행한다. 새 코드만 추가하고 기존 행은 건드리지 않으며, 원본과 다른 행은 보고만 한다. 컨테이너에서 보이는 서버 디렉터리는 `storage/` 볼륨(`/var/lib/where-is-my-bus/storage`, 소유자 uid 1000)뿐이다(위 "호스트 데이터 디렉터리").
 3. **기존 정류장 백필**: 관리자 정류장 수정 화면에서 정류장마다 지역을 지정한다. **정류장을 지우지 않는다.** 방문 기록이 있으면 삭제가 막히고(`restrict_with_error`), 지우면 Traccar geofence가 남는다.
 4. **확인**: 지역 없는 정류장이 0개여야 한다.
 5. **배포 2** (아직 구현하지 않았다. 4번이 끝나기 전에는 하지 않는다): `stops.region_id`를 NOT NULL로 바꾼다.
