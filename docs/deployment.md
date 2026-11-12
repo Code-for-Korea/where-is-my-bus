@@ -355,6 +355,18 @@ bin/kamal app exec --interactive --reuse "bin/rails console"
 
 실행 중인 SQLite 파일을 `cp`하면 쓰는 도중에 복사돼 깨질 수 있다. **서버에서 `bin/backup-storage`를 쓴다.** `sqlite3 .backup`으로 일관된 스냅샷을 만들고 무결성 검사 후 gzip한다. SQLite 외 파일(Active Storage)은 `files.tar.gz`로 묶는다.
 
+### 저장 위치 요약 (web01, 2026-11-12 기준)
+
+| 구분 | 경로 |
+|---|---|
+| 원본 — Rails | `/var/lib/where-is-my-bus/storage/` (SQLite 4개 + Active Storage 파일) |
+| 원본 — Traccar H2 | `/var/lib/where-is-my-bus/traccar/` (`database.mv.db`) |
+| 백업 | `/var/backups/where-is-my-bus/` — SQLite는 `20261112-221631/` 같은 시각 디렉터리, Traccar는 `traccar-20261112-224103-traccar-traccar-6.14.4.tar.gz` 같은 단일 파일 |
+| 스크립트 | `/opt/where-is-my-bus/backup-storage`, `/opt/where-is-my-bus/backup-traccar` |
+| 로그 | `/var/log/where-is-my-bus-backup.log`, `/var/log/where-is-my-bus-traccar-backup.log` |
+
+백업은 `KEEP_DAYS`(기본 14일)가 지나면 스크립트가 스스로 지운다. 두 스크립트 모두 어떤 단계에서 실패해도 서비스를 정상 상태로 남겨 두는 것을 우선한다(Traccar는 EXIT 트랩이 컨테이너를 재시작).
+
 ```bash
 # 서버에서 (이 저장소의 bin/backup-storage를 서버로 복사해 둔다)
 STORAGE_DIR=/var/lib/where-is-my-bus/storage BACKUP_DIR=/var/backups/where-is-my-bus KEEP_DAYS=14 ./backup-storage
