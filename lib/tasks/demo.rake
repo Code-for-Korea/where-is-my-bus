@@ -4,6 +4,11 @@ namespace :demo do
     Demo::Seed.new.run
   end
 
+  desc "하자센터 시연 데이터(정류장·노선·차량)를 만든다. Traccar가 떠 있어야 하며 여러 번 실행해도 안전하다"
+  task seed_haja_center: :environment do
+    Demo::HajaCenterSeed.new.run
+  end
+
   desc "운전자 앱 대신 버스 한 대가 배정된 노선을 한 바퀴 도는 것을 흉내낸다. 예: bin/rails 'demo:drive[1번]'"
   task :drive, %i[bus interval dwell] => :environment do |_task, args|
     abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초]'" if args[:bus].blank?
