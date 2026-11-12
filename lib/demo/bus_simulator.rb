@@ -6,23 +6,25 @@ module Demo
   #   1) 운행 시작 API 호출 (노선은 차량에 배정된 노선)
   #   2) Traccar의 위치 수신 포트(OsmAnd 프로토콜)로 좌표를 계속 전송
   #   3) 운행 종료 API 호출
-  # 정류장 Geofence는 30m 정사각형이므로 좌표를 STEP_METERS(15m) 간격으로 보내 영역 안에 반드시 한 번은 들어가게 한다.
+  # 정류장 Geofence는 30m 정사각형이므로 좌표 간격을 speed_kmh/3.6 미터(45km/h면 12.5m)로 유지해
+  # 영역 안에 반드시 한 번은 들어가게 한다. 기본 간격 1초 기준 108km/h 미만이면 30m 반변을 넘지 않는다.
   # 위치 시각은 항상 앞으로만 간다 — Traccar는 과거 시각의 위치를 건너뛰어 이벤트가 사라진다.
   class BusSimulator
-    STEP_METERS = 15.0
     APPROACH_METERS = 100.0
     METERS_PER_DEGREE = 111_320.0
 
     Point = Struct.new(:lat, :lng, :speed, :label, keyword_init: true)
 
     def initialize(device_id:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
-                   interval: 1.0, dwell: 6, settle: 3.0, out: $stdout)
+                   interval: 1.0, dwell: 6, settle: 3.0, speed_kmh: 45.0, out: $stdout)
       @device_id = device_id
       @rails_url = rails_url
       @osmand_url = osmand_url
       @interval = interval
       @dwell = dwell
       @settle = settle
+      @speed_kmh = speed_kmh
+      @step_meters = speed_kmh / 3.6
       @out = out
       @last_timestamp = 0
     end
@@ -73,15 +75,15 @@ module Demo
     def start_point(stops)
       first, second = stops.first(2)
       lat, lng = move(first["lat"], first["lng"], *direction(second, first), APPROACH_METERS)
-      Point.new(lat: lat, lng: lng, speed: 10)
+      Point.new(lat: lat, lng: lng, speed: @speed_kmh.round(1))
     end
 
-    # from에서 (lat, lng)까지 STEP_METERS 간격의 좌표들 (to 포함, from 제외).
+    # from에서 (lat, lng)까지 @step_meters 간격의 좌표들 (to 포함, from 제외).
     def interpolate(from, lat, lng)
-      steps = [ (distance(from.lat, from.lng, lat, lng) / STEP_METERS).ceil, 1 ].max
+      steps = [ (distance(from.lat, from.lng, lat, lng) / @step_meters).ceil, 1 ].max
       (1..steps).map do |i|
         ratio = i.to_f / steps
-        Point.new(lat: from.lat + (lat - from.lat) * ratio, lng: from.lng + (lng - from.lng) * ratio, speed: 10)
+        Point.new(lat: from.lat + (lat - from.lat) * ratio, lng: from.lng + (lng - from.lng) * ratio, speed: @speed_kmh.round(1))
       end
     end
 
