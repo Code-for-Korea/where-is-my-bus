@@ -62,9 +62,30 @@ module TraccarApiStubs
   end
 end
 
+module TripHistoryHelper
+  # 1번 노선(터미널 → 시장 → 병원)을 이미 끝낸 운행 하나를 만든다. 구간 시간(초)은 이탈 → 다음 정류장 진입.
+  # ETA 통계(SegmentTimes)가 쓰는 표본이다.
+  def finished_trip(terminal_to_market:, market_to_hospital:, route: routes(:one))
+    t = Time.current - 5.hours
+    trip = Trip.create!(bus: buses(:two), route: route, started_at: t, ended_at: t + 1.hour)
+    market_in = t + 10 + terminal_to_market
+    hospital_in = market_in + 20 + market_to_hospital
+    trip.stop_visits.create!(stop: stops(:terminal), entered_at: t, exited_at: t + 10)
+    trip.stop_visits.create!(stop: stops(:market), entered_at: market_in, exited_at: market_in + 20)
+    trip.stop_visits.create!(stop: stops(:hospital), entered_at: hospital_in, exited_at: hospital_in + 20)
+    trip
+  end
+
+  # 같은 구간 시간으로 n번 운행한 이력 (SegmentTimes::MIN_SAMPLES 이상이면 통계가 생긴다).
+  def build_history(times: 3, **segments)
+    Array.new(times) { finished_trip(**segments) }
+  end
+end
+
 class ActiveSupport::TestCase
   include TraccarEventHelper
   include TraccarApiStubs
+  include TripHistoryHelper
 end
 
 class ActionDispatch::IntegrationTest
