@@ -2,3 +2,5 @@
 
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "로컬버스 알리미는 운행 중 승객에게 실시간 버스 위치를 전달하기 위해 백그라운드를 포함한 위치 정보가 필요합니다.";
 "NSLocationWhenInUseUsageDescription" = "로컬버스 알리미는 운행 중 승객에게 실시간 버스 위치를 전달하기 위해 위치 정보가 필요합니다.";
+
+"CFBundleDisplayName" = "내 버스는 언제올까";
