@@ -11,6 +11,7 @@
     <thead class="bg-gray-50 text-gray-500 text-left">
       <tr>
         <th class="px-5 py-3 font-medium">노선</th>
+        <th class="px-5 py-3 font-medium">지역</th>
         <th class="px-5 py-3 font-medium w-24 text-center">정류장</th>
         <th class="px-5 py-3 font-medium w-36">Traccar 노선</th>
         <th class="px-5 py-3 font-medium w-36">최종수정일자</th>
@@ -23,6 +24,8 @@
           <td class="px-5 py-3 font-medium">
             <%= link_to route.name, admin_route_path(route), class: "text-indigo-600 hover:underline" %>
           </td>
+          <% regions = @regions_by_route[route.id] %>
+          <td class="px-5 py-3 text-gray-500"><%= regions.any? ? regions.map(&:full_name).join(", ") : "지역 미정" %></td>
           <td class="px-5 py-3 text-center text-gray-500"><%= route.route_stops.size %></td>
           <td class="px-5 py-3 text-gray-500 font-mono"><%= route.traccar_group_id || "—" %></td>
           <td class="px-5 py-3 text-gray-500"><%= route.updated_at.in_time_zone.strftime("%Y-%m-%d %H:%M") %></td>
@@ -35,7 +38,7 @@
         </tr>
       <% end %>
       <% if @routes.empty? %>
-        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">등록된 노선이 없습니다.</td></tr>
+        <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">등록된 노선이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

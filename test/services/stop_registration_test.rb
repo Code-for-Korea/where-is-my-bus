@@ -12,7 +12,7 @@ class StopRegistrationTest < ActiveSupport::TestCase
       .with(body: hash_including(name: "신규 정류장"))
       .to_return(status: 200, body: { id: 88 }.to_json, headers: JSON_HEADERS)
 
-    result = StopRegistration.create(name: "신규 정류장", lat: 34.99, lng: 128.34)
+    result = StopRegistration.create(name: "신규 정류장", lat: 34.99, lng: 128.34, region: regions(:goseong))
 
     assert result.success?
     assert_equal 88, result.record.reload.traccar_geofence_id
@@ -22,7 +22,7 @@ class StopRegistrationTest < ActiveSupport::TestCase
     stub_request(:post, "http://traccar.test/api/geofences").to_return(status: 500, body: "boom")
 
     assert_no_difference -> { Stop.count } do
-      result = StopRegistration.create(name: "신규 정류장", lat: 34.99, lng: 128.34)
+      result = StopRegistration.create(name: "신규 정류장", lat: 34.99, lng: 128.34, region: regions(:goseong))
 
       assert result.failure?
     end

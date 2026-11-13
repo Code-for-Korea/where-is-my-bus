@@ -1,0 +1,17 @@
+<%# 이전/다음 페이지. 현재 필터(지역·검색어·정류장 필터)를 유지한다. %>
+<% if @total_pages > 1 %>
+  <% keep = { region_id: @filter_region&.id, q: @query.presence, with_stops: (1 if @with_stops), status: @status }.compact %>
+  <nav aria-label="페이지" class="mt-4 flex items-center justify-center gap-4 text-sm">
+    <% if @page > 1 %>
+      <%= link_to "이전", admin_regions_path(keep.merge(page: @page - 1)), rel: "prev", class: "text-indigo-600 hover:underline" %>
+    <% else %>
+      <span class="text-gray-300">이전</span>
+    <% end %>
+    <span class="text-gray-500"><%= @page %> / <%= @total_pages %></span>
+    <% if @page < @total_pages %>
+      <%= link_to "다음", admin_regions_path(keep.merge(page: @page + 1)), rel: "next", class: "text-indigo-600 hover:underline" %>
+    <% else %>
+      <span class="text-gray-300">다음</span>
+    <% end %>
+  </nav>
+<% end %>

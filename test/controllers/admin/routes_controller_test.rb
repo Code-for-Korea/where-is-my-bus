@@ -14,6 +14,48 @@ class Admin::RoutesControllerTest < ActionDispatch::IntegrationTest
     assert_select "td", text: "3"
   end
 
+  test "index shows each route's regions or an undecided label" do
+    empty = Route.create!(name: "빈 노선")
+
+    get admin_routes_path
+
+    assert_select "tr", text: /#{routes(:one).name}.*경상남도 고성군/m
+    assert_select "tr", text: /#{empty.name}.*지역 미정/m
+    assert_select "td", text: "경상남도 고성군", count: 2
+    assert_select "td", text: "지역 미정", count: 1
+  end
+
+  test "index query count does not grow with the number of routes" do
+    add_routes = lambda do |count, tag|
+      count.times do |i|
+        route = Route.create!(name: "#{tag}노선#{i}")
+        stop = Stop.create!(name: "#{tag}정류장#{i}", lat: 35, lng: 128, region: regions(:ulleung_eup))
+        route.route_stops.create!(stop: stop, sequence: 1)
+      end
+    end
+
+    add_routes.call(3, "가")
+    few = count_queries { get admin_routes_path }
+    add_routes.call(10, "나")
+    many = count_queries { get admin_routes_path }
+
+    assert_equal few, many
+  end
+
+  test "show displays the route's regions" do
+    get admin_route_path(routes(:one))
+
+    assert_select "[data-role=route-regions]", text: "경상남도 고성군"
+  end
+
+  test "show displays an undecided label when no stop has a region" do
+    route = Route.create!(name: "빈 노선")
+
+    get admin_route_path(route)
+
+    assert_select "[data-role=route-regions]", text: "지역 미정"
+  end
+
   test "show lists stops in sequence order and offers the stops not yet on the route" do
     get admin_route_path(routes(:one))
 
@@ -94,5 +136,14 @@ class Admin::RoutesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to admin_route_path(route)
     assert_requested put
+  end
+
+  private
+
+  def count_queries
+    count = 0
+    counter = ->(*, payload) { count += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name]) || payload[:cached] }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
+    count
   end
 end

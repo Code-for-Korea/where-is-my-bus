@@ -121,6 +121,11 @@ ko:
 
   activerecord:
     errors:
+      models:
+        stop:
+          attributes:
+            region:
+              blank: "선택해 주세요"
       messages:
         required: "선택해 주세요"
         restrict_dependent_destroy:
@@ -135,6 +140,21 @@ ko:
         lat: "위도"
         lng: "경도"
         stop_visits: "방문 기록"
+        region: "지역"
+        region_id: "지역"
+      region:
+        name: "지역명"
+        code: "코드"
+        level: "레벨"
+        kind: "종류"
+        parent: "상위 지역"
+        parent_code: "상위 지역 코드"
+        south: "남"
+        west: "서"
+        north: "북"
+        east: "동"
+        stops: "정류장"
+        children: "하위 지역"
       route_stop:
         sequence: "정차 순서"
         stop: "정류장"

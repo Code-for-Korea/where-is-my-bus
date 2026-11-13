@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_151932) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_11_000001) do
   create_table "buses", force: :cascade do |t|
     t.string "bus_number"
     t.datetime "created_at", null: false
@@ -26,6 +26,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_151932) do
     t.index ["route_id"], name: "index_buses_on_route_id"
     t.index ["traccar_device_id"], name: "index_buses_on_traccar_device_id", unique: true
     t.index ["traccar_unique_id"], name: "index_buses_on_traccar_unique_id", unique: true
+  end
+
+  create_table "regions", force: :cascade do |t|
+    t.string "code", null: false
+    t.integer "parent_id"
+    t.integer "level", null: false
+    t.string "kind", null: false
+    t.string "name", null: false
+    t.decimal "south", precision: 10, scale: 6
+    t.decimal "west", precision: 10, scale: 6
+    t.decimal "north", precision: 10, scale: 6
+    t.decimal "east", precision: 10, scale: 6
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["code"], name: "index_regions_on_code", unique: true
+    t.index ["parent_id"], name: "index_regions_on_parent_id"
   end
 
   create_table "route_stops", force: :cascade do |t|
@@ -81,6 +98,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_151932) do
     t.string "name", null: false
     t.integer "traccar_geofence_id"
     t.datetime "updated_at", null: false
+    t.integer "region_id"
+    t.index ["region_id"], name: "index_stops_on_region_id"
     t.index ["traccar_geofence_id"], name: "index_stops_on_traccar_geofence_id", unique: true
   end
 
@@ -107,11 +126,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_151932) do
   end
 
   add_foreign_key "buses", "routes"
+  add_foreign_key "regions", "regions", column: "parent_id"
   add_foreign_key "route_stops", "routes"
   add_foreign_key "route_stops", "stops"
   add_foreign_key "sessions", "users"
   add_foreign_key "stop_visits", "stops"
   add_foreign_key "stop_visits", "trips"
+  add_foreign_key "stops", "regions"
   add_foreign_key "trips", "buses"
   add_foreign_key "trips", "routes"
 end

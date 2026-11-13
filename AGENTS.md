@@ -22,6 +22,8 @@ Route ─< RouteStop >─ Stop          (정류장은 독립 객체, 여러 노�
 Route ─< Bus                        (buses.route_id: 차량 1대에 노선 1개 배정)
 Bus ─< Trip ─< StopVisit >─ Stop    (Trip.ended_at nil = 진행 중, 버스당 1개)
 User ─< Session                     (role: member / operator)
+Region ─< Stop                      (정류장은 지역에 속함. Region은 자기참조 트리: 시도/시군구(일반구 포함)/읍면동/리)
+노선의 지역은 저장하지 않고 정류장에서 파생한다 (Route → Region 관계 없음)
 ```
 
 레이어: `controllers/admin/`(운영자 CRUD) · `controllers/integrations/`(앱·Traccar 머신 간 API) · `services/`(Traccar 동기화 `Traccar*`, `*Registration`, 운행·방문 `Trip*`/`StopVisitRecorder`/`RouteBusStatuses`) · `presenters/arrival_presenter.rb`(승객 화면). 승객 화면은 5초 폴링(`arrival_polling_controller.js`).
@@ -38,6 +40,7 @@ User ─< Session                     (role: member / operator)
 | 서버 스펙(EC2 구성, 가격, 메모리 실측), Ubuntu 서버 설치 | `docs/server-spec.md`, `docs/server-setup-ubuntu.md` |
 | Traccar를 같은 서버에 Kamal accessory로 올리기, 위치 수신·관리 화면 HTTPS 이름 구성 | `docs/traccar-accessory.md` |
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
+| 지역(Region) 설계, 지역 CSV 준비 스크립트 | `docs/plans/2026-11-11-region-design.md`, `script/regions/README.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
 
 Traccar 연동·`driver_app` 코드를 고칠 때는 프로젝트 스킬 `traccar-sync`, `driver-app`(`.claude/skills/`)을 먼저 쓴다. 두 스킬은 재작성 이후 구조 기준이다.
@@ -74,7 +77,7 @@ Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Tr
 
 ## 알려진 함정
 
-1. **GPS·ETA 없음** — 좌표 저장, 좌표 기반 ETA 계산, `RouteProgress`/`RouteBusSelector`는 재작성(#23)에서 제거됐다. 새 UI가 위치를 보여야 하면 `StopVisit`·`RouteBusStatuses`·`ArrivalPresenter`를 쓴다. 지역(Region/Area) 계층·좋아요·영어 화면도 없다.
+1. **GPS·ETA 없음** — 좌표 저장, 좌표 기반 ETA 계산, `RouteProgress`/`RouteBusSelector`는 재작성(#23)에서 제거됐다. 새 UI가 위치를 보여야 하면 `StopVisit`·`RouteBusStatuses`·`ArrivalPresenter`를 쓴다. 좋아요·영어 화면도 없다(지역 `Region`은 2026-11 다시 생겼고, 옛 Region/Area 계층과 다르다).
 2. **이벤트 수신은 항상 200-ack** — 인증 실패(`401`)만 예외. 알 수 없는 단말·지오펜스·운행 없음 등은 `status: ignored` + `reason`으로 200 응답한다. 4xx를 주면 Traccar 포워딩 재시도가 폭주한다(`StopVisitRecorder`).
 3. **Route/Stop/Bus 등록은 Traccar 호출과 한 트랜잭션** — Traccar 실패 시 Rails 변경도 취소(`*Registration`, `TraccarRegistration`). 단 **외부 HTTP는 롤백되지 않아** Traccar에만 남는 orphan이 생길 수 있다. 복구는 admin의 `sync_group`/`sync_geofence`/`sync_device`. 운전자의 운행 시작·종료(`Trip*`)는 Traccar를 부르지 않는다. 상세는 `docs/traccar-integration.md`.
 4. **운행 중에는 차량의 노선을 바꿀 수 없다**(`Bus#route_unchanged_during_trip`). 노선·정류장·차량에는 `restrict_with_error` 삭제 제약이 있다(배정된 차량이 있는 노선, 방문 기록이 있는 정류장, 운행 기록이 있는 차량은 지울 수 없다).
@@ -83,7 +86,8 @@ Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Tr
 7. **운전자가 종료를 누르지 않으면 Trip이 계속 열린다** — 자동 종료 기준은 미정(`docs/policy-draft.md`).
 8. **첫 가입자가 자동 operator** — `User#assign_operator_if_first_user`가 `User.count.zero?`로 판정하므로 동시 가입 race가 있고 DB 제약이 없다. 가입 폼은 role을 받지 않는다.
 9. **이미지 변환 없음** — `image_processing` gem과 `libvips`는 쓰지 않아 제거했고(`config.active_storage.variant_processor = :disabled`), 첨부 파일과 Active Storage 테이블도 없다. 이미지 변환이나 첨부가 필요해지면 gem, Dockerfile의 `libvips`, 이 설정, 테이블을 함께 되돌려야 한다(`docs/deployment.md` "이미지 크기와 레지스트리 무료 한도").
-10. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`, `driver_app/ISSUE.md`, `README.md`, 스킬(`traccar-sync`, `driver-app`), 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
+10. **지역(`Region`)** — 정류장은 지역(레벨 ≥ 2)이 필수지만 1단계 배포라 `stops.region_id`는 nullable이고 지역 없는 기존 정류장은 저장된다(NOT NULL은 후속 배포, `docs/deployment.md` "지역(Region) 도입 배포" 5번). 부모 레벨은 자식보다 낮아야 한다(`parent.level < child.level`). 한국 지역은 `bin/rails "regions:import[CSV 경로]"`로 적재하며 새 코드만 추가한다. 데이터 파일은 커밋하지 않고 CSV는 `script/regions/`로 만든다.
+11. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`, `driver_app/ISSUE.md`, `README.md`, 스킬(`traccar-sync`, `driver-app`), 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
 
 ## 코딩 관례
 

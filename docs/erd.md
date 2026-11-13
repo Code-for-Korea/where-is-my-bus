@@ -3,6 +3,7 @@
 - 기준 커밋: `b43993d` (2026-09-18, PR #19 머지), 스키마 버전 `2026_09_18_092145`
 - 정보원: `db/schema.rb` (컬럼·인덱스·FK), `app/models/*.rb` (연관관계·검증·`dependent`·`default_scope`)
 - 제외: Solid Queue·Cache·Cable 인프라 테이블 (`queue_schema.rb` 등)
+- ⚠️ 이 문서는 재작성(#23) 이전 구조의 스냅샷이다. 아래 `regions`는 옛 시·도 테이블이고 현재 코드의 `regions`와 다르다. 현재 지역 모델은 맨 아래 "지역 복원 이후"를 본다.
 
 ## 구조 요약
 
@@ -173,3 +174,42 @@ erDiagram
 | 검증 | `Bus.pin`은 4~6자리 숫자 + 전역 유니크, `Stop.sequence`는 1 이상 정수, `Stop.lat/lng`·`Trip.started_at`은 모델에서 필수 (DB는 nullable) |
 | 자동 생성 | `Bus` 생성 시 `pin`, `traccar_unique_id` 자동 발급 (`before_validation on: :create`) |
 | 역할 | `User` 첫 가입자는 `operator` (`before_create`) |
+
+## 지역 복원 이후 (2026-11-11 설계, `feature/regions`)
+
+재작성 이후 구조(`docs/design-event-driven-rewrite.md` 3절)에 지역을 다시 넣었다. 옛 `regions`→`areas` 계층과 달리 **자기참조 트리 하나**이고, 정류장이 지역에 속한다. 노선의 지역은 저장하지 않고 소속 정류장에서 조회 때 파생한다(`Route#regions`, `Route.regions_by_route`). 정보원: `db/schema.rb`, `app/models/region.rb`, `stop.rb`, `user.rb`. 설계는 `docs/plans/2026-11-11-region-design.md`.
+
+```mermaid
+erDiagram
+    regions ||--o{ regions : "parent_id"
+    regions ||--o{ stops : "region_id"
+
+    regions {
+        integer id PK "지역 ID"
+        string code UK "외부 데이터 키 · 한국은 법정동코드 10자리"
+        integer parent_id FK "상위 지역 · nil이면 최상위"
+        integer level "1 시도 / 2 시군구(일반구 포함) / 3 읍면동 / 4 리"
+        string kind "level의 이름 · 시도/시군구/읍면동/리 (화면에 그대로 표시)"
+        string name "표시 이름"
+        decimal south "bbox 남 · nullable"
+        decimal west "bbox 서 · nullable"
+        decimal north "bbox 북 · nullable"
+        decimal east "bbox 동 · nullable"
+        boolean active "default true · 폐지 지역은 false"
+        datetime created_at "생성 시각"
+        datetime updated_at "수정 시각"
+    }
+    stops {
+        integer region_id FK "소속 지역 · 현재 nullable (NOT NULL 전환 예정)"
+    }
+```
+
+`stops`는 추가된 컬럼만 적었다. 나머지 컬럼은 `docs/design-event-driven-rewrite.md` 3절과 같다.
+
+| 구분 | 내용 |
+|---|---|
+| 인덱스 | `regions.code` 유니크, `regions.parent_id`, `stops.region_id` |
+| 레벨 규칙 | `부모.level < 자식.level`(1 차이일 필요 없음). 세종은 시군구 없이 읍면동이 바로 붙는다 |
+| 정류장 규칙 | 새로 만들 때나 `region_id`를 바꿀 때 지역 필수, 활성 지역, 레벨 2 이상(`Stop::MIN_REGION_LEVEL`). 지역 없는 기존 정류장은 그대로 저장된다 |
+| 삭제 | `Region`은 자식 지역·정류장이 있으면 삭제 불가(`restrict_with_error`) |
+| bbox | 네 칸을 모두 채우거나 모두 비운다. 비면 가장 가까운 상위 지역의 것을 쓴다(`Region#bounds`, 자기 것만은 `own_bounds`) |
