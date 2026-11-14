@@ -7,3 +7,6 @@ db/schema.rb linguist-generated
 vendor/* linguist-vendored
 config/credentials/*.yml.enc diff=rails_credentials
 config/credentials.yml.enc diff=rails_credentials
+
+# Windows autocrlf 노이즈 방지: 실행 스크립트는 항상 LF
+bin/* text eol=lf

@@ -7,7 +7,7 @@ import 'package:http/testing.dart';
 import 'package:whereismybusapp/api_client.dart';
 import 'package:whereismybusapp/l10n/app_strings.dart';
 
-const _adminUrl = 'localhost:3000';
+const _adminUrl = 'http://localhost:3000';
 const _deviceId = 'dev1';
 
 http.Response _json(Object body, [int status = 200]) =>
@@ -57,6 +57,21 @@ void main() {
       expect(result.routeName, '1번 노선');
       expect(server.requests.single.url.toString(), 'http://localhost:3000/integrations/traccar/register');
       expect(server.requests.single.bodyFields, {'pin': '123456'});
+    });
+
+    test('주소에 프로토콜이 없으면 https로 보낸다', () async {
+      final server = _FakeServer((_) => _json({
+            'traccarServerUrl': 'http://localhost:5055',
+            'deviceId': 'abc123',
+            'busNumber': '1',
+            'licensePlate': '경남70가1001',
+            'route': null,
+          }));
+      ApiClient.client = server.client;
+
+      await ApiClient.register(adminUrl: 'example.com', pin: '123456');
+
+      expect(server.requests.single.url.toString(), 'https://example.com/integrations/traccar/register');
     });
 
     test('노선이 배정되지 않은 차량은 routeName이 null이다', () async {

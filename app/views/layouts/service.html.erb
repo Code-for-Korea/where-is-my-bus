@@ -35,22 +35,9 @@
     </style>
   </head>
 
-  <body class="bg-gray-100 min-h-screen sm:py-8"<% if content_for?(:ga4_page_path) %> data-ga4-page-path="<%= yield(:ga4_page_path) %>"<% end %>>
+  <body class="bg-gray-100 min-h-screen"<% if content_for?(:ga4_page_path) %> data-ga4-page-path="<%= yield(:ga4_page_path) %>"<% end %>>
     <div class="mx-auto w-full sm:max-w-[400px]">
-      <!-- 폰 프레임 -->
-      <div class="relative bg-white sm:rounded-[2.5rem] sm:shadow-2xl sm:ring-8 sm:ring-gray-900/90 overflow-hidden min-h-screen sm:min-h-[820px] flex flex-col">
-        <!-- 상태바 -->
-        <div class="flex items-center justify-between px-6 pt-3 pb-1 text-[13px] font-medium text-gray-900 shrink-0">
-          <span>12:22</span>
-          <span class="flex items-center gap-1.5">
-            <span class="tracking-tighter">●●●●</span>
-            <span>5G</span>
-            <span class="inline-block w-6 h-3 rounded-sm border border-gray-900/70 relative">
-              <span class="absolute inset-0.5 right-1.5 bg-gray-900/80 rounded-[1px]"></span>
-            </span>
-          </span>
-        </div>
-
+      <div class="relative bg-white overflow-hidden min-h-screen flex flex-col">
         <!-- 플래시 -->
         <% if notice %>
           <div class="mx-6 mt-2 rounded-lg bg-green-50 text-green-800 px-3 py-2 text-sm shrink-0"><%= notice %></div>
@@ -62,11 +49,6 @@
         <!-- 화면 본문 -->
         <div class="flex-1 flex flex-col min-h-0">
           <%= yield %>
-        </div>
-
-        <!-- 홈 인디케이터 -->
-        <div class="flex justify-center py-2 shrink-0">
-          <div class="w-32 h-1 rounded-full bg-gray-900/80"></div>
         </div>
       </div>
     </div>
