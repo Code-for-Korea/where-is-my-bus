@@ -25,6 +25,15 @@ class RouteBusStatusesEtaTest < ActiveSupport::TestCase
     assert_equal 0, status_for(stops(:hospital)).eta_seconds
   end
 
+  test "마지막 방문이 1시간 넘게 오래됐으면 ETA는 nil이다" do
+    stop_visits(:left_terminal).update!(entered_at: 3.hours.ago, exited_at: 170.minutes.ago)
+    stop_visits(:at_market).update!(entered_at: 2.hours.ago, exited_at: 90.minutes.ago)
+    assert_nil status_for(stops(:hospital)).eta_seconds
+
+    stop_visits(:at_market).update!(entered_at: 2.hours.ago, exited_at: nil)
+    assert_nil status_for(stops(:hospital)).eta_seconds
+  end
+
   test "두 정류장 뒤면 구간 시간과 중간 정류장 정차 시간을 더한다" do
     bus = buses(:two)
     trip = Trip.create!(bus: bus, route: routes(:one), started_at: 10.minutes.ago)
