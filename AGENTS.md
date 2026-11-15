@@ -15,7 +15,7 @@
 
 ## 핵심 아키텍처 (한 줄 요약)
 
-운전자는 앱으로 위치를 **Traccar**로 보내고, Traccar가 정류장 **Geofence 진입/이탈 이벤트**를 Rails(`POST /integrations/traccar/events`)로 포워딩하면 Rails가 `stop_visits`에 방문을 기록한다. **Rails는 GPS 좌표를 저장하지 않고 ETA도 계산하지 않는다.**
+운전자는 앱으로 위치를 **Traccar**로 보내고, Traccar가 정류장 **Geofence 진입/이탈 이벤트**를 Rails(`POST /integrations/traccar/events`)로 포워딩하면 Rails가 `stop_visits`에 방문을 기록한다. **Rails는 GPS 좌표를 저장하지 않는다.** 승객 화면의 "약 N분 후 도착"은 좌표가 아니라 방문 기록(`stop_visits`)의 구간 소요 시간 중앙값으로 계산한다(`SegmentTimes`, `docs/design-realtime-eta.md`).
 
 ```
 Route ─< RouteStop >─ Stop          (정류장은 독립 객체, 여러 노선이 공유)
@@ -79,7 +79,7 @@ Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Tr
 
 ## 알려진 함정
 
-1. **GPS·ETA 없음** — 좌표 저장, 좌표 기반 ETA 계산, `RouteProgress`/`RouteBusSelector`는 재작성(#23)에서 제거됐다. 새 UI가 위치를 보여야 하면 `StopVisit`·`RouteBusStatuses`·`ArrivalPresenter`를 쓴다. 좋아요·영어 화면도 없다(지역 `Region`은 2026-11 다시 생겼고, 옛 Region/Area 계층과 다르다).
+1. **GPS 없음, ETA는 방문 기록 기반** — 좌표 저장, 좌표 기반 ETA 계산, `RouteProgress`/`RouteBusSelector`는 재작성(#23)에서 제거됐다. 현재 ETA(#36)는 좌표 없이 `stop_visits`로만 계산하고, 표본이 부족하면 내지 않고 "N개 정류장 남음"으로 폴백한다(`SegmentTimes`, `docs/design-realtime-eta.md`). 새 UI가 위치를 보여야 하면 `StopVisit`·`RouteBusStatuses`·`ArrivalPresenter`를 쓴다. 좋아요·영어 화면도 없다(지역 `Region`은 2026-11 다시 생겼고, 옛 Region/Area 계층과 다르다).
 2. **이벤트 수신은 항상 200-ack** — 인증 실패(`401`)만 예외. 알 수 없는 단말·지오펜스·운행 없음 등은 `status: ignored` + `reason`으로 200 응답한다. 4xx를 주면 Traccar 포워딩 재시도가 폭주한다(`StopVisitRecorder`).
 3. **Route/Stop/Bus 등록은 Traccar 호출과 한 트랜잭션** — Traccar 실패 시 Rails 변경도 취소(`*Registration`, `TraccarRegistration`). 단 **외부 HTTP는 롤백되지 않아** Traccar에만 남는 orphan이 생길 수 있다. 복구는 admin의 `sync_group`/`sync_geofence`/`sync_device`. 운전자의 운행 시작·종료(`Trip*`)는 Traccar를 부르지 않는다. 상세는 `docs/traccar-integration.md`.
 4. **운행 중에는 차량의 노선을 바꿀 수 없다**(`Bus#route_unchanged_during_trip`). 노선·정류장·차량에는 `restrict_with_error` 삭제 제약이 있다(배정된 차량이 있는 노선, 방문 기록이 있는 정류장, 운행 기록이 있는 차량은 지울 수 없다).
