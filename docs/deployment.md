@@ -196,7 +196,7 @@ TRACCAR_ADMIN_HTPASSWD='admin:$apr1$...'   # Traccar 관리 화면 브라우저 
 `KAMAL_REGISTRY_PASSWORD`가 환경변수와 `.env.deploy`에 없고 `gh`가 로그인되어 있으면, `bin/deploy`가 `gh auth token`을 토큰으로, 로그인한 GitHub 계정을 사용자 이름으로 쓴다(`KAMAL_REGISTRY_USERNAME`이 있으면 그 이름을 쓴다).
 
 - **`write:packages` 권한이 필요하다.** `bin/deploy`가 토큰의 권한을 먼저 확인하고 없으면 서버에 접속하기 전에 멈춘다. 권한은 `gh auth refresh -h github.com -s write:packages`로 추가한다(브라우저 인증).
-- **서버의 Docker 설정에 토큰이 남는다.** Kamal이 서버에서도 같은 토큰으로 `docker login`을 하기 때문이다. `gh` 토큰은 `repo` 등 권한이 넓어서, 서버가 뚫리면 그 범위가 노출된다. 서버에 남기는 토큰의 범위를 줄이려면 `write:packages`만 가진 클래식 PAT을 `.env.deploy`에 두면 된다(우선순위가 gh보다 높다).
+- **서버에 토큰이 잠시 있다가 지워진다.** Kamal이 서버에서도 같은 토큰으로 `docker login`을 하므로 배포 동안 서버의 Docker 설정에 토큰이 있다. `gh` 토큰은 `repo` 등 권한이 넓어서 `bin/deploy`가 패키지 외 권한이 있으면 경고하고, **gh 토큰을 썼을 때는 명령이 끝난 뒤(실패·중단 포함) `bin/kamal registry logout --skip-local`로 서버의 로그인을 지운다.** 이미지는 이미 서버에 있어 실행 중인 컨테이너에는 영향이 없고, 다음 배포·롤백에서 Kamal이 다시 로그인한다. 로그아웃이 실패하면 경고가 나오니 그 명령을 직접 실행한다. 배포 중에는 토큰이 서버에 있으므로 권한 자체를 줄이려면 `write:packages`만 가진 클래식 PAT을 `.env.deploy`에 둔다(우선순위가 gh보다 높다). 이 경우는 자동 로그아웃을 하지 않으니 필요하면 직접 실행한다.
 - `gh` OAuth 토큰(`gho_…`)으로 GHCR 로그인이 되는지는 실제 로그인으로 확인한다: `gh auth token | docker login ghcr.io -u <이름> --password-stdin`. 안 되면 클래식 PAT을 쓴다.
 - 동작은 스텁한 `gh`로 확인했다(권한 없음 → 안내 후 종료, 권한 있음 → 계정·토큰 사용, 환경변수가 있으면 gh를 쓰지 않음). 실제 GHCR 로그인은 확인하지 못했다.
 
