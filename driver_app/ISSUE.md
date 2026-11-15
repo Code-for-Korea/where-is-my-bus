@@ -27,12 +27,23 @@ Rails 서버 주소가 확정되면서 register API 우회는 원복 완료(아�
 | 항목 | 값 | 사유 |
 |---|---|---|
 | `buffer` | `true` (고정) | 전송 실패 재시도 큐, 끄는 옵션 자체가 무의미 |
-| `wakeLock` (Android) | `false` (고정) | 배터리 소모, '지속추적' 토글로 UX 대체 |
+| `wakeLock` (Android) | `true` (고정, 2026-11-13 변경) | 화면 잠금·백그라운드에서 한동안 되다가 일정 시간 뒤 전송이 멈추는 현상 대응. 배터리 소모는 감수(운전 중 거치·충전 전제) |
 | `stopDetection` | `false` (고정) | 켜면 iOS 모션 권한이 추가로 필요해짐 — 아래 참고 |
 | `preferPlatformProviders` (Android) | `false` (고정) | 디버깅/OEM 우회용, 운전자 UI에 불필요 |
 | `password`(로컬 잠금 PIN) | 미도입 | 온보딩 PIN 등록 체계와 개념 중복 |
 
 재검토 조건: 배터리·정차 운영 이슈 실제 발생 시 `stopDetection`부터.
+
+### 백그라운드 전송 (2026-11-13)
+
+- 증상: 백그라운드·화면 잠금에서 일정 시간까지는 전송되다가 그 뒤 멈춤 → Android 절전(Doze·제조사 배터리 관리) 의심.
+- 대응: `wakeLock: true` + 운행 시작 직후 배터리 최적화 예외 요청(`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MainActivity`의 `driver_app/battery` 채널). 이미 예외면 팝업 없음, iOS는 무시.
+- **실기기 미검증.** 그래도 멈추면 삼성 등 제조사 "절전/잠자는 앱"에서 이 앱 제외, 알림(POST_NOTIFICATIONS) 허용 여부(거부 시 SDK가 포그라운드 서비스 없이 시작), 백그라운드 위치 "항상 허용"을 확인한다.
+
+### 서버 주소 입력·앱 이름 (2026-11-13)
+
+- 온보딩 서버 주소에 `http(s)://`가 없으면 `https://`를 붙인다(`ApiClient._uri`). 로컬 시험(http)은 `http://localhost:3000`처럼 프로토콜을 적는다.
+- 앱 이름: 한국어 `내 버스는 언제올까`, 그 외 `Where's My BUS`(Android `values/strings.xml`·`values-ko`, iOS `InfoPlist.strings`).
 
 ### `stopDetection: false`
 `stopDetection: true`일 때만 iOS `MotionActivityDetector`가 생성돼 모션 권한(`NSMotionUsageDescription`)이 필요해짐 → 끔, `Info.plist`에 `NSMotionUsageDescription` 불필요.

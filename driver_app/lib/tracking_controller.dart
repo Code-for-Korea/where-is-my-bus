@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traccar_client_sdk/traccar_client_sdk.dart';
@@ -19,6 +20,7 @@ class TrackingController {
   TrackingController._();
 
   static const _kKeepTracking = 'keep_tracking';
+  static const _batteryChannel = MethodChannel('driver_app/battery');
   static const _syncInterval = Duration(seconds: 10); // 운행 중 서버가 보는 위치를 화면에 갱신하는 주기
 
   static TraccarClientSdk _sdk = TraccarClientSdk();
@@ -178,6 +180,19 @@ class TrackingController {
 
     position.value = trip.position;
     _setOnDuty(true);
+    unawaited(_requestBatteryExemption());
+  }
+
+  /// Android 절전(Doze·제조사 배터리 관리)에 걸리면 한동안 되다가 멈춘다 — 배터리 최적화 예외를 시스템 팝업으로 요청한다.
+  /// 이미 예외면 아무것도 안 띄운다. iOS 등 채널이 없는 곳은 조용히 넘어간다(best-effort).
+  static Future<void> _requestBatteryExemption() async {
+    try {
+      await _batteryChannel.invokeMethod<void>('request');
+    } on MissingPluginException {
+      // Android 외 플랫폼
+    } catch (e) {
+      debugPrint('TrackingController: battery exemption request failed: $e');
+    }
   }
 
   static Future<void> _stopDuty() async {
@@ -209,6 +224,8 @@ class TrackingController {
         deviceId: DriverRegistration.deviceId!,
         // 정류장 영역(30m 정사각형) 안에 위치가 반드시 몇 번 찍히도록 SDK 기본값보다 촘촘하게 보낸다:
         // 15m 이동 또는 10초마다. mvp-spec.md "위치 추적 고정값" 참고.
+        // 화면 잠금·백그라운드에서 CPU가 잠들어 일정 시간 뒤 위치 전송이 멈추는 것을 막는다 (ISSUE.md "백그라운드 전송").
+        wakeLock: true,
         location: const LocationConfig(
           accuracy: Accuracy.high,
           distanceMeters: 15,

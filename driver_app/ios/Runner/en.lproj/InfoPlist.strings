@@ -2,3 +2,5 @@
 
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "Where is My BUS needs your location, including in the background, to broadcast your bus's live position to passengers while you're on duty.";
 "NSLocationWhenInUseUsageDescription" = "Where is My BUS needs your location to broadcast your bus's live position to passengers while you're on duty.";
+
+"CFBundleDisplayName" = "Where's My BUS";

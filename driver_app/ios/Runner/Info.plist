@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Whereismybusapp</string>
+	<string>Where's My BUS</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>ko</string>

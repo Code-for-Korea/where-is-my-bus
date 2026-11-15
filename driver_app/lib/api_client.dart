@@ -85,7 +85,7 @@ class ApiClient {
 
   static Uri _uri(String adminUrl, String pathAndQuery) {
     final trimmed = adminUrl.trim();
-    final normalized = RegExp(r'^https?://').hasMatch(trimmed) ? trimmed : 'http://$trimmed';
+    final normalized = RegExp(r'^https?://').hasMatch(trimmed) ? trimmed : 'https://$trimmed';
     return Uri.parse('$normalized$pathAndQuery');
   }
 
