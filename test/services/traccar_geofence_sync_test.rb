@@ -5,7 +5,7 @@ class TraccarGeofenceSyncTest < ActiveSupport::TestCase
 
   setup do
     TraccarGeofenceSync.stub_credentials(base_url: "http://traccar.test", email: "admin@test.com", password: "secret")
-    @stop = Stop.create!(name: "신규 정류장", lat: 37.5, lng: 127.0)
+    @stop = Stop.create!(name: "신규 정류장", lat: 37.5, lng: 127.0, region: regions(:goseong))
   end
 
   test "rectangle_wkt returns a closed polygon centered on the coordinates" do

@@ -70,12 +70,17 @@ if [ -z "${KAMAL_REGISTRY_PASSWORD:-}" ] && command -v gh > /dev/null 2>&1 && gh
         ;;
     esac
     KAMAL_REGISTRY_PASSWORD="$gh_token"
+    token_from_gh=1
     if [ -z "${KAMAL_REGISTRY_USERNAME:-}" ]; then
       KAMAL_REGISTRY_USERNAME="$(gh api user -q .login 2> /dev/null || true)"
     fi
-    echo "gh 로그인(${KAMAL_REGISTRY_USERNAME:-?})의 토큰을 레지스트리 토큰으로 쓴다. Kamal이 서버에도 같은 토큰으로 로그인하므로 서버의 Docker 설정에 남는다." >&2
+    echo "gh 로그인(${KAMAL_REGISTRY_USERNAME:-?})의 토큰을 레지스트리 토큰으로 쓴다. Kamal이 서버에도 같은 토큰으로 로그인하므로 끝나면 서버에서 로그아웃해 지운다." >&2
+    broad="$(printf '%s' "$scopes" | sed 's/^[^:]*: *//' | tr ',' '\n' | tr -d ' ' | grep -v -E '^(read|write):packages$|^$' | paste -sd, - || true)"
+    if [ -n "$broad" ]; then
+      echo "경고: 이 토큰에는 패키지 외 권한($broad)이 있다. 배포 동안 서버에 잠시 존재한다. 줄이려면 write:packages만 가진 클래식 PAT을 .env.deploy에 둔다." >&2
+    fi
   fi
-  unset gh_token scopes
+  unset gh_token scopes broad
 fi
 
 if [ -z "${KAMAL_REGISTRY_USERNAME:-}" ]; then
@@ -134,6 +139,23 @@ case "$1" in
     ;;
 esac
 
-bin/kamal "$@"
+# gh 로그인 토큰을 썼다면 Kamal이 서버의 Docker 설정에 남긴 토큰을 끝난 뒤(실패·중단 포함) 지운다.
+# 이미지는 이미 서버에 있어 실행 중인 컨테이너에 영향이 없고, 다음 배포·롤백에서 Kamal이 다시 로그인한다.
+cleanup_server_login() {
+  if [ "${token_from_gh:-}" = 1 ]; then
+    case "$1" in
+      deploy | setup | redeploy | rollback | accessory | registry)
+        echo "서버의 레지스트리 로그인을 지운다 (kamal registry logout)" >&2
+        bin/kamal registry logout --skip-local > /dev/null \
+          || echo "경고: 서버 로그아웃에 실패했다. 서버의 ~/.docker/config.json 에 토큰이 남아 있을 수 있다: bin/kamal registry logout --skip-local" >&2
+        ;;
+    esac
+  fi
+}
+
+status=0
+trap 'cleanup_server_login "$1"' EXIT
+bin/kamal "$@" || status=$?
+[ "$status" -eq 0 ] || exit "$status"
 
 echo "Done"

@@ -67,6 +67,10 @@ ko:
       arrived_line2: "도착했습니다."
       stops_left_line1: "%{count}정거장 전에"
       stops_left_line2: "있습니다."
+      eta_line1: "약 %{minutes}분 후"
+      eta_line2: "도착 예정입니다."
+      soon_line1: "곧"
+      soon_line2: "도착합니다."
       unknown_line1: "위치를 확인하는"
       unknown_line2: "중입니다."
       passed_line1: "이 정류장을"
@@ -75,6 +79,8 @@ ko:
       left_stop: "%{stop} 출발"
       short_arriving: "정류장에 정차 중"
       short_stops_left: "%{count}정거장 전"
+      short_eta: "약 %{minutes}분 후 도착"
+      short_soon: "곧 도착"
       short_unknown: "위치 확인 중"
       short_passed: "이미 지나감"
     detail:
@@ -121,6 +127,11 @@ ko:
 
   activerecord:
     errors:
+      models:
+        stop:
+          attributes:
+            region:
+              blank: "선택해 주세요"
       messages:
         required: "선택해 주세요"
         restrict_dependent_destroy:
@@ -135,6 +146,21 @@ ko:
         lat: "위도"
         lng: "경도"
         stop_visits: "방문 기록"
+        region: "지역"
+        region_id: "지역"
+      region:
+        name: "지역명"
+        code: "코드"
+        level: "레벨"
+        kind: "종류"
+        parent: "상위 지역"
+        parent_code: "상위 지역 코드"
+        south: "남"
+        west: "서"
+        north: "북"
+        east: "동"
+        stops: "정류장"
+        children: "하위 지역"
       route_stop:
         sequence: "정차 순서"
         stop: "정류장"

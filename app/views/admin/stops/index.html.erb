@@ -11,6 +11,7 @@
     <thead class="bg-gray-50 text-gray-500 text-left">
       <tr>
         <th class="px-5 py-3 font-medium">정류장</th>
+        <th class="px-5 py-3 font-medium">지역</th>
         <th class="px-5 py-3 font-medium">좌표</th>
         <th class="px-5 py-3 font-medium">정차하는 노선</th>
         <th class="px-5 py-3 font-medium w-32">Traccar 정류장 영역</th>
@@ -23,6 +24,7 @@
           <td class="px-5 py-3 font-medium">
             <%= link_to stop.name, admin_stop_path(stop), class: "text-indigo-600 hover:underline" %>
           </td>
+          <td class="px-5 py-3 text-gray-500"><%= stop.region&.full_name || "—" %></td>
           <td class="px-5 py-3 text-gray-500 font-mono text-xs"><%= stop.lat.to_f %>, <%= stop.lng.to_f %></td>
           <td class="px-5 py-3 text-gray-500"><%= stop.routes.map(&:name).join(", ").presence || "—" %></td>
           <td class="px-5 py-3 text-gray-500 font-mono"><%= stop.traccar_geofence_id || "—" %></td>
@@ -35,7 +37,7 @@
         </tr>
       <% end %>
       <% if @stops.empty? %>
-        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">등록된 정류장이 없습니다.</td></tr>
+        <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">등록된 정류장이 없습니다.</td></tr>
       <% end %>
     </tbody>
   </table>

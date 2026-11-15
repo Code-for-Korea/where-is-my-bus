@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Traccar(H2) 데이터 백업 스크립트 — 호스트에서 실행한다(컨테이너 안이 아님).
+# 사용법과 근거는 docs/traccar-accessory.md "데이터와 백업", Rails 백업은 bin/backup-storage.
+#
+# 실행 중인 H2 파일을 복사하면 깨질 수 있으므로 Traccar 공식 문서의 방법을 따른다:
+# 정지 → 데이터 디렉터리를 tar로 묶음 → 재시작. docker stop은 JVM 종료 훅에서 H2를
+# 플러시하므로 안전하되 기본 유예 10초로는 부족할 수 있어 -t 30을 쓴다.
+# 스크립트가 어떤 지점에서 실패해도 Traccar를 다시 띄우도록 EXIT 트랩에 두었다.
+#
+#   TRACCAR_CONTAINER  Traccar 컨테이너 이름 (기본 where-is-my-bus-traccar)
+#   TRACCAR_DATA_DIR   원본 데이터 디렉터리 (기본 /var/lib/where-is-my-bus/traccar)
+#   BACKUP_DIR         백업 위치 (기본 /var/backups/where-is-my-bus)
+#   KEEP_DAYS          보관 일수 (기본 14)
+#
+# 복원: 백업 파일명에 기록한 것과 같은 버전의 Traccar 이미지에서 tar를 풀어
+# 데이터 디렉터리를 교체한다. H2 파일 형식은 Traccar 버전 간 호환이 안 된다.
+
+set -euo pipefail
+
+TRACCAR_CONTAINER="${TRACCAR_CONTAINER:-where-is-my-bus-traccar}"
+TRACCAR_DATA_DIR="${TRACCAR_DATA_DIR:-/var/lib/where-is-my-bus/traccar}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/where-is-my-bus}"
+KEEP_DAYS="${KEEP_DAYS:-14}"
+
+command -v docker >/dev/null || { echo "docker가 필요합니다" >&2; exit 1; }
+[ -d "$TRACCAR_DATA_DIR" ] || { echo "원본 디렉터리가 없습니다: $TRACCAR_DATA_DIR" >&2; exit 1; }
+docker inspect "$TRACCAR_CONTAINER" >/dev/null 2>&1 || { echo "컨테이너가 없습니다: $TRACCAR_CONTAINER" >&2; exit 1; }
+
+running() {
+  docker inspect "$TRACCAR_CONTAINER" --format '{{.State.Running}}' 2>/dev/null || echo "false"
+}
+
+was_running="$(running)"
+
+# 어떤 이유로 끝나든, 원래 돌고 있었다면 Traccar를 다시 띄운다.
+# 정지·압축·재시작 중 어디서 실패했든 컨테이너가 죽은 채 남지 않게 하는 것이 최우선이다.
+cleanup() {
+  if [ "$was_running" = "true" ] && [ "$(running)" != "true" ]; then
+    docker start "$TRACCAR_CONTAINER" >/dev/null && echo "Traccar 재시작(정리): $TRACCAR_CONTAINER"
+  fi
+}
+trap cleanup EXIT
+
+# 백업 파일명에 이미지를 기록해 복원 시 같은 버전을 찾을 수 있게 한다 (traccar/traccar:6.14.4 → traccar-traccar-6.14.4)
+image="$(docker inspect "$TRACCAR_CONTAINER" --format '{{.Config.Image}}')"
+tag="$(printf '%s' "$image" | tr '/:' '--')"
+
+mkdir -p "$BACKUP_DIR"
+dest="$BACKUP_DIR/traccar-$(date +%Y%m%d-%H%M%S)-$tag.tar.gz"
+
+if [ "$was_running" = "true" ]; then
+  docker stop -t 30 "$TRACCAR_CONTAINER" >/dev/null
+  echo "Traccar 정지 완료: $TRACCAR_CONTAINER"
+fi
+
+tar -czf "$dest" -C "$(dirname "$TRACCAR_DATA_DIR")" "$(basename "$TRACCAR_DATA_DIR")"
+
+# 제대로 묶였는지 H2 파일 존재로 확인한다
+if ! tar -tzf "$dest" | grep -q 'database.mv.db'; then
+  echo "백업에 database.mv.db가 없습니다: $dest" >&2
+  exit 1
+fi
+
+if [ "$was_running" = "true" ]; then
+  docker start "$TRACCAR_CONTAINER" >/dev/null
+  echo "Traccar 재시작 완료: $TRACCAR_CONTAINER"
+  # 재시작 직후에 바로 죽지 않는지 잠깐 관찰한다 (Traccar 부팅 자체는 수십 초 걸린다)
+  for _ in 1 2 3 4 5 6; do
+    sleep 5
+    status="$(docker inspect "$TRACCAR_CONTAINER" --format '{{.State.Status}}' 2>/dev/null || echo "missing")"
+    if [ "$status" != "running" ]; then
+      echo "Traccar가 재시작 뒤 비정상 상태입니다: $status — 'docker logs $TRACCAR_CONTAINER'를 확인하라" >&2
+      exit 1
+    fi
+  done
+fi
+
+find "$BACKUP_DIR" -maxdepth 1 -name 'traccar-*.tar.gz' -mtime +"$KEEP_DAYS" -delete
+
+echo "백업 완료: $dest (Traccar $image)"

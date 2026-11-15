@@ -6,8 +6,21 @@
     <div class="font-medium"><%= @stop.name %></div>
   </div>
   <div>
+    <div class="text-xs text-gray-400">지역</div>
+    <div class="font-medium"><%= @stop.region&.full_name || "—" %></div>
+  </div>
+  <div>
     <div class="text-xs text-gray-400">좌표 (위도, 경도)</div>
     <div class="font-medium font-mono"><%= @stop.lat.to_f %>, <%= @stop.lng.to_f %></div>
+  </div>
+  <% content_for :head do %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+  <% end %>
+  <div data-controller="stop-view-map"
+       data-stop-view-map-lat-value="<%= @stop.lat.to_f %>"
+       data-stop-view-map-lng-value="<%= @stop.lng.to_f %>">
+    <div data-stop-view-map-target="canvas" class="isolate h-72 w-full rounded-lg border border-gray-300 bg-gray-100"></div>
   </div>
   <div>
     <div class="text-xs text-gray-400">정차하는 노선</div>

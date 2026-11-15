@@ -1,0 +1,9 @@
+<%# 정류장 폼의 지역 연쇄 선택. 서버는 현재 지역에 맞춰 칸을 그리고, 이후 칸은 region-select 컨트롤러가 채운다. %>
+<div class="space-y-2"
+     data-controller="region-select"
+     data-region-select-url-value="<%= children_admin_regions_path %>">
+  <p class="block text-sm font-medium text-gray-700">지역</p>
+  <%= f.hidden_field :region_id, data: { region_select_target: "input" } %>
+  <%= render "admin/shared/region_slots", region: stop.region, columns: "grid-cols-2" %>
+  <p data-region-select-target="status" class="text-xs text-red-600"></p>
+</div>

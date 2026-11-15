@@ -6,6 +6,9 @@ module Demo
     OPERATOR_EMAIL = "operator@example.com".freeze
     OPERATOR_PASSWORD = "password123".freeze
 
+    PROVINCE_CODE = "4800000000".freeze
+    DISTRICT_CODE = "4882000000".freeze
+
     # 정류장 좌표는 서로 200~300m 떨어져 있다 (Geofence가 30m 정사각형이라 겹치지 않는다).
     STOPS = {
       "고성터미널" => [ 34.9731, 128.3222 ],
@@ -32,6 +35,9 @@ module Demo
     def run
       abort "운영 환경에서는 데모 데이터를 만들지 않습니다." if Rails.env.production?
 
+      puts "== 지역"
+      region = ensure_regions
+
       puts "== 관리자 계정"
       operator = User.find_or_initialize_by(email_address: OPERATOR_EMAIL)
       operator.password = OPERATOR_PASSWORD if operator.new_record?
@@ -39,10 +45,7 @@ module Demo
       operator.save!
 
       puts "== 정류장"
-      stops = STOPS.to_h do |name, (lat, lng)|
-        stop = Stop.find_by(name: name) || provision!("정류장 #{name}") { StopRegistration.create(name: name, lat: lat, lng: lng) }
-        [ name, stop ]
-      end
+      stops = provision_stops(region)
 
       puts "== 노선"
       ROUTES.each do |route_name, stop_names|
@@ -79,6 +82,24 @@ module Demo
 
         운행 시뮬레이션:  docker compose exec rails bin/rails "demo:drive[1번]"
       SUMMARY
+    end
+
+    # 데모 지역(경상남도 > 고성군)을 코드로 찾거나 만든다. 이미 있으면 운영자가 고친 값일 수 있어 그대로 쓴다.
+    def ensure_regions
+      province = Region.find_or_create_by!(code: PROVINCE_CODE) do |region|
+        region.assign_attributes(name: "경상남도", level: 1, kind: "시도")
+      end
+      Region.find_or_create_by!(code: DISTRICT_CODE) do |region|
+        region.assign_attributes(parent: province, name: "고성군", level: 2, kind: "시군구",
+                                 south: 34.80, west: 128.10, north: 35.10, east: 128.50)
+      end
+    end
+
+    def provision_stops(region)
+      STOPS.to_h do |name, (lat, lng)|
+        stop = Stop.find_by(name: name) || provision!("정류장 #{name}") { StopRegistration.create(name: name, lat: lat, lng: lng, region: region) }
+        [ name, stop ]
+      end
     end
 
     private

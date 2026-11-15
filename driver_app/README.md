@@ -52,6 +52,8 @@
 
 ## iOS 시뮬레이터로 e2e 확인하기
 
+환경 준비(Flutter 버전, 시뮬레이터 기기 만들기)와 막혔던 지점은 [`docs/local-demo.md`](../docs/local-demo.md)의 "운전자 앱 로컬 시험"에 있다. 서버는 `docker compose`와 `bin/dev` 중 어느 쪽이든 된다.
+
 Mac의 iOS 시뮬레이터는 PC와 네트워크를 공유하므로 `localhost`로 Docker 서버에 바로 붙는다.
 
 1. **서버 실행**: 저장소 루트에서 `docker compose up -d`. 호스트 3000번이 이미 쓰이면 `RAILS_PORT=3300 docker compose up -d`(아래 주소의 3000을 그 포트로 바꿔 읽는다). 첫 기동이면 시드가 차량 2대(1번 → 1번 노선, 2번 → 2번 노선)를 만든다.
@@ -64,7 +66,7 @@ Mac의 iOS 시뮬레이터는 PC와 네트워크를 공유하므로 `localhost`�
    flutter devices                            # 목록에 iOS 시뮬레이터가 보이는지 확인
    cd driver_app && flutter run -d <UDID>     # 이름보다 UDID가 정확하다 (iPhone 17 / 17e 구분)
    ```
-4. **등록**: 서버 주소 `http://localhost:3000` + PIN → "등록하고 시작하기". 메인 화면에 "1번 차량", "배정 노선 · 1번 노선"이 보이면 성공.
+4. **등록**: 서버 주소 `http://localhost:3000`(프로토콜을 생략하면 `https://`로 접속) + PIN → "등록하고 시작하기". 메인 화면에 "1번 차량", "배정 노선 · 1번 노선"이 보이면 성공.
 5. **운행 시작**: 버튼을 누르고 위치 권한을 "항상 허용"(또는 앱 사용 중 허용). 서버 대시보드 "운행 중인 버스"에 나타난다.
 6. **위치 움직이기** (1번 노선, 터미널 100m 전 → 터미널 → 시장 → 병원 → 고성고 → 80m 뒤):
    ```
@@ -100,7 +102,7 @@ flutter pub get
 flutter run
 ```
 
-[Flutter SDK](https://docs.flutter.dev/get-started/install) 필요. Windows 빌드 시 알려진 이슈는 `ISSUE.md` 참고.
+[Flutter SDK](https://docs.flutter.dev/get-started/install) 필요. 버전은 `driver_app/.tool-versions`에 고정했다(asdf: `asdf plugin add flutter && asdf install`, Dart 3.13 포함). Windows 빌드 시 알려진 이슈는 `ISSUE.md` 참고.
 
 ## CI / 배포
 

@@ -3,14 +3,14 @@ module Admin
     before_action :set_stop, only: %i[show edit update destroy sync_geofence]
 
     def index
-      @stops = Stop.ordered.includes(:routes)
+      @stops = Stop.ordered.includes(:routes, region: { parent: { parent: { parent: :parent } } })
     end
 
     def show
     end
 
     def new
-      @stop = Stop.new
+      @stop = Stop.new(region: Stop.last_registered_region)
     end
 
     def create
@@ -57,7 +57,7 @@ module Admin
     end
 
     def stop_params
-      params.require(:stop).permit(:name, :lat, :lng)
+      params.require(:stop).permit(:name, :lat, :lng, :region_id)
     end
   end
 end

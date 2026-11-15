@@ -1,0 +1,127 @@
+<% content_for :page_title, "지역" %>
+
+<%# 위쪽 영역: 건수와 "지역 추가"(행동)는 필터 카드 밖에 두고, 카드 안은 위치 · 조건 · 적용 중인 필터로 나눈다. %>
+<div class="flex items-center justify-between gap-4 mb-4">
+  <p class="text-sm text-gray-500">총 <span class="font-semibold text-gray-900"><%= number_with_delimiter(@total_count) %></span>개 · <%= @page %> / <%= @total_pages %> 페이지</p>
+  <%= link_to new_admin_region_path(parent_id: @filter_region&.id),
+        class: "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" do %>
+    <svg class="size-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+    지역 추가
+  <% end %>
+</div>
+
+<%# 필터는 바뀌면 바로 제출하고, 바뀌면 첫 페이지로 돌아간다. %>
+<%= form_with url: admin_regions_path, method: :get, data: { controller: "auto-submit" },
+      class: "mb-5 rounded-xl border border-gray-200 bg-white divide-y divide-gray-100" do %>
+  <div class="grid gap-3 p-4 md:grid-cols-[6.5rem_1fr] md:items-start" data-role="location-filter">
+    <div class="pt-2">
+      <div class="text-sm font-medium text-gray-900">위치</div>
+      <div class="text-xs text-gray-500">고른 지역 아래</div>
+    </div>
+    <div data-controller="region-select"
+         data-region-select-url-value="<%= children_admin_regions_path %>"
+         data-action="region-select:changed->auto-submit#submit">
+      <%= hidden_field_tag :region_id, @filter_region&.id, data: { region_select_target: "input" } %>
+      <%= render "admin/shared/region_slots", region: @filter_region, columns: "grid-cols-2 md:grid-cols-4" %>
+      <p data-region-select-target="status" class="mt-1 text-xs text-red-600"></p>
+    </div>
+  </div>
+
+  <div class="grid gap-3 p-4 md:grid-cols-[6.5rem_1fr] md:items-center" data-role="condition-filter">
+    <div>
+      <div class="text-sm font-medium text-gray-900">조건</div>
+      <div class="text-xs text-gray-500">함께 적용돼요</div>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+      <div class="flex">
+        <%= search_field_tag :q, @query, placeholder: "지역 이름 검색", "aria-label": "지역 이름 검색",
+              class: "w-56 rounded-l-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+        <%= submit_tag "검색", name: nil,
+              class: "rounded-r-lg border border-l-0 border-gray-300 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer" %>
+      </div>
+
+      <fieldset class="inline-flex rounded-lg bg-gray-100 p-0.5 text-sm" data-role="status-filter">
+        <legend class="sr-only">상태</legend>
+        <% [ [ "", "전체" ], [ "active", "활성" ], [ "inactive", "비활성" ] ].each do |value, label| %>
+          <label>
+            <%= radio_button_tag :status, value, @status.to_s == value, class: "peer sr-only",
+                  data: { action: "change->auto-submit#submit" } %>
+            <span class="block cursor-pointer rounded-md px-3 py-1.5 text-gray-600 hover:text-gray-900 peer-checked:bg-white peer-checked:font-medium peer-checked:text-gray-900 peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-600"><%= label %></span>
+          </label>
+        <% end %>
+      </fieldset>
+
+      <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+        <%= check_box_tag :with_stops, "1", @with_stops, class: "peer sr-only", data: { action: "change->auto-submit#submit" } %>
+        <span class="relative h-5 w-9 shrink-0 rounded-full bg-gray-300 transition-colors peer-checked:bg-indigo-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-indigo-600 after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
+        정류장이 있는 지역만
+      </label>
+    </div>
+  </div>
+
+  <% chips = region_filter_chips %>
+  <% if chips.any? %>
+    <div class="flex flex-wrap items-center gap-2 rounded-b-xl bg-gray-50 px-4 py-3" data-role="active-filters">
+      <span class="mr-1 text-xs text-gray-500">적용 중</span>
+      <% chips.each do |chip| %>
+        <%= link_to chip[:path], title: "이 필터 해제",
+              class: "inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white py-1 pl-3 pr-2 text-xs text-indigo-700 hover:bg-indigo-50" do %>
+          <%= chip[:label] %>
+          <svg class="size-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-label="해제"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+        <% end %>
+      <% end %>
+      <%= link_to "필터 모두 해제", admin_regions_path, class: "ml-auto text-xs text-gray-500 hover:text-gray-900" %>
+    </div>
+  <% end %>
+<% end %>
+
+<%# 행을 누르면 상세 화면으로 간다. 영역(남·서·북·동)과 하위 지역 수, 수정·삭제는 상세 화면에서 다룬다. %>
+<div class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-left whitespace-nowrap">
+      <tr>
+        <th class="px-4 py-3 font-medium">지역</th>
+        <th class="px-4 py-3 font-medium">코드</th>
+        <th class="px-4 py-3 font-medium">상위 코드</th>
+        <th class="px-4 py-3 font-medium">레벨</th>
+        <th class="px-4 py-3 font-medium">종류</th>
+        <th class="px-4 py-3 font-medium">정류장</th>
+        <th class="px-4 py-3 font-medium">상태</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      <% @regions.each do |region| %>
+        <tr class="hover:bg-gray-50 cursor-pointer" data-controller="row-link"
+            data-row-link-url-value="<%= admin_region_path(region) %>" data-action="click->row-link#open">
+          <td class="px-4 py-3 font-medium" data-column="name">
+            <%= link_to region.full_name, admin_region_path(region), class: "text-indigo-600 hover:underline" %>
+          </td>
+          <td class="px-4 py-3 text-gray-500 font-mono text-xs" data-column="code"><%= region.code %></td>
+          <td class="px-4 py-3 text-gray-500 font-mono text-xs" data-column="parent_code"><%= region.parent&.code || "—" %></td>
+          <td class="px-4 py-3 text-gray-500" data-column="level"><%= region.level %></td>
+          <td class="px-4 py-3 text-gray-500" data-column="kind"><%= region.kind %></td>
+          <td class="px-4 py-3 text-gray-500" data-column="stops"><%= @stop_counts.fetch(region.id, 0) %></td>
+          <td class="px-4 py-3" data-column="status">
+            <% if region.active? %>
+              <span class="text-gray-500">활성</span>
+            <% else %>
+              <span class="inline-block rounded-full bg-gray-100 text-gray-600 px-2 py-0.5 text-xs">비활성</span>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+      <% if @regions.empty? %>
+        <tr>
+          <td colspan="7" class="px-5 py-10 text-center text-gray-400">
+            <%= region_filter_chips.any? ? "조건에 맞는 지역이 없습니다." : "등록된 지역이 없습니다." %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<%= render "pagination" %>
+
+<%# 출처 표기(CC BY). 문구는 임시다: 라이선스 문구·버전과 요구 표기 형식은 아직 확인하지 못했다(VWorld 이용 조건 확인 필요). %>
+<p class="mt-4 text-xs text-gray-400">데이터 출처: 지역 계층·코드: 국토교통부 법정동코드 · 지역 경계: 브이월드(국토교통부) 법정구역정보 (CC BY)</p>

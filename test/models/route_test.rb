@@ -37,4 +37,45 @@ class RouteTest < ActiveSupport::TestCase
     assert_not route.destroy
     assert_includes route.errors[:base].join, "배정된 차량"
   end
+
+  test "regions are the distinct regions of its stops, ordered by level then name" do
+    route = Route.create!(name: "지역 혼합 노선")
+    eup = Stop.create!(name: "울릉읍 정류장", lat: 37.48, lng: 130.9, region: regions(:ulleung_eup))
+    [ stops(:terminal), eup, stops(:market) ].each.with_index(1) { |stop, i| route.route_stops.create!(stop: stop, sequence: i) }
+
+    assert_equal [ regions(:goseong), regions(:ulleung_eup) ], route.regions.to_a
+  end
+
+  test "stops sharing a region do not duplicate it" do
+    assert_equal [ regions(:goseong) ], routes(:one).regions.to_a
+    assert_equal [ regions(:goseong) ], routes(:two).regions.to_a
+  end
+
+  test "regionless stops are skipped and routes without regions are empty" do
+    mixed = Route.create!(name: "혼합 노선")
+    mixed.route_stops.create!(stop: stops(:legacy), sequence: 1)
+    mixed.route_stops.create!(stop: stops(:school), sequence: 2)
+    only_legacy = Route.create!(name: "레거시 노선")
+    only_legacy.route_stops.create!(stop: stops(:legacy), sequence: 1)
+    empty = Route.create!(name: "빈 노선")
+
+    assert_equal [ regions(:goseong) ], mixed.regions.to_a
+    assert_empty only_legacy.regions
+    assert_empty empty.regions
+  end
+
+  test "regions_by_route matches per-route regions" do
+    mixed = Route.create!(name: "지역 혼합 노선")
+    mixed.route_stops.create!(stop: Stop.create!(name: "파장동 정류장", lat: 37.3, lng: 127.0, region: regions(:pajang)), sequence: 1)
+    mixed.route_stops.create!(stop: stops(:legacy), sequence: 2)
+    mixed.route_stops.create!(stop: stops(:terminal), sequence: 3)
+    empty = Route.create!(name: "빈 노선")
+    all = Route.all.to_a
+
+    batch = Route.regions_by_route(all)
+
+    assert_equal all.map(&:id).sort, batch.keys.sort
+    all.each { |route| assert_equal route.regions.to_a, batch[route.id], route.name }
+    assert_empty batch[empty.id]
+  end
 end

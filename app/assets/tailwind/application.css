@@ -17,6 +17,16 @@
   --color-driver-600: #d62f80;
 }
 
+/* 기본 select 화살표는 오른쪽 경계에 붙어 보여서, 화살표를 직접 그리고 여백을 둔다 */
+@utility select-chevron {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
 @media (prefers-color-scheme: dark) {
   /* codeforkorea.webp는 텍스트가 검정으로 그려진 래스터 이미지라 다크모드에서 반전 처리 */
   .codeforkorea-logo {

@@ -3,12 +3,14 @@ terminal:
   lat: 34.973100
   lng: 128.322200
   traccar_geofence_id: 201
+  region: goseong
 
 market:
   name: 고성시장
   lat: 34.975000
   lng: 128.325000
   traccar_geofence_id: 202
+  region: goseong
 
 # 1번·2번 노선이 함께 서는 정류장
 hospital:
@@ -16,9 +18,18 @@ hospital:
   lat: 34.978000
   lng: 128.330000
   traccar_geofence_id: 203
+  region: goseong
 
 school:
   name: 고성고등학교
   lat: 34.981000
   lng: 128.335000
   traccar_geofence_id: 204
+  region: goseong
+
+# 지역 연결 이전에 만든 정류장(1차 배포 단계의 기존 운영 데이터)
+legacy:
+  name: 지역 없는 정류장
+  lat: 34.985000
+  lng: 128.340000
+  traccar_geofence_id: 205

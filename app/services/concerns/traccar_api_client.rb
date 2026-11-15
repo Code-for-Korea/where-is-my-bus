@@ -31,6 +31,11 @@ module TraccarApiClient
       @stubbed = { base_url: base_url, email: email, password: password, token: token }
     end
 
+    # 테스트용: stub_credentials로 주입한 값을 지우고 환경변수/credentials 조회로 되돌린다
+    def clear_stubbed_credentials
+      @stubbed = nil
+    end
+
     private
 
     # 접속 정보: 환경변수가 credentials보다 우선한다 (로컬 Docker 구성이 credentials의 원격 서버 설정을 덮어쓸 수 있게).

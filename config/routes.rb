@@ -27,6 +27,9 @@ Rails.application.routes.draw do
     resources :stops do
       member { post :sync_geofence }
     end
+    resources :regions, only: %i[index show new create edit update destroy] do
+      collection { get :children }
+    end
     resources :buses do
       member { post :regenerate_pin }
       member { post :sync_device }
