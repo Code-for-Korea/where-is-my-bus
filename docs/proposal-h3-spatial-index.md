@@ -2,6 +2,7 @@
 
 - 상태: **제안. 결정된 것이 없다.** 현재 방식(정류장별 Traccar Geofence)과 나란히 비교해 팀이 고르기 위한 문서다.
 - 이 문서는 기존 설계 문서(`design-event-driven-rewrite.md`, `traccar-integration.md`)를 고치지 않는다. 채택하면 그때 그 문서들을 바꾼다.
+- 최종 갱신: 2026-11-15. main의 ETA 구현(#36)과 지역(Region, #30) 반영.
 - 숫자는 실제로 계산한 것(4절, 부록)과 아직 확인하지 못한 것(`확인 필요`)을 구분해 적었다.
 
 ## 1. 한 줄 요약과 결정 요청
@@ -26,7 +27,7 @@
 | Traccar와 동기화 | 정류장·노선·차량 등록 때 Traccar API 호출과 한 트랜잭션 (`*Registration`) | 정류장·노선 쪽 호출이 사라짐. 차량(device) 등록은 남음 (5절 (a)안 기준) |
 | 정확도 | 영역 30m. 시뮬레이터에서 15m/10초 설정으로 40/40 (`location-sampling-test.md`) | 해상도에 따름. 셀이 클수록 도착·출발이 정류장보다 일찍 잡힘 (4절) |
 | 노선 이탈 감지 | 없음 | 경로 셀 밖이면 감지 가능 |
-| ETA·이동 속도 | 없음 (`AGENTS.md` 함정 1) | 셀 통과 시간 이력으로 후속 구현 가능(이번 제안 범위 밖) |
+| ETA·이동 속도 | 방식 A 구현됨(2026-11-13): `stop_visits`의 구간 소요 시간 중앙값으로 "약 N분 후 도착"을 계산(`SegmentTimes`, `docs/design-realtime-eta.md`). 정류장 사이 진행률은 모름 | `stop_visits`의 의미를 유지하면 그대로 동작. 셀 통과 시간으로 구간 안 진행률을 더하는 것은 `design-realtime-eta.md`의 방식 B에 해당(이번 제안 범위 밖, 6절) |
 | 늦게 도착한 위치 | 이벤트 손실 (`future-improvements.md` 18번) | 시각순 재처리로 건너뛴 정류장을 채울 수 있음 (7절. 단 `확인 필요`) |
 | 운영 부담 | Geofence 수 = 정류장 수. Traccar와 Rails 자원이 어긋나면 `sync_*`로 복구 | Traccar 자원 정합성 문제가 줄어듦. 대신 위치 수신 경로와 H3 라이브러리가 새 의존성 |
 
@@ -187,6 +188,9 @@ Traccar 6의 위치 포워딩 설정(공식 설정 문서, 2026-11-06 확인): `
 | `StopVisitRecorder`가 Traccar 이벤트를 받음 | 입력이 위치/셀로 바뀜. 도착·출발을 `stop_visits`에 쓰는 부분은 재사용 가능 | 중복 방지 키 변경 필요 |
 | `deviceId`가 사실상 비밀번호 (함정 6) | 변함 없음 | OsmAnd 식별자 방식이 그대로이므로 |
 | 승객 화면(`RouteBusStatuses`, `ArrivalPresenter`) | `stop_visits`를 그대로 읽으면 변경 없음 | 셀 이력을 직접 쓰면 더 풍부한 표시 가능 |
+| ETA(`SegmentTimes`, `RouteBusStatuses`) | `stop_visits`의 `exited_at` → 다음 `entered_at`을 구간 시간으로 배운다. **H3 판정이 이 두 시각을 바꾸면 통계가 달라진다**: 셀이 정류장보다 일찍 도착을 잡으면 정차 시간은 늘고 구간 시간은 줄어 합은 비슷하지만, 전환 전후 표본을 섞으면 중앙값이 흔들린다 | 전환 시 기존 통계를 비우거나 전환 시점 이후 운행만 쓴다(`RECENT_TRIPS` 30건이 지나면 자연 정리). 병행 기간(10절 2단계)에는 H3 판정이 `stop_visits`에 쓰지 않으므로 영향 없음 |
+| 위치 포워딩(`design-realtime-eta.md` 방식 B) | 이 제안의 (a)안과 **같은 수신 경로**(Traccar position forward → Rails)를 쓴다 | 두 문서가 따로 같은 엔드포인트를 만들지 않도록 합의가 필요. 하나를 채택하면 다른 쪽이 그 수신 경로를 재사용 |
+| 정류장 지역(`stops.region_id`, 2026-11 추가) | 지역과 H3는 독립이다. 정류장 좌표(`lat`, `lng`, NOT NULL)가 그대로 있어 셀은 언제든 다시 계산 가능 | 지역 경계 판정에 H3를 쓰자는 것은 이 제안의 범위 밖 |
 
 (b)안은 위 표의 "Traccar는 위치 수신·보관만"이 "Traccar는 위치 보관만(선택)"이 되고 `driver_app` 변경이 추가된다.
 
