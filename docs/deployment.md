@@ -504,7 +504,7 @@ bin/kamal app boot                    # db:prepare가 빈 DB 4개를 만든다(�
 지역 설계는 `docs/plans/2026-11-11-region-design.md` 6절. 정류장의 `region_id`를 한 번에 NOT NULL로 만들 수 없어서(기존 정류장에 지역이 없다) 배포를 두 번에 나눈다.
 
 1. **배포 1**: 머지해도 자동 배포되지 않는다(`.github/workflows/ci.yml`에 배포 단계가 없다). 위 "이후 배포·롤백"의 `bin/deploy`로 직접 배포한다. 마이그레이션 `create_regions`가 `regions` 테이블과 nullable `stops.region_id`를 만든다. 이 단계에서는 지역 없는 기존 정류장도 저장된다(새로 만들거나 지역을 바꿀 때만 지역이 필수).
-2. **지역 적재**: **적재하기 전에는 새 정류장을 등록할 수 없으므로(지역이 필수인데 고를 지역이 없다) 배포 직후 바로 한다.** 로컬에서 `script/regions/build_kr_regions.py`로 CSV를 만든다(사용법과 입력 파일은 `script/regions/README.md`. 데이터 파일은 커밋하지 않는다). CSV를 서버로 올린 뒤 컨테이너 안에서 `regions:import`를 실행한다. 새 코드만 추가하고 기존 행은 건드리지 않으며, 원본과 다른 행은 보고만 한다. 컨테이너에서 보이는 서버 디렉터리는 `storage/` 볼륨(`/var/lib/where-is-my-bus/storage`, 소유자 uid 1000)뿐이다(위 "호스트 데이터 디렉터리").
+2. **지역 적재**: **적재하기 전에는 새 정류장을 등록할 수 없으므로(지역이 필수인데 고를 지역이 없다) 배포 직후 바로 한다.** 지역 CSV는 [script/regions/README.md](../script/regions/README.md)의 "데이터 생성 순서"로 만들거나, 같은 문서에 링크된 보관본을 받는다(데이터 파일은 커밋하지 않는다). 적재 전에 서버에서 백업하고, CSV를 서버로 올린 뒤 컨테이너 안에서 `regions:import`를 실행한다. 새 코드만 추가하고 기존 행은 건드리지 않으며, 원본과 다른 행은 보고만 한다. 컨테이너에서 보이는 서버 디렉터리는 `storage/` 볼륨(`/var/lib/where-is-my-bus/storage`, 소유자 uid 1000)뿐이다(위 "호스트 데이터 디렉터리").
 3. **기존 정류장 백필**: 관리자 정류장 수정 화면에서 정류장마다 지역을 지정한다. **정류장을 지우지 않는다.** 방문 기록이 있으면 삭제가 막히고(`restrict_with_error`), 지우면 Traccar geofence가 남는다.
 4. **확인**: 지역 없는 정류장이 0개여야 한다.
 5. **배포 2** (아직 구현하지 않았다. 4번이 끝나기 전에는 하지 않는다): `stops.region_id`를 NOT NULL로 바꾼다.
@@ -515,8 +515,8 @@ bin/kamal app boot                    # db:prepare가 빈 DB 4개를 만든다(�
 
 ```bash
 # 예시 (이 저장소에 없던 운영 명령이다. 경로와 서버 별칭은 환경에 맞게 바꾼다)
+ssh web01.where-is-my-bus sudo /opt/where-is-my-bus/backup-storage              # 적재 전 백업 (위 "데이터와 백업")
 scp kr_regions.csv web01.where-is-my-bus:/var/lib/where-is-my-bus/storage/   # 업로드 (SSH 별칭: "SSH 별칭")
-ssh web01.where-is-my-bus sudo chown 1000:1000 /var/lib/where-is-my-bus/storage/kr_regions.csv
 bin/kamal app exec --reuse "bin/rails 'regions:import[storage/kr_regions.csv]'"   # 컨테이너 안의 /rails/storage
 
 # 지역 없는 정류장 수 (0이어야 배포 2)
@@ -525,7 +525,9 @@ bin/kamal app exec --reuse "bin/rails runner 'puts Stop.where(region_id: nil).co
 
 - 적재 결과는 "추가 N / 변경 없음 N / 원본과 다름 N" 한 줄과 차이 목록(최대 50건)으로 출력된다. 같은 CSV를 다시 실행해도 안전하다.
 - `bin/kamal app exec --reuse`를 쓰는 이유는 위 "이후 배포·롤백"의 콘솔 명령과 같다. 서버 파일 경로 인자(`storage/kr_regions.csv`)는 컨테이너의 `/rails` 기준이다.
-- 위 명령은 서버에서 실행해 보지 않았다(미확인). 적재 전에 `bin/backup-storage`로 백업해 둔다.
+- 서버에서 확인한 것: SSH 접속 계정(`ubuntu`)의 uid가 1000이라 `scp`로 올린 파일을 컨테이너가 읽으므로 `chown`이 필요 없다(다른 계정으로 올리면 `chown 1000:1000`). `scp` 업로드와 `bin/kamal app exec --reuse`의 `regions:import`는 실행되어 적재됐다(Kamal 감사 로그 `~/.kamal/where-is-my-bus-audit.log`와 운영 DB의 지역 수로 확인).
+- 확인하지 못한 것: 위 백업 명령(`ubuntu`가 `sudo`를 쓸 수 있는 것만 확인했다. `bin/backup-storage`는 `ubuntu`로 직접 실행하면 기본 백업 위치 `/var/backups`에 쓸 수 없어 실패한다), 지역 없는 정류장 수를 세는 `bin/kamal` 명령(같은 값을 운영 DB에서 `sqlite3`로 직접 조회해 확인했다).
+- 적재한 지역이 잘못됐다면(예: bbox가 비어 있다) 다시 적재해도 고쳐지지 않는다. [script/regions/README.md의 "주의사항"](../script/regions/README.md#주의사항) 2번을 따른다.
 
 ## 도메인 변경
 
