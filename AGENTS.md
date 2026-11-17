@@ -1,13 +1,12 @@
 # AGENTS.md — 내 버스는 언제 올까? (where-is-my-bus)
 
 소규모 BIS 버스정보시스템. 시골·도서 지역 노선버스의 위치를 **정류장 단위**로 알려 준다.
-매 세션마다 읽어서 짧게 유지. 상세 설계 `docs/` 문서 연결, 여기는 구조, 명령, 관례, 함정 작성.
 
 ## 구조
 
 | 경로 | 내용 |
 |---|---|
-| 루트 | 웹 애플리케이션 (Rails 8.1, Ruby 4.0.9 — `.tool-versions`/`.ruby-version` 고정) |
+| `/`(루트) | 관리자, 승객용 웹 애플리케이션 (Rails 8.1, Ruby 4.0.9 — `.tool-versions`/`.ruby-version` 고정) |
 | `driver_app/` | 버스 운전자용 Flutter 앱. Rails와 별도로 빌드·배포되며 `integrations/traccar/*` API 계약으로 강결합 |
 | `docs/` | 설계, 정책 문서 (아래 "문서 지도") |
 
@@ -41,10 +40,25 @@ Region ─< Stop                      (정류장은 지역에 속함. Region은 
 | Traccar를 같은 서버에 Kamal accessory로 올리기, 위치 수신·관리 화면 HTTPS 이름 구성 | `docs/traccar-accessory.md` |
 | H3 공간 인덱스 기반 판정 제안(검토용, 미결정) | `docs/proposal-h3-spatial-index.md` |
 | 제품 요구사항, 정책 초안, 남은 과제 | `docs/product_requirements.md`, `docs/policy-draft.md`, `docs/future-improvements.md` |
-| 지역(Region) 설계, 지역 CSV 준비 스크립트 | `docs/plans/2026-11-11-region-design.md`, `script/regions/README.md` |
+| 정책을 기록하는 영속 문서(주제별 한 파일). 지금은 지역(Region) 정책·설계 결정 | `docs/policies/` (`region.md`) |
+| 지역 CSV 준비 스크립트 | `script/regions/README.md` |
 | 운전자 앱 | `driver_app/README.md`, `driver_app/mvp-spec.md`, `driver_app/ISSUE.md` |
 
 Traccar 연동·`driver_app` 코드를 고칠 때는 프로젝트 스킬 `traccar-sync`, `driver-app`(`.claude/skills/`)을 먼저 쓴다. 두 스킬은 재작성 이후 구조 기준이다.
+
+## 문서 규칙
+
+코드를 바꿀 때 문서도 같이 고친다. 문서마다 무엇을 적고 언제 고치는지는 아래와 같다.
+
+| 문서 | 무엇을 적는가 | 언제 고치는가 |
+|---|---|---|
+| 정책 문서(`docs/policies/`) | 정책, 설계 결정과 그 이유. 기준이 되는 문서 | 정책이 바뀔 때. 설계 문서를 합칠 때 |
+| 설계 문서(`docs/plans/`) | 구현 전 설계. 임시 문서 | 구현을 마치면 정책 문서에 합치고 **삭제** |
+| 연동·계약 문서(`docs/traccar-integration.md`, `driver_app/ISSUE.md`) | 외부와의 계약, 이벤트 흐름 | 구조나 API 계약이 바뀔 때 |
+| `README.md`, 스킬(`traccar-sync`, `driver-app`) | 사용법, 작업 지침 | 해당 내용이 바뀔 때 |
+| 이 파일 | 구조, 명령, 관례, 함정 | 구조가 바뀌거나 새 함정이 생길 때 |
+
+이 파일은 매 세션 읽으므로 길수록 비용이 들고, 다른 문서와 내용이 겹치면 한쪽이 낡아 서로 어긋난다. 새 내용을 넣기 전에 다른 문서에 이미 있는지 먼저 본다. 있으면 표·절차·수치·근거는 그 문서에 두고, 이 파일에는 한 줄 요약과 문서 경로만 적는다.
 
 ## 인증·권한
 
@@ -89,7 +103,6 @@ Rails와 Traccar를 한 서버에 Kamal(`config/deploy.yml`)로 배포한다. Tr
 8. **첫 가입자가 자동 operator** — `User#assign_operator_if_first_user`가 `User.count.zero?`로 판정하므로 동시 가입 race가 있고 DB 제약이 없다. 가입 폼은 role을 받지 않는다.
 9. **이미지 변환 없음** — `image_processing` gem과 `libvips`는 쓰지 않아 제거했고(`config.active_storage.variant_processor = :disabled`), 첨부 파일과 Active Storage 테이블도 없다. 이미지 변환이나 첨부가 필요해지면 gem, Dockerfile의 `libvips`, 이 설정, 테이블을 함께 되돌려야 한다(`docs/deployment.md` "이미지 크기와 레지스트리 무료 한도").
 10. **지역(`Region`)** — 정류장은 지역(레벨 ≥ 2)이 필수지만 1단계 배포라 `stops.region_id`는 nullable이고 지역 없는 기존 정류장은 저장된다(NOT NULL은 후속 배포, `docs/deployment.md` "지역(Region) 도입 배포" 5번). 부모 레벨은 자식보다 낮아야 한다(`parent.level < child.level`). 한국 지역은 `bin/rails "regions:import[CSV 경로]"`로 적재하며 새 코드만 추가한다. 데이터 파일은 커밋하지 않고 CSV는 `script/regions/`로 만든다.
-11. **문서 최신성** — 구조나 API 계약이 바뀌면 `docs/traccar-integration.md`, `driver_app/ISSUE.md`, `README.md`, 스킬(`traccar-sync`, `driver-app`), 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
 
 ## 코딩 관례
 
