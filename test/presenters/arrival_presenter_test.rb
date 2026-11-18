@@ -89,6 +89,6 @@ class ArrivalPresenterTest < ActiveSupport::TestCase
   end
 
   test "to_h is what the polling endpoint returns" do
-    assert_equal %i[small big barPct dim others], presenter_for(stops(:hospital)).to_h.keys
+    assert_equal %i[small big barPct dim others glide], presenter_for(stops(:hospital)).to_h.keys
   end
 end

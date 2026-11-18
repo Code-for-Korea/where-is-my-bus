@@ -110,7 +110,7 @@ class PassengerFlowTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
     assert_equal({ "small" => "고성시장 정차 중", "big" => [ "1정거장 전에", "있습니다." ], "barPct" => 30,
-                   "dim" => false, "others" => [] }, response.parsed_body)
+                   "dim" => false, "others" => [], "glide" => nil }, response.parsed_body)
   end
 
   test "the detail modal lists the stops in order, marks my stop and where the bus is" do
