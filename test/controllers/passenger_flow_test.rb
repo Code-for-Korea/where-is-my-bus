@@ -11,7 +11,7 @@ class PassengerFlowTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: "내 버스는 언제올까?"
     assert_select "button[data-action='click->bus-selector#open']", text: "버스는 지금 어디?"
     assert_select "a[href=?]", about_path
-    assert_select "img[src='/codeforkorea.webp']"
+    assert_select "img[src='/codeforkorea.png']"
   end
 
   test "passenger pages load the Pretendard font" do
