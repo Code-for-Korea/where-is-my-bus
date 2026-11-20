@@ -77,6 +77,8 @@ class AppStrings {
   static String get startFailedPermission =>
       _t((ko: '운행 시작에 실패했습니다. 위치 권한을 확인해주세요.', en: 'Could not start. Please check the location permission.'));
   static String get stopFailedError => _t((ko: '위치 전송을 멈추지 못했습니다.', en: 'Could not stop sending the position.'));
+  static String get locationUnstable =>
+      _t((ko: '위치 연결이 불안정합니다. 앱을 완전히 종료한 뒤 다시 실행해주세요.', en: 'The location connection is unstable. Please fully close and reopen the app.'));
   static String get tripEndedByServer => _t((ko: '서버에서 운행이 종료되었습니다.', en: 'The trip was ended on the server.'));
 
   // ---- 3. 설정 ----

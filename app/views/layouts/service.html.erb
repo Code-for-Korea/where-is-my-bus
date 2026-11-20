@@ -35,9 +35,9 @@
     </style>
   </head>
 
-  <body class="bg-gray-100 min-h-screen"<% if content_for?(:ga4_page_path) %> data-ga4-page-path="<%= yield(:ga4_page_path) %>"<% end %>>
+  <body class="bg-gray-100 min-h-dvh"<% if content_for?(:ga4_page_path) %> data-ga4-page-path="<%= yield(:ga4_page_path) %>"<% end %>>
     <div class="mx-auto w-full sm:max-w-[400px]">
-      <div class="relative bg-white overflow-hidden min-h-screen flex flex-col">
+      <div class="relative bg-white overflow-hidden min-h-dvh flex flex-col">
         <!-- 플래시 -->
         <% if notice %>
           <div class="mx-6 mt-2 rounded-lg bg-green-50 text-green-800 px-3 py-2 text-sm shrink-0"><%= notice %></div>

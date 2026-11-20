@@ -11,10 +11,6 @@ ko:
       cta_button: "버스는 지금 어디?"
       service_preparing: "서비스 준비 중"
       powered_by: "powered by"
-      partners_together: "함께 하고 있어요."
-      nia_name: "NIA"
-      nia_full: "한국지능정보사회진흥원"
-      molit: "🏛 국토교통부"
 
     about:
       title: "내 버스는 언제올까?"
@@ -37,11 +33,7 @@ ko:
       caution_title: "(주의)"
       caution_body: "이 서비스는 지자체 버스서비스(BIS)에 데이터가 등록되지 않은 지역의 버스 정보를 제공하고 있습니다."
       partners_together: "함께 하고 있어요."
-      nia_name: "NIA"
-      nia_full: "한국지능정보사회진흥원"
-      molit: "🏛 국토교통부"
       footer_makers: "만든 사람들"
-      footer_driver: "운전사이에요!"
       footer_terms: "이용약관"
 
   # 정류장 → (노선 선택) → 버스 위치. 문구는 origin/main의 화면과 같은 어조를 유지한다.

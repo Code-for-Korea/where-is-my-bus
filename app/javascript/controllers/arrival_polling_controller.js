@@ -6,13 +6,14 @@ import { ga4Event } from "ga4"
 export default class extends Controller {
   static targets = ["small", "big", "others", "busMarker"]
   static values  = {
-    url: String, interval: { type: Number, default: 5000 },
+    url: String, interval: { type: Number, default: 5000 }, glide: Object,
     stopName: String, routeName: String, status: String
   }
 
   connect() {
     // 화면을 열 때의 상태(arriving/approaching/passed/unknown/no_bus)를 한 번만 보낸다. 5초 폴링마다 보내지 않는다.
     ga4Event("arrival_status", { status: this.statusValue, stop_name: this.stopNameValue, bus_number: this.routeNameValue })
+    if (this.hasGlideValue) this.glideMarker(this.glideValue)
     this.timer = setInterval(() => {
       if (!document.hidden) this.poll()
     }, this.intervalValue)
@@ -53,8 +54,27 @@ export default class extends Controller {
     }
 
     if (this.hasBusMarkerTarget) {
-      this.busMarkerTarget.style.left = `${data.barPct}%`
       this.busMarkerTarget.classList.toggle("opacity-40", data.dim)
+      if (data.glide) this.glideMarker(data.glide)
+      else this.stepMarker(data.barPct)
     }
+  }
+
+  // 평소: 서버가 준 단계 위치로 0.5초 이동(클래스의 transition).
+  stepMarker(pct) {
+    const marker = this.busMarkerTarget
+    marker.style.transition = ""
+    marker.style.left = `${pct}%`
+  }
+
+  // 마지막 구간: 지금 위치에서 목표(to)까지 남은 ETA 동안 일정한 속도로 이동. 폴링마다 남은 시간으로 다시 맞춘다.
+  glideMarker({ seconds, to }) {
+    const marker = this.busMarkerTarget
+    const current = (marker.offsetLeft / marker.offsetParent.offsetWidth) * 100 // 이동 중이면 지금 위치
+    marker.style.transition = "none"
+    marker.style.left = `${Math.min(current, to)}%`
+    marker.getBoundingClientRect() // 위 값을 먼저 적용해 이동을 새로 시작한다
+    marker.style.transition = `left ${Math.max(seconds, 1)}s linear`
+    marker.style.left = `${to}%`
   }
 }

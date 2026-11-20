@@ -30,14 +30,14 @@
       <div class="flex-1 bg-white px-6 pt-6 pb-10 overflow-y-auto">
 
         <div class="relative">
-          <div class="absolute left-[3.125rem] top-3 bottom-3 w-0.5 bg-indigo-500"></div>
+          <div class="absolute left-[4.125rem] top-3 bottom-3 w-0.5 bg-indigo-500"></div>
 
           <div class="space-y-0">
             <% @presenter.timeline.each do |stop| %>
               <div class="relative flex items-center min-h-[3.5rem]">
 
                 <%# 왼쪽 컬럼 — 버스가 있는 정류장에 뱃지 + 버스 아이콘 %>
-                <div class="w-10 flex-shrink-0 flex flex-col items-end pr-1">
+                <div class="w-14 flex-shrink-0 flex flex-col items-end pr-1">
                   <% if stop[:buses].any? %>
                     <span class="bg-indigo-600 text-white text-xs font-bold px-1.5 py-0.5 rounded mb-0.5 whitespace-nowrap"><%= t("arrivals.detail.here_badge") %></span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600">

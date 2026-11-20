@@ -26,10 +26,3 @@
   background-size: 1rem;
   padding-right: 2.5rem;
 }
-
-@media (prefers-color-scheme: dark) {
-  /* codeforkorea.webp는 텍스트가 검정으로 그려진 래스터 이미지라 다크모드에서 반전 처리 */
-  .codeforkorea-logo {
-    filter: invert(1);
-  }
-}

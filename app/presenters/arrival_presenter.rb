@@ -9,6 +9,7 @@ class ArrivalPresenter
   BAR_FAR = 3
   BAR_PASSED = 96
   BAR_IDLE = 50
+  BAR_GLIDE_MAX = 85 # 마지막 구간에서 아이콘이 ETA에 맞춰 움직일 때 도착(90) 전에 멈추는 위치
 
   def initialize(statuses:, route_stops:, stop:)
     @statuses = statuses
@@ -70,9 +71,18 @@ class ArrivalPresenter
     end
   end
 
+  # 마지막 구간(내 정류장 1정거장 전에서 막 출발)에 ETA가 있으면 아이콘이 ETA 동안 일정한 속도로 움직인다.
+  # { seconds: 남은 ETA, to: 목표 %} — 해당하지 않으면 nil(단계 이동). ETA가 이미 지났어도 곧바로 멈추지 않게 0은 그대로 보낸다.
+  def glide
+    status = primary
+    return unless status&.kind == :approaching && status.stops_left == 1 && !status.at_last_stop && status.eta_seconds
+
+    { seconds: status.eta_seconds, to: BAR_GLIDE_MAX }
+  end
+
   # 5초 폴링 응답. 문구는 클라이언트가 textContent로만 넣는다.
   def to_h
-    { small: small, big: big_lines, barPct: bar_pct, dim: dim?, others: others }
+    { small: small, big: big_lines, barPct: bar_pct, dim: dim?, others: others, glide: glide }
   end
 
   private
