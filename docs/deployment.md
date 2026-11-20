@@ -196,7 +196,7 @@ TRACCAR_ADMIN_HTPASSWD='admin:$apr1$...'   # Traccar 관리 화면 브라우저 
 `KAMAL_REGISTRY_PASSWORD`가 환경변수와 `.env.deploy`에 없고 `gh`가 로그인되어 있으면, `bin/deploy`가 `gh auth token`을 토큰으로, 로그인한 GitHub 계정을 사용자 이름으로 쓴다(`KAMAL_REGISTRY_USERNAME`이 있으면 그 이름을 쓴다).
 
 - **`write:packages` 권한이 필요하다.** `bin/deploy`가 토큰의 권한을 먼저 확인하고 없으면 서버에 접속하기 전에 멈춘다. 권한은 `gh auth refresh -h github.com -s write:packages`로 추가한다(브라우저 인증).
-- **서버의 Docker 설정에 토큰이 남는다.** Kamal이 서버에서도 같은 토큰으로 `docker login`을 하기 때문이다. `gh` 토큰은 `repo` 등 권한이 넓어서, 서버가 뚫리면 그 범위가 노출된다. 서버에 남기는 토큰의 범위를 줄이려면 `write:packages`만 가진 클래식 PAT을 `.env.deploy`에 두면 된다(우선순위가 gh보다 높다).
+- **서버에 토큰이 잠시 있다가 지워진다.** Kamal이 서버에서도 같은 토큰으로 `docker login`을 하므로 배포 동안 서버의 Docker 설정에 토큰이 있다. `gh` 토큰은 `repo` 등 권한이 넓어서 `bin/deploy`가 패키지 외 권한이 있으면 경고하고, **gh 토큰을 썼을 때는 명령이 끝난 뒤(실패·중단 포함) `bin/kamal registry logout --skip-local`로 서버의 로그인을 지운다.** 이미지는 이미 서버에 있어 실행 중인 컨테이너에는 영향이 없고, 다음 배포·롤백에서 Kamal이 다시 로그인한다. 로그아웃이 실패하면 경고가 나오니 그 명령을 직접 실행한다. 배포 중에는 토큰이 서버에 있으므로 권한 자체를 줄이려면 `write:packages`만 가진 클래식 PAT을 `.env.deploy`에 둔다(우선순위가 gh보다 높다). 이 경우는 자동 로그아웃을 하지 않으니 필요하면 직접 실행한다.
 - `gh` OAuth 토큰(`gho_…`)으로 GHCR 로그인이 되는지는 실제 로그인으로 확인한다: `gh auth token | docker login ghcr.io -u <이름> --password-stdin`. 안 되면 클래식 PAT을 쓴다.
 - 동작은 스텁한 `gh`로 확인했다(권한 없음 → 안내 후 종료, 권한 있음 → 계정·토큰 사용, 환경변수가 있으면 gh를 쓰지 않음). 실제 GHCR 로그인은 확인하지 못했다.
 
@@ -388,6 +388,23 @@ sqlite3 /tmp/restore/production.sqlite3 "select count(*) from users;"
 
 - 실제 복원: 컨테이너를 멈추고(`bin/kamal app stop`) 호스트 `storage/`의 해당 파일을 백업본으로 바꾼 뒤 `chown 1000:1000`, `bin/kamal app boot`.
 - **Traccar DB(H2, `/var/lib/where-is-my-bus/traccar`)도 이 서버에 있다.** 실행 중인 H2 파일을 `cp`하면 깨질 수 있어 `bin/backup-traccar`로 컨테이너를 잠깐 멈추고 복사한 뒤 다시 띄운다(방법과 근거: [traccar-accessory.md](traccar-accessory.md) "데이터와 백업"). Rails만 복원하면 Traccar와 ID가 어긋나므로 **같은 시각대에 함께 백업·복원한다**(`docs/future-improvements.md` 19번).
+
+## 서버 데이터를 로컬로 가져오기 (검토)
+
+`bin/pull-server-data`는 서버의 최신 백업 스냅샷(위 "데이터와 백업")을 `tmp/production-<서버 백업 시각>/`로 내려받는다 — `rails/`(SQLite gzip + 푼 것)와 `traccar/`(H2). 서버 쪽은 **백업 파일만 읽고 아무것도 정지하지 않는다.** `--fresh`를 주면 서버에서 새 백업을 만들어 그것을 받는다(Traccar가 수 초 정지). 받아온 디렉터리는 gitignore(`tmp/*`)라 커밋되지 않는다. 2026-11-12 실서버에서 1회 실행해 검증했다(무결성 `ok`, users 4).
+
+**로컬 DB로 대체할 때 주의할 점** — 아래는 검토 사항이며 **2026-11-12 실제로 대체까지 수행해 검증했다**(절차: 기존 `storage/development.sqlite3`를 치워두고 스냅샷의 `production.sqlite3`를 `development.sqlite3`로 복사 → Traccar H2도 `tmp/docker/volumes/traccar/data/`에 복사 → `bin/traccar up` → `bin/rails server`):
+
+1. **`production.sqlite3`만 필요하다.** 개발 환경은 단일 DB(`config/database.yml`: development는 `development.sqlite3` 하나)라 cache·cable·queue 별도 파일이 애초에 없다. 스냅샷의 main DB에 solid_queue 테이블도 0개(prod의 잡은 별도 `production_queue.sqlite3`에 있어 복사되지 않음) — 남은 잡이 처리될 위험은 확인상 없다. (서버 복원용 백업은 4개를 다 두는 것이 맞다 — 어느 쪽이 손상됐는지 모르므로.)
+2. **Rails와 Traccar는 세트로 대체한다.** Rails DB의 `traccar_*` ID와 Traccar의 기기·지오펜스·그룹은 짝이다(위 "데이터와 백업", `future-improvements.md` 19번). 한쪽만 바꾸면 Traccar 이벤트가 전부 `ignored`가 되고 방문 기록이 안 쌓인다. 검증 때 짝이 온전함을 확인했다: `연남꽃길`의 `traccar_geofence_id=11`이 로컬 Traccar의 지오펜스 ID 11과, `연남동`의 `traccar_group_id=3`이 그룹 ID 3과 일치. 기존 로컬 Traccar 데이터는 `bin/traccar reset` 대신 `tmp/docker/volumes/traccar/data`를 통째로 치워두고 H2를 넣는 쪽이 원본 보존에 낫다.
+3. **파일명을 바꿔 development DB로 쓴다.** 스냅샷은 `production_*` 이름이다. 기본인 `RAILS_ENV=development`로 쓰려면 `development.sqlite3`로 바꿔 `storage/`에 둔다. **`RAILS_ENV=production`으로 로컬 실행은 피한다** — 부팅 검사(`lib/traccar_production_check.rb`)가 localhost·`dev-` 값을 전부 막고 `config/credentials/production.key`도 필요하다.
+4. **스키마 버전을 맞춘다.** 스냅샷은 서버 이미지의 마이그레이션 상태다. 검증 때는 로컬과 버전이 같아 `db:prepare`가 변경 없이 통과했다(`db:migrate:status`로 확인). 로컬 코드가 앞서면 `bin/rails db:migrate`로 맞추고, 데이터가 있는 DB에 마이그레이션이 어떻게 적용되는지는 로컬이라도 먼저 확인한다.
+5. **비밀·개인정보가 그대로 온다.** 사용자 비밀번호 해시, 세션, 차량 `deviceId`(사실상 비밀번호, 함정 6번), 소모된 PIN, 방문 이력. 커밋은 안 되지만 오래 두지 말고 쓴 뒤 지운다.
+6. **방문 기록의 시각은 과거다.** 승객 화면 계산("N정거장 전", "이미 지나갔어요")은 스냅샷 시각 기준이 된다. 데모용으로는 자연스럽지 않을 수 있다. 진행 중 운행(Trip)이 스냅샷에 남아 있으면 로컬에서 종료 처리해야 한다(2026-11-12 스냅샷 기준 0건).
+7. **운전자 앱과 연결하면 실데이터 시험이 된다.** H2를 넣은 로컬 Traccar는 실서버와 같은 기기·지오펜스를 갖는다. `bin/dev`가 환경변수를 localhost로 채우므로 앱에서 서버 주소만 로컬로 바꾸면 된다(주소가 다른 것 외에는 실서버와 동일).
+8. **콘솔 로그인 계정이 바뀐다.** 로컬 Traccar 웹 화면(8082)은 서버의 관리자 계정이 그대로 있어 `admin@localbus.test`로 로그인할 수 없다. 서버 콘솔 계정을 모르면 `TRACCAR_CONSOLE_EMAIL/PASSWORD`를 서버 계정으로 지정하거나, API는 로컬 서비스 토큰(`dev-traccar-api-token`)으로 접근한다. Rails 동작에는 영향 없다.
+
+검증 결과(2026-11-12): `bin/rails server`로 `/`가 실서버 정류장(연남꽃길 등)으로 렌더링되고, `/stops/11/routes/3/status`·`/detail`이 200으로 정상 응답("운행 중인 버스가 없습니다" — 진행 중 운행 0건과 일치). users 4, stops 11, routes 2, buses 2, stop_visits 0.
 
 ## 운영 데이터 초기화와 초기 데이터 입력 (제안)
 

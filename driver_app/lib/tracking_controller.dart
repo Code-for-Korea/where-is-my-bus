@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:traccar_client_sdk/traccar_client_sdk.dart';
@@ -19,10 +20,10 @@ class TrackingController {
   TrackingController._();
 
   static const _kKeepTracking = 'keep_tracking';
+  static const _batteryChannel = MethodChannel('driver_app/battery');
   static const _syncInterval = Duration(seconds: 10); // 운행 중 서버가 보는 위치를 화면에 갱신하는 주기
 
   static TraccarClientSdk _sdk = TraccarClientSdk();
-  static bool _initialized = false;
   // 운전자가 운행 중인 상태(서버에 운행이 열려 있음) — keepTracking이 꺼져 있을 때 앱이 백그라운드로 나가면
   // isTracking(실제 SDK 전송 상태)만 잠시 false가 되고, 이 값은 그대로 유지돼서 포그라운드로 돌아오면 다시 start()한다.
   static bool _onDuty = false;
@@ -32,6 +33,9 @@ class TrackingController {
   static int _epoch = 0;
   static bool _lifecycleObserverAttached = false;
   static Timer? _syncTimer;
+  // start() 뒤 실제 전송이 켜졌는지 다시 확인하는 간격.
+  @visibleForTesting
+  static Duration verifyDelay = const Duration(milliseconds: 500);
 
   static final isTracking = ValueNotifier<bool>(false);
   // 기본 켜짐 — 지속추적이 꺼져 있으면 앱을 나가는 순간 위치 전송 자체가 끊겨 서비스 목적이
@@ -57,9 +61,15 @@ class TrackingController {
 
   /// mvp-spec "지속추적" 정의: 꺼짐 = 앱이 포그라운드일 때만 전송. SDK 자체엔 이 옵션이 없어서
   /// (start()하면 무조건 백그라운드까지 전송) 앱 생명주기를 직접 감지해 정지/재시작으로 흉내낸다.
-  static Future<void> _onAppLifecycleChanged(AppLifecycleState state) async {
+  @visibleForTesting
+  static Future<void> onAppLifecycleChanged(AppLifecycleState state) async {
     final foreground = state == AppLifecycleState.resumed;
-    if (foreground) unawaited(syncWithServer()); // 앱이 꺼져 있는 동안 서버 쪽 운행이 바뀌었을 수 있다
+    if (foreground) {
+      // 지속추적이 꺼져 있으면 아래 분기가 start()를 맡는다. 켜져 있으면 OS가 백그라운드에서 전송을 정리했을 수 있어 확인한다.
+      // 복구를 먼저 끝낸 뒤 서버 상태를 맞춘다: 서버 운행이 이미 끝났다면 복구로 켠 전송을 곧바로 sync가 끈다.
+      if (keepTracking.value) await _recoverIfStopped();
+      unawaited(syncWithServer()); // 앱이 꺼져 있는 동안 서버 쪽 운행이 바뀌었을 수 있다
+    }
 
     if (keepTracking.value || !_onDuty) return; // 켜짐이면 SDK 기본 동작에 맡김, 운행중 아니면 무관
     try {
@@ -98,7 +108,6 @@ class TrackingController {
     _onDuty = false;
     isTracking.value = false;
     position.value = null;
-    _initialized = false; // 새 등록 정보(serverUrl/deviceId)로 다시 init해야 한다
   }
 
   /// 테스트에서 위치 전송 SDK를 가짜로 바꿔 끼운다.
@@ -113,7 +122,6 @@ class TrackingController {
     _onDuty = false;
     _busy = false;
     _epoch = 0;
-    _initialized = false;
     isTracking.value = false;
     position.value = null;
     lastError.value = null;
@@ -163,8 +171,9 @@ class TrackingController {
       return;
     }
 
+    final bool sending;
     try {
-      await _startSdk();
+      sending = await _startSdk();
     } catch (e) {
       debugPrint('TrackingController: start failed: $e');
       // GPS 권한 거부 등 SDK 자체 실패 — 서버에는 운행이 이미 열렸으므로 되돌리고(실패해도 다음 동기화가 서버 상태를 따른다)
@@ -178,6 +187,21 @@ class TrackingController {
 
     position.value = trip.position;
     _setOnDuty(true);
+    // 서버 운행은 열렸는데 위치 전송이 안 켜진 것으로 보이면 운행은 유지하고 운전자에게 알린다 (오판으로 정상 운행을 끊지 않는다).
+    if (!sending) lastError.value = AppStrings.locationUnstable;
+    unawaited(_requestBatteryExemption());
+  }
+
+  /// Android 절전(Doze·제조사 배터리 관리)에 걸리면 한동안 되다가 멈춘다 — 배터리 최적화 예외를 시스템 팝업으로 요청한다.
+  /// 이미 예외면 아무것도 안 띄운다. iOS 등 채널이 없는 곳은 조용히 넘어간다(best-effort).
+  static Future<void> _requestBatteryExemption() async {
+    try {
+      await _batteryChannel.invokeMethod<void>('request');
+    } on MissingPluginException {
+      // Android 외 플랫폼
+    } catch (e) {
+      debugPrint('TrackingController: battery exemption request failed: $e');
+    }
   }
 
   static Future<void> _stopDuty() async {
@@ -201,29 +225,105 @@ class TrackingController {
     _setOnDuty(false);
   }
 
-  /// init()은 최초 "운행 시작" 탭에서 지연 호출 — 미리 부르면 버튼 누르기 전부터 GPS 센서가 켜짐.
-  static Future<void> _startSdk() async {
-    if (!_initialized) {
-      final config = Config(
-        serverUrl: DriverRegistration.traccarServerUrl!,
-        deviceId: DriverRegistration.deviceId!,
-        // 정류장 영역(30m 정사각형) 안에 위치가 반드시 몇 번 찍히도록 SDK 기본값보다 촘촘하게 보낸다:
-        // 15m 이동 또는 10초마다. mvp-spec.md "위치 추적 고정값" 참고.
-        location: const LocationConfig(
-          accuracy: Accuracy.high,
-          distanceMeters: 15,
-          intervalSeconds: 10,
-          heartbeatIntervalSeconds: 30,
-          stopDetection: false, // true면 iOS 모션 권한이 딸려옴
-        ),
-      );
-      await _sdk.init(config);
-      // init()은 SDK에 저장된 설정이 이미 있으면 새 값을 무시한다 — 재등록·서버 변경 뒤에도 옛 주소·기기 ID로
-      // 전송하지 않도록 매번 덮어쓴다.
-      await _sdk.setConfig(config);
-      _initialized = true;
+  /// 위치 전송을 켠다. 운행을 시작(또는 자동 재개)할 때마다 SDK를 처음 시작할 때와 같은 절차(init → setConfig → start)로 만든다.
+  /// init()은 "운행 시작" 탭 이후에만 부른다 — 미리 부르면 버튼 누르기 전부터 GPS 센서가 켜진다.
+  ///
+  /// 앱을 백그라운드에 둔 채 운행을 끝내고 다시 시작하면, Dart는 "이미 초기화됨"으로 알고 있어도 네이티브 쪽 상태가
+  /// 어긋나 start()가 예외 없이 끝나고도 전송이 안 켜질 수 있다. 그래서 Dart 쪽 플래그에 기대지 않고 매번 다시 초기화하고(init은
+  /// 멱등), 실제로 전송이 켜졌는지 isTracking()으로 확인한다. 안 켜졌으면 한 번 처음부터 다시 시도한다.
+  /// 끝까지 확인되지 않으면 false를 돌려준다(호출한 쪽이 경고를 띄운다). 확인 자체가 불가능한 경우는 켜진 것으로 본다.
+  static Future<bool> _startSdk() async {
+    final config = Config(
+      serverUrl: DriverRegistration.traccarServerUrl!,
+      deviceId: DriverRegistration.deviceId!,
+      // 정류장 영역(30m 정사각형) 안에 위치가 반드시 몇 번 찍히도록 SDK 기본값보다 촘촘하게 보낸다:
+      // 15m 이동 또는 10초마다. mvp-spec.md "위치 추적 고정값" 참고.
+      // 화면 잠금·백그라운드에서 CPU가 잠들어 일정 시간 뒤 위치 전송이 멈추는 것을 막는다 (ISSUE.md "백그라운드 전송").
+      wakeLock: true,
+      location: const LocationConfig(
+        accuracy: Accuracy.high,
+        distanceMeters: 15,
+        intervalSeconds: 10,
+        heartbeatIntervalSeconds: 30,
+        stopDetection: false, // true면 iOS 모션 권한이 딸려옴
+      ),
+    );
+
+    await _initSdk(config);
+    if (await _querySending() != true) await _sdk.start(); // 이미 전송 중이면(앱 재실행 뒤 서비스가 살아 있는 경우) 다시 켜지 않는다
+    if (await _confirmSending()) return true;
+
+    debugPrint('TrackingController: location sending did not start, retrying from scratch');
+    await _logDiagnostics();
+    try {
+      await _sdk.stop();
+    } catch (e) {
+      debugPrint('TrackingController: stop before retry failed: $e');
     }
+    await _initSdk(config);
     await _sdk.start();
+    if (await _confirmSending()) return true;
+
+    await _logDiagnostics();
+    return false;
+  }
+
+  // init()은 SDK에 저장된 설정이 이미 있으면 새 값을 무시한다 — 재등록·서버 변경 뒤에도 옛 주소·기기 ID로
+  // 전송하지 않도록 setConfig로 매번 덮어쓴다.
+  static Future<void> _initSdk(Config config) async {
+    await _sdk.init(config);
+    await _sdk.setConfig(config);
+  }
+
+  /// 실제 전송 여부. SDK가 답하지 못하면 null.
+  static Future<bool?> _querySending() async {
+    try {
+      return await _sdk.isTracking();
+    } catch (e) {
+      debugPrint('TrackingController: isTracking failed: $e');
+      return null;
+    }
+  }
+
+  /// start() 직후에는 SDK 상태가 아직 갱신되기 전일 수 있어 잠깐 간격을 두고 몇 번 확인한다. 확인할 수 없으면(null) 켜진 것으로 본다.
+  static Future<bool> _confirmSending() async {
+    for (var attempt = 0; attempt < 4; attempt++) {
+      if (await _querySending() != false) return true;
+      if (attempt < 3) await Future<void>.delayed(verifyDelay);
+    }
+    return false;
+  }
+
+  static Future<void> _logDiagnostics() async {
+    try {
+      final entries = await _sdk.getLogs();
+      for (final entry in entries.reversed.take(5).toList().reversed) {
+        debugPrint('TrackingController: sdk log: ${entry.message}');
+      }
+    } catch (e) {
+      debugPrint('TrackingController: sdk logs unavailable: $e');
+    }
+  }
+
+  /// 앞으로 돌아왔을 때 운행 중인데 실제 전송이 꺼져 있으면(OS가 백그라운드에서 정리한 경우 등) 다시 켠다.
+  static Future<void> _recoverIfStopped() async {
+    if (_busy || !_onDuty) return;
+    if (await _querySending() != false) return;
+    if (_busy || !_onDuty) return; // 조회하는 동안 운행이 끝났거나 다른 시작/종료가 시작됐다
+
+    debugPrint('TrackingController: sending stopped while on duty, restarting');
+    // 복구하는 동안 syncWithServer가 끼어들어 stop한 직후 다시 켜지는 일이 없도록 toggle과 같이 _busy로 막는다.
+    _busy = true;
+    _epoch++;
+    try {
+      if (!await _startSdk()) lastError.value = AppStrings.locationUnstable;
+    } catch (e) {
+      debugPrint('TrackingController: recover failed: $e');
+      lastError.value = AppStrings.startFailedPermission; // 조용히 넘어가면 운행 중으로 보이는데 위치가 안 나간다
+    } finally {
+      _busy = false;
+      _epoch++;
+    }
   }
 
   static void _setOnDuty(bool onDuty) {
@@ -271,14 +371,16 @@ class TrackingController {
   }
 
   static Future<void> _resume() async {
+    final bool sending;
     try {
-      await _startSdk();
+      sending = await _startSdk();
     } catch (e) {
       debugPrint('TrackingController: resume failed: $e');
       lastError.value = AppStrings.startFailedPermission;
       return;
     }
     _setOnDuty(true);
+    if (!sending) lastError.value = AppStrings.locationUnstable;
   }
 
   static Future<void> _endLocally() async {
@@ -295,7 +397,7 @@ class TrackingController {
 class _LifecycleObserver extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    unawaited(TrackingController._onAppLifecycleChanged(state));
+    unawaited(TrackingController.onAppLifecycleChanged(state));
   }
 }
 

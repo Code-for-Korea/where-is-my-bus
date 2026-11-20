@@ -20,6 +20,7 @@ GPS 좌표를 쌓아 두고 가까운 정류장을 계산하는 방식이 아니
 - 설계 결정과 근거: [docs/design-event-driven-rewrite.md](docs/design-event-driven-rewrite.md)
 - Traccar 연동 상세(자원 대응·이벤트 흐름·설정·보안): [docs/traccar-integration.md](docs/traccar-integration.md)
 - 데이터 모델이 왜 이렇게 바뀌었나: [docs/data-model-rewrite.md](docs/data-model-rewrite.md), ERD: [docs/erd.md](docs/erd.md)
+- 실시간 운행 안내(N분 후 도착) 설계·승객 화면 메시지 정의: [docs/design-realtime-eta.md](docs/design-realtime-eta.md)
 - 제품 요구사항·정책 초안·남은 과제: [docs/product_requirements.md](docs/product_requirements.md), [docs/policy-draft.md](docs/policy-draft.md), [docs/future-improvements.md](docs/future-improvements.md)
 
 ---

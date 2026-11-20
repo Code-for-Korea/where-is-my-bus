@@ -1,7 +1,7 @@
 # 도착 화면(파란 패널)에 보여줄 문구와 노선 진행 바 위치를 RouteBusStatuses 결과로 만든다.
 # 첫 화면 렌더링과 5초 폴링 JSON이 같은 값을 쓰도록 한 곳에서 계산한다.
 #
-# 원래 화면의 큰 글씨는 "약 N분 후 도착예정"(ETA)이었다. ETA가 없으므로 같은 자리에
+# 큰 글씨는 "약 N분 후 도착 예정"(ETA)이다. 구간 통계가 부족해 ETA가 없으면(SegmentTimes) 같은 자리에
 # "N정거장 전에 있습니다" 등 위치 문구를 보여주고, 진행 바는 남은 정류장 수로 움직인다.
 class ArrivalPresenter
   # 진행 바(%) — 남은 정류장 수별 고정 점: 3정거장 이상 3, 2정거장 15, 1정거장 30, 도착 90.
@@ -9,6 +9,7 @@ class ArrivalPresenter
   BAR_FAR = 3
   BAR_PASSED = 96
   BAR_IDLE = 50
+  BAR_GLIDE_MAX = 85 # 마지막 구간에서 아이콘이 ETA에 맞춰 움직일 때 도착(90) 전에 멈추는 위치
 
   def initialize(statuses:, route_stops:, stop:)
     @statuses = statuses
@@ -35,7 +36,7 @@ class ArrivalPresenter
   def big_lines
     case primary&.kind
     when :arriving then lines("arrived")
-    when :approaching then [ I18n.t("arrivals.status.stops_left_line1", count: primary.stops_left), I18n.t("arrivals.status.stops_left_line2") ]
+    when :approaching then approaching_lines(primary)
     when :unknown then lines("unknown")
     when :passed then lines("passed")
     else lines("no_bus")
@@ -70,12 +71,37 @@ class ArrivalPresenter
     end
   end
 
+  # 마지막 구간(내 정류장 1정거장 전에서 막 출발)에 ETA가 있으면 아이콘이 ETA 동안 일정한 속도로 움직인다.
+  # { seconds: 남은 ETA, to: 목표 %} — 해당하지 않으면 nil(단계 이동). ETA가 이미 지났어도 곧바로 멈추지 않게 0은 그대로 보낸다.
+  def glide
+    status = primary
+    return unless status&.kind == :approaching && status.stops_left == 1 && !status.at_last_stop && status.eta_seconds
+
+    { seconds: status.eta_seconds, to: BAR_GLIDE_MAX }
+  end
+
   # 5초 폴링 응답. 문구는 클라이언트가 textContent로만 넣는다.
   def to_h
-    { small: small, big: big_lines, barPct: bar_pct, dim: dim?, others: others }
+    { small: small, big: big_lines, barPct: bar_pct, dim: dim?, others: others, glide: glide }
   end
 
   private
+
+  # ETA가 있으면 "약 N분 후 도착 예정"(1분 미만은 "곧 도착"), 없으면 남은 정류장 수.
+  def approaching_lines(status)
+    if status.eta_seconds.nil?
+      [ I18n.t("arrivals.status.stops_left_line1", count: status.stops_left), I18n.t("arrivals.status.stops_left_line2") ]
+    elsif status.eta_seconds < 60
+      lines("soon")
+    else
+      [ I18n.t("arrivals.status.eta_line1", minutes: eta_minutes(status)), I18n.t("arrivals.status.eta_line2") ]
+    end
+  end
+
+  # 정확해 보이지 않게 분 단위로 올림한다.
+  def eta_minutes(status)
+    (status.eta_seconds / 60.0).ceil
+  end
 
   def lines(key)
     [ I18n.t("arrivals.status.#{key}_line1"), I18n.t("arrivals.status.#{key}_line2") ]
@@ -96,10 +122,17 @@ class ArrivalPresenter
   def short(status)
     case status.kind
     when :arriving then I18n.t("arrivals.status.short_arriving")
-    when :approaching then I18n.t("arrivals.status.short_stops_left", count: status.stops_left)
+    when :approaching then short_approaching(status)
     when :passed then I18n.t("arrivals.status.short_passed")
     else I18n.t("arrivals.status.short_unknown")
     end
+  end
+
+  def short_approaching(status)
+    return I18n.t("arrivals.status.short_stops_left", count: status.stops_left) if status.eta_seconds.nil?
+    return I18n.t("arrivals.status.short_soon") if status.eta_seconds < 60
+
+    I18n.t("arrivals.status.short_eta", minutes: eta_minutes(status))
   end
 
   def bus_label(bus)

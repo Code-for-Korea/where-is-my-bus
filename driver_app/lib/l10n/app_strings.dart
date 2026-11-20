@@ -12,7 +12,7 @@ class AppStrings {
       LanguageSettings.current == AppLanguage.ko ? pair.ko : pair.en;
 
   // ---- 공통 ----
-  static String get appName => _t((ko: '내 버스는 언제 올까?', en: 'Where is My BUS'));
+  static String get appName => _t((ko: '내 버스는 언제올까', en: "Where's My BUS"));
   static String get poweredBy => _t((ko: 'powered by', en: 'powered by'));
 
   // ---- 0. 스플래시 ----
@@ -24,7 +24,7 @@ class AppStrings {
       _t((ko: '운행 시작 전, 발급받은 정보를 등록하세요', en: 'Before you start, register the info you were given'));
   static String get serverUrlFieldLabel => _t((ko: '서버 주소 (adminUrl)', en: 'Server address (adminUrl)'));
   static String get serverUrlFieldHint =>
-      _t((ko: '운영자에게 전달받은 주소를 정확히 입력하세요.', en: 'Enter the address your operator gave you exactly.'));
+      _t((ko: '운영자에게 전달받은 주소를 입력하세요. http(s)://는 생략해도 됩니다.', en: 'Enter the address your operator gave you. http(s):// is optional.'));
   static String get pinFieldLabel => _t((ko: 'PIN', en: 'PIN'));
   static String get registerButton => _t((ko: '등록하고 시작하기', en: 'Register and start'));
   static String get qrScanComingSoon => _t((ko: 'QR로 스캔 (준비 중)', en: 'Scan QR (coming soon)'));
@@ -77,6 +77,8 @@ class AppStrings {
   static String get startFailedPermission =>
       _t((ko: '운행 시작에 실패했습니다. 위치 권한을 확인해주세요.', en: 'Could not start. Please check the location permission.'));
   static String get stopFailedError => _t((ko: '위치 전송을 멈추지 못했습니다.', en: 'Could not stop sending the position.'));
+  static String get locationUnstable =>
+      _t((ko: '위치 연결이 불안정합니다. 앱을 완전히 종료한 뒤 다시 실행해주세요.', en: 'The location connection is unstable. Please fully close and reopen the app.'));
   static String get tripEndedByServer => _t((ko: '서버에서 운행이 종료되었습니다.', en: 'The trip was ended on the server.'));
 
   // ---- 3. 설정 ----
