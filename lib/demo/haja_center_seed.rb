@@ -8,6 +8,9 @@ module Demo
 
     ROUTE_NAME = "하자센터 시연 노선".freeze
 
+    # 이미 있는 같은 이름 정류장을 재사용해도 되는 위치 차이(m).
+    MAX_REUSE_METERS = 50.0
+
     BUS_LICENSE_PLATE = "서울70사1001".freeze
     BUS_NUMBER = "하자01".freeze
 
@@ -70,9 +73,23 @@ module Demo
 
     def provision_stops(region)
       STOPS.to_h do |name, (lat, lng)|
-        stop = Stop.find_by(name: name) || provision!("정류장 #{name}") { StopRegistration.create(name: name, lat: lat, lng: lng, region: region) }
+        stop = Stop.find_by(name: name)
+        if stop
+          verify_existing_stop!(stop, lat, lng, region)
+        else
+          stop = provision!("정류장 #{name}") { StopRegistration.create(name: name, lat: lat, lng: lng, region: region) }
+        end
         [ name, stop ]
       end
+    end
+
+    # 이름만 같은 다른 정류장(다른 지역의 같은 이름 등)을 시연 노선에 잘못 붙이지 않도록 위치와 지역을 확인한다.
+    def verify_existing_stop!(stop, lat, lng, region)
+      meters = Math.hypot((stop.lat - lat) * 111_320.0, (stop.lng - lng) * 111_320.0 * Math.cos(lat * Math::PI / 180))
+      return if meters <= MAX_REUSE_METERS && stop.region_id == region.id
+
+      raise "이미 있는 정류장 '#{stop.name}'(id #{stop.id})이 시연 정류장과 다릅니다 " \
+            "(위치 차이 #{meters.round}m, 지역 #{stop.region&.name || '없음'}). 이름이 같은 다른 정류장이면 시드를 중단합니다."
     end
 
     def provision_bus(route)

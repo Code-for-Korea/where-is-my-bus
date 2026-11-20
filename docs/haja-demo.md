@@ -51,7 +51,7 @@ bin/rails "demo:drive[하자01]"     # 시뮬레이터 (번호판 "서울70사10
 ```
 
 - 승객 화면 http://localhost:3000 에서 영동초교 등의 정류장을 고르고 "하자센터 시연 노선"을 연다.
-- `demo:drive`는 Rails(localhost:3000)와 Traccar(localhost:5055)가 모두 떠 있어야 한다. 시뮬레이터는 기본 **약 45km/h**로 움직이고(`BusSimulator`의 `speed_kmh: 45`), 정류장마다 6초 정차한다. 시연 시간을 줄이려면 `demo:drive[하자01,1,2]`처럼 정차 시간을 줄인다.
+- `demo:drive`는 Rails(localhost:3000)와 Traccar(localhost:5055)가 모두 떠 있어야 한다. 시뮬레이터는 기본 **약 45km/h**로 움직이고(`BusSimulator`의 `speed_kmh: 45`, 전송 간격 1초 기준이며 간격을 늘리면 표시 속도만 그만큼 낮아진다), 정류장마다 6초 정차한다. 시연 시간을 줄이려면 `demo:drive[하자01,1,2]`처럼 정차 시간을 줄인다.
 - 시드 출력의 PIN과 `deviceId`는 운전자 앱 등록에 쓸 수 있다(로컬 시험 방법은 `docs/local-demo.md` "운전자 앱 로컬 시험").
 
 ## 서버에 적재
@@ -88,4 +88,6 @@ bin/kamal app exec --reuse 'bin/rails runner "Stop.where(region_id: nil).count"'
 - **"Traccar 연결을 기다리는 중..."이 반복되다가 실패한다**: 등록 서비스는 Traccar 호출과 한 트랜잭션이라 Traccar가 내려가 있으면 Rails 변경도 취소된다. 시드는 약 30회(2초 간격) 재시도하다가 포기한다. Traccar를 띄운 뒤(`bin/traccar status`로 확인, `bin/dev`를 다시 띄우거나 `bin/traccar up`) **같은 명령을 다시 실행한다.** 시드는 여러 번 실행해도 안전하다(이미 있는 것은 건너뛴다).
 - **`demo:drive`가 "버스를 찾을 수 없습니다"**: 시드를 먼저 실행하지 않았거나 다른 DB를 보고 있다. `bin/rails demo:seed_haja_center`를 실행한다.
 - **승객 화면이 "위치 확인 중"에서 안 넘어간다**: `docs/local-demo.md` "문제 해결"과 같은 원인(Traccar → Rails 이벤트 포워딩)이다.
+- **"이미 있는 정류장 ... 시연 정류장과 다릅니다"로 시드가 중단된다**: 같은 이름의 다른 정류장(위치 50m 초과 또는 다른 지역)이 이미 있다는 뜻이다. 시연 노선에 잘못 붙지 않도록 일부러 멈춘다. 그 정류장이 시연용이 맞다면 위치·지역을 고치고, 아니면 이름을 바꾼 뒤 다시 실행한다.
+- **재시도 중 Traccar에만 남은 자원(orphan)이 생길 수 있다**: 시드가 Traccar 오류로 재시도하는 동안 Traccar 쪽에만 group·geofence·device가 만들어질 수 있다(`AGENTS.md` 알려진 함정 3번과 같은 한계). 복구는 관리자 화면의 `sync_group`/`sync_geofence`/`sync_device`로 한다.
 - **지역 오류로 시드가 실패한다**: 위 "사전 준비"의 `regions:import`를 먼저 한다.

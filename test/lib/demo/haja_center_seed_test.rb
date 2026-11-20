@@ -44,6 +44,26 @@ class Demo::HajaCenterSeedTest < ActiveSupport::TestCase
                  Stop.where(name: Demo::HajaCenterSeed::STOPS.keys).pluck(:region_id).uniq
   end
 
+  test "같은 이름이어도 위치나 지역이 다른 기존 정류장이면 중단한다" do
+    stub_happy_traccar
+    lat, lng = Demo::HajaCenterSeed::STOPS.fetch("영등포역")
+    Stop.create!(name: "영등포역", lat: lat + 0.01, lng: lng, region: @region) # 약 1.1km 떨어진 같은 이름
+
+    error = assert_raises(RuntimeError) { capture_io { Demo::HajaCenterSeed.new.run } }
+
+    assert_includes error.message, "시연 정류장과 다릅니다"
+    assert_equal 0, Route.where(name: Demo::HajaCenterSeed::ROUTE_NAME).count
+  end
+
+  test "같은 이름이어도 지역이 다른 기존 정류장이면 중단한다" do
+    stub_happy_traccar
+    lat, lng = Demo::HajaCenterSeed::STOPS.fetch("영등포역")
+    other = Region.create!(code: "1144000000", name: "마포구", kind: "시군구", level: 2, parent: @region.parent)
+    Stop.create!(name: "영등포역", lat: lat, lng: lng, region: other)
+
+    assert_raises(RuntimeError) { capture_io { Demo::HajaCenterSeed.new.run } }
+  end
+
   test "Traccar 호출이 실패하면 새 레코드가 남지 않는다" do
     stub_request(:post, "#{TRACCAR_API}/api/geofences").to_return(status: 500, body: "boom")
     seed = Demo::HajaCenterSeed.new

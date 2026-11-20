@@ -75,7 +75,7 @@ module Demo
     def start_point(stops)
       first, second = stops.first(2)
       lat, lng = move(first["lat"], first["lng"], *direction(second, first), APPROACH_METERS)
-      Point.new(lat: lat, lng: lng, speed: @speed_kmh.round(1))
+      Point.new(lat: lat, lng: lng, speed: (@speed_kmh / @interval).round(1))
     end
 
     # from에서 (lat, lng)까지 @step_meters 간격의 좌표들 (to 포함, from 제외).
@@ -83,7 +83,7 @@ module Demo
       steps = [ (distance(from.lat, from.lng, lat, lng) / @step_meters).ceil, 1 ].max
       (1..steps).map do |i|
         ratio = i.to_f / steps
-        Point.new(lat: from.lat + (lat - from.lat) * ratio, lng: from.lng + (lng - from.lng) * ratio, speed: @speed_kmh.round(1))
+        Point.new(lat: from.lat + (lat - from.lat) * ratio, lng: from.lng + (lng - from.lng) * ratio, speed: (@speed_kmh / @interval).round(1))
       end
     end
 
