@@ -65,9 +65,10 @@ class TrackingController {
   static Future<void> onAppLifecycleChanged(AppLifecycleState state) async {
     final foreground = state == AppLifecycleState.resumed;
     if (foreground) {
-      unawaited(syncWithServer()); // 앱이 꺼져 있는 동안 서버 쪽 운행이 바뀌었을 수 있다
       // 지속추적이 꺼져 있으면 아래 분기가 start()를 맡는다. 켜져 있으면 OS가 백그라운드에서 전송을 정리했을 수 있어 확인한다.
+      // 복구를 먼저 끝낸 뒤 서버 상태를 맞춘다: 서버 운행이 이미 끝났다면 복구로 켠 전송을 곧바로 sync가 끈다.
       if (keepTracking.value) await _recoverIfStopped();
+      unawaited(syncWithServer()); // 앱이 꺼져 있는 동안 서버 쪽 운행이 바뀌었을 수 있다
     }
 
     if (keepTracking.value || !_onDuty) return; // 켜짐이면 SDK 기본 동작에 맡김, 운행중 아니면 무관
@@ -308,12 +309,20 @@ class TrackingController {
   static Future<void> _recoverIfStopped() async {
     if (_busy || !_onDuty) return;
     if (await _querySending() != false) return;
+    if (_busy || !_onDuty) return; // 조회하는 동안 운행이 끝났거나 다른 시작/종료가 시작됐다
 
     debugPrint('TrackingController: sending stopped while on duty, restarting');
+    // 복구하는 동안 syncWithServer가 끼어들어 stop한 직후 다시 켜지는 일이 없도록 toggle과 같이 _busy로 막는다.
+    _busy = true;
+    _epoch++;
     try {
       if (!await _startSdk()) lastError.value = AppStrings.locationUnstable;
     } catch (e) {
       debugPrint('TrackingController: recover failed: $e');
+      lastError.value = AppStrings.startFailedPermission; // 조용히 넘어가면 운행 중으로 보이는데 위치가 안 나간다
+    } finally {
+      _busy = false;
+      _epoch++;
     }
   }
 
