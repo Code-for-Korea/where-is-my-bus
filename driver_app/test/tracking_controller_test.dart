@@ -34,6 +34,7 @@ class _FakeSdk extends TraccarClientSdk {
   bool tracking = false;
   bool stale = false;
   bool neverStarts = false;
+  Future<void> Function()? onStart; // start() 도중에 다른 일이 끼어드는 상황을 만든다
 
   @override
   Future<void> init(Config config) async {
@@ -47,6 +48,7 @@ class _FakeSdk extends TraccarClientSdk {
   @override
   Future<void> start() async {
     calls.add('start');
+    await onStart?.call();
     if (failStart) throw Exception('permission denied');
     if (!stale && !neverStarts) tracking = true;
   }
@@ -215,6 +217,66 @@ void main() {
       await TrackingController.onAppLifecycleChanged(AppLifecycleState.resumed);
 
       expect(sdk.calls, isEmpty);
+    });
+
+    test('복구가 실패하면 운전자에게 오류를 보여 준다', () async {
+      sdk.tracking = false;
+      sdk.failStart = true;
+
+      await TrackingController.onAppLifecycleChanged(AppLifecycleState.resumed);
+
+      expect(TrackingController.lastError.value, AppStrings.startFailedPermission);
+      expect(TrackingController.isTracking.value, isTrue); // 운행 상태는 서버가 정한다
+    });
+
+    test('복구 도중 도착한 옛 서버 조회는 폐기되고, 복구 뒤 조회가 서버 종료를 반영한다', () async {
+      sdk.tracking = false;
+      final gates = [Completer<void>(), Completer<void>()];
+      var calls = 0;
+      server.bus = () async {
+        await gates[calls++].future;
+        return _json({'busNumber': '1', 'route': {'name': '1번 노선'}, 'activeTrip': null});
+      };
+
+      // 복귀 직전에 이미 출발한 조회(첫 번째)가 복구 중에 도착하는 상황
+      final early = TrackingController.syncWithServer();
+      sdk.onStart = () async {
+        gates[0].complete();
+        await early;
+      };
+      await TrackingController.onAppLifecycleChanged(AppLifecycleState.resumed);
+
+      expect(sdk.tracking, isTrue); // 옛 조회가 복구 중인 전송을 끄지 않았다
+      expect(TrackingController.lastError.value, isNull);
+      expect(sdk.calls, isNot(contains('stop'))); // 복구 중에는 끄지 않았다
+
+      gates[1].complete(); // 복구 뒤 출발한 조회(두 번째)는 서버 종료를 반영한다
+      await pumpEventQueue();
+      expect(sdk.tracking, isFalse);
+      expect(TrackingController.isTracking.value, isFalse);
+      expect(TrackingController.lastError.value, AppStrings.tripEndedByServer);
+    });
+
+    test('복구 확인 중 운전자가 운행을 종료하면 전송을 다시 켜지 않는다', () async {
+      sdk.tracking = false;
+      var startedByRecover = false;
+      sdk.onStart = () async => startedByRecover = true;
+      final recover = TrackingController.onAppLifecycleChanged(AppLifecycleState.resumed);
+      await TrackingController.toggle(); // 종료
+      await recover;
+
+      expect(startedByRecover, isFalse);
+      expect(sdk.tracking, isFalse);
+    });
+
+    test('전송이 살아 있어도 서버 운행이 이미 끝났다면 복귀 직후 정리한다', () async {
+      server.bus = () async => _json({'busNumber': '1', 'route': {'name': '1번 노선'}, 'activeTrip': null});
+
+      await TrackingController.onAppLifecycleChanged(AppLifecycleState.resumed);
+      await pumpEventQueue();
+
+      expect(sdk.calls, contains('stop'));
+      expect(TrackingController.lastError.value, AppStrings.tripEndedByServer);
     });
 
     test('운행 중이 아니면 건드리지 않는다', () async {
