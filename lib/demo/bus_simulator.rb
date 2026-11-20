@@ -16,13 +16,18 @@ module Demo
     Point = Struct.new(:lat, :lng, :speed, :label, keyword_init: true)
 
     def initialize(device_id:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
-                   interval: 1.0, dwell: 6, settle: 3.0, speed_kmh: 45.0, out: $stdout)
+                   interval: 1.0, dwell: 6, settle: 3.0, speed_kmh: 45.0, laps: 1, pass_wait: nil, lap_gap: 0.0, out: $stdout)
       @device_id = device_id
       @rails_url = rails_url
       @osmand_url = osmand_url
       @interval = interval
       @dwell = dwell
       @settle = settle
+      raise ArgumentError, "반복 횟수는 0 이상이어야 합니다 (0이면 중단할 때까지 계속)." if laps.negative?
+
+      @laps = laps # 반복 횟수. 0이면 중단(Ctrl+C)할 때까지 계속 돈다
+      @pass_wait = pass_wait || settle # 마지막 정류장을 떠난 뒤 운행을 끝내기 전까지 기다리는 시간 — 화면이 "지나갔습니다"를 보여 줄 시간
+      @lap_gap = lap_gap # 바퀴 사이 쉬는 시간
       @speed_kmh = speed_kmh
       @step_meters = speed_kmh / 3.6
       @out = out
@@ -34,16 +39,30 @@ module Demo
       route = info["route"] ||
               raise(ArgumentError, "이 차량에는 배정된 노선이 없습니다. 관리자 화면에서 노선을 배정하세요.")
       end_trip if info["activeTrip"]
-      start_trip(route)
-      begin
-        build_path(route["stops"]).each { |point| send_position(point) }
-        sleep @settle # 마지막 정류장의 이탈 이벤트가 Rails에 도착할 시간을 준 뒤 종료한다
-      ensure
-        end_trip
+
+      lap = 0
+      loop do
+        lap += 1
+        @out.puts "== #{lap}번째 운행#{" (중단: Ctrl+C)" if @laps.zero? && lap == 1}" unless @laps == 1
+        drive_once(route)
+        break if @laps.positive? && lap >= @laps
+
+        sleep @lap_gap
       end
     end
 
     private
+
+    # 운행 하나: 시작 → 노선 주행 → (마지막 정류장 이탈 이벤트가 도착할 시간을 둔 뒤) 종료.
+    def drive_once(route)
+      begin
+        start_trip(route) # 요청 도중 Ctrl+C가 와도 서버에 열린 운행이 남지 않도록 ensure 안에서 시작한다
+        build_path(route["stops"]).each { |point| send_position(point) }
+        sleep @pass_wait
+      ensure
+        end_trip
+      end
+    end
 
     def fetch_info
       get_json("/integrations/traccar/bus?deviceId=#{@device_id}")
