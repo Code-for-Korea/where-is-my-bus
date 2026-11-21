@@ -19,9 +19,9 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
                                          .to_return(status: 200)
   end
 
-  def simulate
+  def simulate(**options)
     Demo::BusSimulator.new(device_id: "dev1", rails_url: RAILS, osmand_url: OSMAND,
-                           interval: 0.001, dwell: 0.002, settle: 0, out: StringIO.new).run
+                           interval: 0.001, dwell: 0.002, settle: 0, out: StringIO.new, **options).run
   end
 
   def positions
@@ -45,6 +45,31 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
     assert_requested @start, times: 1
     assert_requested @finish, times: 1
     assert_requested :get, %r{#{OSMAND}/\?id=dev1&}, at_least_times: 10
+  end
+
+  test "laps만큼 운행을 반복하고 매번 시작과 종료를 호출한다" do
+    simulate(laps: 3)
+
+    assert_requested @start, times: 3
+    assert_requested @finish, times: 3
+  end
+
+  test "반복해도 위치 시각은 계속 앞으로만 간다" do
+    simulate(laps: 2)
+
+    assert_equal positions.map { |p| p[:time] }.sort, positions.map { |p| p[:time] }
+    assert_equal positions.map { |p| p[:time] }.uniq.size, positions.size
+  end
+
+  test "pass_wait 동안 마지막 정류장을 떠난 상태로 운행을 유지한 뒤 종료한다" do
+    waits = []
+    sim = Demo::BusSimulator.new(device_id: "dev1", rails_url: RAILS, osmand_url: OSMAND,
+                                 interval: 0.001, dwell: 0.002, settle: 0, pass_wait: 0.05, out: StringIO.new)
+    sim.define_singleton_method(:sleep) { |seconds| waits << seconds; super(0) }
+    sim.run
+
+    assert_includes waits, 0.05
+    assert_requested @finish, times: 1
   end
 
   test "every stop's geofence is entered at least once, and the first position is outside all of them" do
