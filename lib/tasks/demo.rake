@@ -9,7 +9,7 @@ namespace :demo do
     Demo::HajaCenterSeed.new.run
   end
 
-  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 도는 것을 흉내낸다(기본 한 바퀴, 반복 횟수 0이면 계속). 예: bin/rails 'demo:drive[1번]', bin/rails 'demo:drive[1번,2,15,0,15,20]'"
+  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 도는 것을 흉내낸다(기본 한 바퀴, 반복 횟수 0이면 계속). 예: bin/rails 'demo:drive[1번]', bin/rails 'demo:drive[1번,2,15,0,15,20]'. 로컬 DB에 없는 운영 차량은 환경변수 DEMO_DEVICE_ID로 deviceId를 준다"
   task :drive, %i[bus interval dwell laps pass_wait lap_gap] => :environment do |_task, args|
     abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초,반복횟수,지나간뒤대기초,바퀴사이대기초]' (반복횟수 0 = 계속)" if args[:bus].blank?
 
@@ -23,11 +23,17 @@ namespace :demo do
     laps = Integer(args[:laps] || 1)
     abort "반복 횟수는 0 이상이어야 합니다 (0이면 중단할 때까지 계속)." if laps.negative?
 
-    bus = Bus.find_by(license_plate: args[:bus]) || Bus.find_by(bus_number: args[:bus])
-    abort "버스 '#{args[:bus]}'를 찾을 수 없습니다 (있는 버스: #{Bus.pluck(:license_plate, :bus_number).map { |p, n| "#{p}(#{n})" }.join(", ")})" unless bus
+    # 운영 서버 차량처럼 로컬 DB에 없는 차량은 DEMO_DEVICE_ID 환경변수로 deviceId를 직접 받는다.
+    # deviceId는 사실상 비밀번호라 인자(셸 기록·ps에 남음)가 아니라 환경변수로만 받는다.
+    device_id = ENV["DEMO_DEVICE_ID"].presence
+    unless device_id
+      bus = Bus.find_by(license_plate: args[:bus]) || Bus.find_by(bus_number: args[:bus])
+      abort "버스 '#{args[:bus]}'를 찾을 수 없습니다 (있는 버스: #{Bus.pluck(:license_plate, :bus_number).map { |p, n| "#{p}(#{n})" }.join(", ")})" unless bus
+      device_id = bus.traccar_unique_id
+    end
 
     Demo::BusSimulator.new(
-      device_id: bus.traccar_unique_id,
+      device_id: device_id,
       rails_url: ENV.fetch("DEMO_RAILS_URL", "http://localhost:3000"),
       osmand_url: ENV.fetch("TRACCAR_OSMAND_URL", "http://localhost:5055"),
       interval: interval,
