@@ -72,6 +72,30 @@ bin/rails "demo:drive[하자01,2,15,0,15,20]"
 - **화면 갱신은 5초마다다.** 목표 정류장에서 "도착했습니다"가 보이도록 정차를 15초 이상으로, 마지막 정류장을 지난 뒤 "지나갔습니다"가 보이도록 지나간 뒤 대기를 15초 이상으로 둔다. 바퀴 사이(운행이 없는 동안)에는 "운행 중인 버스가 없습니다"가 보인다.
 - **서버 노선에 붙이려면** 환경변수로 주소를 바꾼다: `DEMO_RAILS_URL`(Rails)과 `TRACCAR_OSMAND_URL`(Traccar 위치 수신 5055). 대상 버스는 그 노선에 배정된 차량의 번호판이나 번호다. 시뮬레이터 운행은 운영 DB에 방문 기록으로 남고 그 노선의 ETA 통계가 시뮬레이션 값으로 채워지므로, 시연 전용 노선에서만 쓴다.
 
+### 운영 서버 차량으로 실행하기
+
+노트북의 로컬 DB에는 운영 차량이 없으므로 번호판으로 차량을 찾을 수 없다. 대신 `DEMO_DEVICE_ID` 환경변수로 deviceId를 직접 준다. deviceId는 사실상 비밀번호라 인자로 주면 셸 기록과 `ps`에 남으므로 `read -s`로 입력해 환경변수로만 전달한다. 값은 관리자 화면에서 확인하고 문서·채팅·셸 기록에 남기지 않는다.
+
+```bash
+read -s DEMO_DEVICE_ID; export DEMO_DEVICE_ID
+DEMO_RAILS_URL=https://where-is-my-bus.codefor.kr TRACCAR_OSMAND_URL=http://where-is-my-bus.codefor.kr:5055 \
+  bin/rails "demo:drive[하자버스101,5,15,0,5,2]"
+unset DEMO_DEVICE_ID
+```
+
+- `DEMO_DEVICE_ID`가 있으면 첫 인자(번호판)는 로그용일 뿐 조회에 쓰이지 않는다.
+- 전송 간격(두 번째 인자)은 준비 운행과 시연이 같아야 한다. 이번 준비 운행은 5초였다.
+- 이 코드는 아직 서버에 배포되지 않았고 노트북에서만 실행한다.
+
+**시연 차량(하자버스101) 만들기**: 백업(`./backup-storage`, `bin/backup-traccar`)을 먼저 하고, 서버에서 `BusRegistration`으로 차량을 만들어 노선 6에 배정한다(관리자 화면의 차량 등록과 같은 경로다). deviceId와 PIN은 관리자 화면에서만 확인한다.
+
+**시연 뒤 정리 순서** (서버 `bin/rails runner`, 그 차량 기준):
+
+1. 그 차량의 `stop_visits` 삭제
+2. 그 차량의 `trips` 삭제 (방문 기록이 먼저여야 한다)
+3. `BusRegistration.destroy`로 차량과 Traccar 장치 삭제
+4. `Rails.cache.delete("segment_times/6")`로 ETA 통계 캐시 삭제
+
 ## 서버 시연 사전 점검
 
 시연 링크(QR)가 가리키는 노선을 관리자 화면에서 직접 만들었다면(예: 노선 6 "하자센터", 정류장 하이서울유스호스텔) **`demo:seed_haja_center`는 운영에 돌리지 않는다.** 시드는 이름이 다른 별도 노선("하자센터 시연 노선")을 새로 만들 뿐이다. 아래는 그 노선 기준이다. 노선 ID와 번호판은 환경에 맞게 바꾼다.
