@@ -134,4 +134,76 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{RAILS}/integrations/traccar/trips/start", body: { "deviceId" => "dev1" }
   end
+
+  # 시작 정류장 옵션: 3개 정류장 노선(서→동으로 곧게 놓인다)
+  THREE = [
+    { "name" => "A", "lat" => 34.9731, "lng" => 128.3222 },
+    { "name" => "B", "lat" => 34.9731, "lng" => 128.3262 },
+    { "name" => "C", "lat" => 34.9731, "lng" => 128.3302 }
+  ].freeze
+
+  def stub_route(stops)
+    stub_request(:get, %r{#{RAILS}/integrations/traccar/bus})
+      .to_return(body: { busNumber: "1", activeTrip: nil, route: { id: 1, name: "시험 노선", stops: stops } }.to_json)
+  end
+
+  def simulate_with_log(**options)
+    out = StringIO.new
+    Demo::BusSimulator.new(device_id: "dev1", rails_url: RAILS, osmand_url: OSMAND,
+                           interval: 0.001, dwell: 0.002, settle: 0, out: out, **options).run
+    out.string
+  end
+
+  test "start_stop을 주면 그 정류장부터 도착 로그가 나오고 앞 정류장은 지나지 않는다" do
+    stub_route(THREE)
+
+    log = simulate_with_log(start_stop: "B")
+
+    assert_match(/시작 정류장: B \(이후 1개 정류장\)/, log)
+    assert_no_match(/A 도착/, log)
+    assert_match(/B 도착/, log)
+    assert_match(/C 도착/, log)
+    assert positions.none? { |p| inside_geofence?(p, THREE[0]) }, "앞 정류장 지오펜스에 들어가면 안 된다"
+  end
+
+  test "start_stop 정류장 약 100m 앞(전 정류장 쪽)에서 출발한다" do
+    stub_route(THREE)
+
+    simulate(start_stop: "B")
+
+    first = positions.first
+    dx, dy = meters_between(first, THREE[1])
+    assert_in_delta 100.0, dx, 1.0
+    assert_in_delta 0.0, dy, 1.0
+    assert_operator first[:lng], :<, THREE[1]["lng"], "전 정류장(서쪽) 쪽이어야 한다"
+    assert THREE.none? { |stop| inside_geofence?(first, stop) }
+  end
+
+  test "start_stop을 주지 않으면 노선 전체를 돈다" do
+    stub_route(THREE)
+
+    log = simulate_with_log
+
+    assert_no_match(/시작 정류장/, log)
+    %w[A B C].each { |name| assert_match(/#{name} 도착/, log) }
+  end
+
+  test "노선에 없는 start_stop은 정류장 목록과 함께 ArgumentError" do
+    stub_route(THREE)
+
+    error = assert_raises(ArgumentError) { simulate(start_stop: "없는정류장") }
+
+    assert_match(/없는정류장/, error.message)
+    assert_match(/A, B, C/, error.message)
+    assert_not_requested :post, "#{RAILS}/integrations/traccar/trips/start"
+  end
+
+  test "마지막 정류장은 start_stop으로 지정할 수 없다" do
+    stub_route(THREE)
+
+    error = assert_raises(ArgumentError) { simulate(start_stop: "C") }
+
+    assert_match(/마지막 정류장에서는 시작할 수 없습니다/, error.message)
+    assert_not_requested :post, "#{RAILS}/integrations/traccar/trips/start"
+  end
 end

@@ -9,9 +9,9 @@ namespace :demo do
     Demo::HajaCenterSeed.new.run
   end
 
-  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 도는 것을 흉내낸다(기본 한 바퀴, 반복 횟수 0이면 계속). 예: bin/rails 'demo:drive[1번]', bin/rails 'demo:drive[1번,2,15,0,15,20]'. 로컬 DB에 없는 운영 차량은 환경변수 DEMO_DEVICE_ID로 deviceId를 준다"
-  task :drive, %i[bus interval dwell laps pass_wait lap_gap] => :environment do |_task, args|
-    abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초,반복횟수,지나간뒤대기초,바퀴사이대기초]' (반복횟수 0 = 계속)" if args[:bus].blank?
+  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 도는 것을 흉내낸다(기본 한 바퀴, 반복 횟수 0이면 계속). 예: bin/rails 'demo:drive[1번]', bin/rails 'demo:drive[1번,2,15,0,15,20]'. 7번째 인자 시작 정류장 이름을 주면 그 정류장부터 끝까지만 돈다(예: 'demo:drive[1번,5,15,0,5,2,영등포구민회관.영등포경찰서]', 이름에 쉼표가 있으면 쓸 수 없다). 로컬 DB에 없는 운영 차량은 환경변수 DEMO_DEVICE_ID로 deviceId를 준다"
+  task :drive, %i[bus interval dwell laps pass_wait lap_gap start_stop] => :environment do |_task, args|
+    abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초,반복횟수,지나간뒤대기초,바퀴사이대기초[,시작정류장이름]]' (반복횟수 0 = 계속)" if args[:bus].blank?
 
     $stdout.sync = true # 파이프·파일로 보낼 때도 진행 상황이 바로 보이게
 
@@ -40,7 +40,8 @@ namespace :demo do
       dwell: Float(args[:dwell] || 6),
       laps: laps,
       pass_wait: args[:pass_wait] && Float(args[:pass_wait]),
-      lap_gap: Float(args[:lap_gap] || 0)
+      lap_gap: Float(args[:lap_gap] || 0),
+      start_stop: args[:start_stop].presence
     ).run
   rescue ArgumentError => e
     abort e.message

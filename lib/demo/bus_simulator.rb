@@ -16,7 +16,7 @@ module Demo
     Point = Struct.new(:lat, :lng, :speed, :label, keyword_init: true)
 
     def initialize(device_id:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
-                   interval: 1.0, dwell: 6, settle: 3.0, speed_kmh: 45.0, laps: 1, pass_wait: nil, lap_gap: 0.0, out: $stdout)
+                   interval: 1.0, dwell: 6, settle: 3.0, speed_kmh: 45.0, laps: 1, pass_wait: nil, lap_gap: 0.0, start_stop: nil, out: $stdout)
       @device_id = device_id
       @rails_url = rails_url
       @osmand_url = osmand_url
@@ -28,6 +28,7 @@ module Demo
       @laps = laps # 반복 횟수. 0이면 중단(Ctrl+C)할 때까지 계속 돈다
       @pass_wait = pass_wait || settle # 마지막 정류장을 떠난 뒤 운행을 끝내기 전까지 기다리는 시간 — 화면이 "지나갔습니다"를 보여 줄 시간
       @lap_gap = lap_gap # 바퀴 사이 쉬는 시간
+      @start_stop = start_stop # 이 이름의 정류장부터 끝까지만 주행(nil이면 노선 전체). 응답에 정류장 id가 없어 이름으로만 지정한다
       @speed_kmh = speed_kmh
       @step_meters = speed_kmh / 3.6
       @out = out
@@ -38,6 +39,7 @@ module Demo
       info = fetch_info
       route = info["route"] ||
               raise(ArgumentError, "이 차량에는 배정된 노선이 없습니다. 관리자 화면에서 노선을 배정하세요.")
+      route = route.merge("stops" => stops_from_start(route["stops"])) if @start_stop
       end_trip if info["activeTrip"]
 
       lap = 0
@@ -52,6 +54,18 @@ module Demo
     end
 
     private
+
+    # 지정한 이름의 정류장부터 끝까지. 그 정류장 100m 앞에서 출발하는 것은 build_path가 그대로 처리한다.
+    def stops_from_start(stops)
+      index = stops.index { |stop| stop["name"] == @start_stop }
+      raise ArgumentError, "시작 정류장 '#{@start_stop}'이(가) 노선에 없습니다 (노선의 정류장: #{stops.map { |s| s["name"] }.join(", ")})" unless index
+
+      rest = stops.drop(index)
+      raise ArgumentError, "마지막 정류장에서는 시작할 수 없습니다 (방향 계산에 정류장이 2개 이상 필요합니다): #{@start_stop}" if rest.size < 2
+
+      @out.puts "시작 정류장: #{@start_stop} (이후 #{rest.size - 1}개 정류장)"
+      rest
+    end
 
     # 운행 하나: 시작 → 노선 주행 → (마지막 정류장 이탈 이벤트가 도착할 시간을 둔 뒤) 종료.
     def drive_once(route)
