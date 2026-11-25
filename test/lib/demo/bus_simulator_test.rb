@@ -179,6 +179,43 @@ class Demo::BusSimulatorTest < ActiveSupport::TestCase
     assert THREE.none? { |stop| inside_geofence?(first, stop) }
   end
 
+  test "laps=2: 첫 바퀴만 start_stop부터, 둘째 바퀴는 첫 정류장 100m 앞에서 전체 노선" do
+    stub_route(THREE)
+
+    log = simulate_with_log(start_stop: "B", laps: 2)
+
+    first_lap, second_lap = log.split(/^== 2번째 운행.*$/)
+    assert_no_match(/A 도착/, first_lap)
+    %w[B C].each { |name| assert_match(/#{name} 도착/, first_lap) }
+    assert_match(/전체 노선/, log)
+    %w[A B C].each { |name| assert_match(/#{name} 도착/, second_lap) }
+    second_start = positions.find { |p| meters_between(p, THREE[0]).first.round(1) == 100.0 && p[:lng] < THREE[0]["lng"] }
+    assert second_start, "둘째 바퀴는 A 100m 앞(서쪽)에서 출발해야 한다"
+    assert positions.any? { |p| inside_geofence?(p, THREE[0]) }
+    assert_requested @start, times: 2
+    assert_requested @finish, times: 2
+  end
+
+  test "laps=1이면 start_stop부터 종점까지 한 번만 달리고 끝난다" do
+    stub_route(THREE)
+
+    log = simulate_with_log(start_stop: "B", laps: 1)
+
+    assert_no_match(/A 도착/, log)
+    assert_no_match(/번째 운행/, log)
+    assert_requested @start, times: 1
+    assert positions.none? { |p| inside_geofence?(p, THREE[0]) }
+  end
+
+  test "start_stop 없이 laps=2면 모든 바퀴가 전체 노선이고 전체 노선 안내가 없다" do
+    stub_route(THREE)
+
+    log = simulate_with_log(laps: 2)
+
+    assert_no_match(/전체 노선|시작 정류장/, log)
+    assert_equal 2, log.scan(/A 도착/).size
+  end
+
   test "start_stop을 주지 않으면 노선 전체를 돈다" do
     stub_route(THREE)
 

@@ -28,7 +28,7 @@ module Demo
       @laps = laps # 반복 횟수. 0이면 중단(Ctrl+C)할 때까지 계속 돈다
       @pass_wait = pass_wait || settle # 마지막 정류장을 떠난 뒤 운행을 끝내기 전까지 기다리는 시간 — 화면이 "지나갔습니다"를 보여 줄 시간
       @lap_gap = lap_gap # 바퀴 사이 쉬는 시간
-      @start_stop = start_stop # 이 이름의 정류장부터 끝까지만 주행(nil이면 노선 전체). 응답에 정류장 id가 없어 이름으로만 지정한다
+      @start_stop = start_stop # 첫 바퀴만 이 이름의 정류장부터 끝까지 주행한다(2번째 바퀴부터는 노선 전체, nil이면 모든 바퀴가 전체). 응답에 정류장 id가 없어 이름으로만 지정한다
       @speed_kmh = speed_kmh
       @step_meters = speed_kmh / 3.6
       @out = out
@@ -39,14 +39,14 @@ module Demo
       info = fetch_info
       route = info["route"] ||
               raise(ArgumentError, "이 차량에는 배정된 노선이 없습니다. 관리자 화면에서 노선을 배정하세요.")
-      route = route.merge("stops" => stops_from_start(route["stops"])) if @start_stop
+      first_lap_route = @start_stop ? route.merge("stops" => stops_from_start(route["stops"])) : route # 검증은 시작 전에 한 번만
       end_trip if info["activeTrip"]
 
       lap = 0
       loop do
         lap += 1
-        @out.puts "== #{lap}번째 운행#{" (중단: Ctrl+C)" if @laps.zero? && lap == 1}" unless @laps == 1
-        drive_once(route)
+        @out.puts "== #{lap}번째 운행#{" (중단: Ctrl+C)" if @laps.zero? && lap == 1}#{" (전체 노선)" if @start_stop && lap == 2}" unless @laps == 1
+        drive_once(lap == 1 ? first_lap_route : route)
         break if @laps.positive? && lap >= @laps
 
         sleep @lap_gap
@@ -55,7 +55,7 @@ module Demo
 
     private
 
-    # 지정한 이름의 정류장부터 끝까지. 그 정류장 100m 앞에서 출발하는 것은 build_path가 그대로 처리한다.
+    # 지정한 이름의 정류장부터 끝까지(첫 바퀴용). 그 정류장 100m 앞에서 출발하는 것은 build_path가 그대로 처리한다.
     def stops_from_start(stops)
       index = stops.index { |stop| stop["name"] == @start_stop }
       raise ArgumentError, "시작 정류장 '#{@start_stop}'이(가) 노선에 없습니다 (노선의 정류장: #{stops.map { |s| s["name"] }.join(", ")})" unless index
