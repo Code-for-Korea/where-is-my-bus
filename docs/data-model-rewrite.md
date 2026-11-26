@@ -249,7 +249,7 @@ API 계약의 자세한 형식은 `docs/design-event-driven-rewrite.md` 4절.
 
 ## 13. 이후 변경: 지역(`regions`) 복원 (2026-11-11)
 
-재작성에서 뺀 지역 개념을 **옛 Region/Area 계층과 다른 모양**으로 다시 넣었다. 지도에서 정류장 좌표를 정할 때 원하는 지역(예: 울릉군)으로 좁혀 주고, 여러 지역을 구분하기 위해서다. 설계와 결정은 `docs/plans/2026-11-11-region-design.md`, 컬럼은 `docs/erd.md` 맨 아래.
+재작성에서 뺀 지역 개념을 **옛 Region/Area 계층과 다른 모양**으로 다시 넣었다. 지도에서 정류장 좌표를 정할 때 원하는 지역(예: 울릉군)으로 좁혀 주고, 여러 지역을 구분하기 위해서다. 정책과 설계 결정은 `docs/policies/region.md`, 컬럼은 `docs/erd.md` 맨 아래.
 
 ```mermaid
 erDiagram

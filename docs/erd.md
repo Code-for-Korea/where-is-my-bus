@@ -177,7 +177,7 @@ erDiagram
 
 ## 지역 복원 이후 (2026-11-11 설계, `feature/regions`)
 
-재작성 이후 구조(`docs/design-event-driven-rewrite.md` 3절)에 지역을 다시 넣었다. 옛 `regions`→`areas` 계층과 달리 **자기참조 트리 하나**이고, 정류장이 지역에 속한다. 노선의 지역은 저장하지 않고 소속 정류장에서 조회 때 파생한다(`Route#regions`, `Route.regions_by_route`). 정보원: `db/schema.rb`, `app/models/region.rb`, `stop.rb`, `user.rb`. 설계는 `docs/plans/2026-11-11-region-design.md`.
+재작성 이후 구조(`docs/design-event-driven-rewrite.md` 3절)에 지역을 다시 넣었다. 옛 `regions`→`areas` 계층과 달리 **자기참조 트리 하나**이고, 정류장이 지역에 속한다. 노선의 지역은 저장하지 않고 소속 정류장에서 조회 때 파생한다(`Route#regions`, `Route.regions_by_route`). 정보원: `db/schema.rb`, `app/models/region.rb`, `stop.rb`, `user.rb`. 정책과 설계 결정은 `docs/policies/region.md`.
 
 ```mermaid
 erDiagram
