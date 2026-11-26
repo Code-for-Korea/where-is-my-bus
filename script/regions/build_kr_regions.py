@@ -201,7 +201,7 @@ def main(argv=None):
     valid = {r["code"] for r in rows}
     own = {}
     unmatched = 0
-    for layer, path in (("SIG", args.sig), ("EMD", args.emd), ("LIG", args.li)):
+    for layer, path in (("SIG", args.sig), ("EMD", args.emd), ("LIO", args.li)):
         if not path:
             continue
         layer_bounds, layer_unmatched = bounds_from_shapefile(path, valid)
