@@ -6,23 +6,31 @@ module Demo
   #   1) 운행 시작 API 호출 (노선은 차량에 배정된 노선)
   #   2) Traccar의 위치 수신 포트(OsmAnd 프로토콜)로 좌표를 계속 전송
   #   3) 운행 종료 API 호출
-  # 정류장 Geofence는 30m 정사각형이므로 좌표를 STEP_METERS(15m) 간격으로 보내 영역 안에 반드시 한 번은 들어가게 한다.
+  # 정류장 Geofence는 30m 정사각형이므로 좌표 간격을 speed_kmh/3.6 미터(45km/h면 12.5m)로 유지해
+  # 영역 안에 반드시 한 번은 들어가게 한다. 기본 간격 1초 기준 108km/h 미만이면 30m 반변을 넘지 않는다.
   # 위치 시각은 항상 앞으로만 간다 — Traccar는 과거 시각의 위치를 건너뛰어 이벤트가 사라진다.
   class BusSimulator
-    STEP_METERS = 15.0
     APPROACH_METERS = 100.0
     METERS_PER_DEGREE = 111_320.0
 
     Point = Struct.new(:lat, :lng, :speed, :label, keyword_init: true)
 
     def initialize(device_id:, rails_url: "http://localhost:3000", osmand_url: "http://localhost:5055",
-                   interval: 1.0, dwell: 6, settle: 3.0, out: $stdout)
+                   interval: 1.0, dwell: 6, settle: 3.0, speed_kmh: 45.0, laps: 1, pass_wait: nil, lap_gap: 0.0, start_stop: nil, out: $stdout)
       @device_id = device_id
       @rails_url = rails_url
       @osmand_url = osmand_url
       @interval = interval
       @dwell = dwell
       @settle = settle
+      raise ArgumentError, "반복 횟수는 0 이상이어야 합니다 (0이면 중단할 때까지 계속)." if laps.negative?
+
+      @laps = laps # 반복 횟수. 0이면 중단(Ctrl+C)할 때까지 계속 돈다
+      @pass_wait = pass_wait || settle # 마지막 정류장을 떠난 뒤 운행을 끝내기 전까지 기다리는 시간 — 화면이 "지나갔습니다"를 보여 줄 시간
+      @lap_gap = lap_gap # 바퀴 사이 쉬는 시간
+      @start_stop = start_stop # 첫 바퀴만 이 이름의 정류장부터 끝까지 주행한다(2번째 바퀴부터는 노선 전체, nil이면 모든 바퀴가 전체). 응답에 정류장 id가 없어 이름으로만 지정한다
+      @speed_kmh = speed_kmh
+      @step_meters = speed_kmh / 3.6
       @out = out
       @last_timestamp = 0
     end
@@ -31,17 +39,44 @@ module Demo
       info = fetch_info
       route = info["route"] ||
               raise(ArgumentError, "이 차량에는 배정된 노선이 없습니다. 관리자 화면에서 노선을 배정하세요.")
+      first_lap_route = @start_stop ? route.merge("stops" => stops_from_start(route["stops"])) : route # 검증은 시작 전에 한 번만
       end_trip if info["activeTrip"]
-      start_trip(route)
-      begin
-        build_path(route["stops"]).each { |point| send_position(point) }
-        sleep @settle # 마지막 정류장의 이탈 이벤트가 Rails에 도착할 시간을 준 뒤 종료한다
-      ensure
-        end_trip
+
+      lap = 0
+      loop do
+        lap += 1
+        @out.puts "== #{lap}번째 운행#{" (중단: Ctrl+C)" if @laps.zero? && lap == 1}#{" (전체 노선)" if @start_stop && lap == 2}" unless @laps == 1
+        drive_once(lap == 1 ? first_lap_route : route)
+        break if @laps.positive? && lap >= @laps
+
+        sleep @lap_gap
       end
     end
 
     private
+
+    # 지정한 이름의 정류장부터 끝까지(첫 바퀴용). 그 정류장 100m 앞에서 출발하는 것은 build_path가 그대로 처리한다.
+    def stops_from_start(stops)
+      index = stops.index { |stop| stop["name"] == @start_stop }
+      raise ArgumentError, "시작 정류장 '#{@start_stop}'이(가) 노선에 없습니다 (노선의 정류장: #{stops.map { |s| s["name"] }.join(", ")})" unless index
+
+      rest = stops.drop(index)
+      raise ArgumentError, "마지막 정류장에서는 시작할 수 없습니다 (방향 계산에 정류장이 2개 이상 필요합니다): #{@start_stop}" if rest.size < 2
+
+      @out.puts "시작 정류장: #{@start_stop} (이후 #{rest.size - 1}개 정류장)"
+      rest
+    end
+
+    # 운행 하나: 시작 → 노선 주행 → (마지막 정류장 이탈 이벤트가 도착할 시간을 둔 뒤) 종료.
+    def drive_once(route)
+      begin
+        start_trip(route) # 요청 도중 Ctrl+C가 와도 서버에 열린 운행이 남지 않도록 ensure 안에서 시작한다
+        build_path(route["stops"]).each { |point| send_position(point) }
+        sleep @pass_wait
+      ensure
+        end_trip
+      end
+    end
 
     def fetch_info
       get_json("/integrations/traccar/bus?deviceId=#{@device_id}")
@@ -73,15 +108,15 @@ module Demo
     def start_point(stops)
       first, second = stops.first(2)
       lat, lng = move(first["lat"], first["lng"], *direction(second, first), APPROACH_METERS)
-      Point.new(lat: lat, lng: lng, speed: 10)
+      Point.new(lat: lat, lng: lng, speed: (@speed_kmh / @interval).round(1))
     end
 
-    # from에서 (lat, lng)까지 STEP_METERS 간격의 좌표들 (to 포함, from 제외).
+    # from에서 (lat, lng)까지 @step_meters 간격의 좌표들 (to 포함, from 제외).
     def interpolate(from, lat, lng)
-      steps = [ (distance(from.lat, from.lng, lat, lng) / STEP_METERS).ceil, 1 ].max
+      steps = [ (distance(from.lat, from.lng, lat, lng) / @step_meters).ceil, 1 ].max
       (1..steps).map do |i|
         ratio = i.to_f / steps
-        Point.new(lat: from.lat + (lat - from.lat) * ratio, lng: from.lng + (lng - from.lng) * ratio, speed: 10)
+        Point.new(lat: from.lat + (lat - from.lat) * ratio, lng: from.lng + (lng - from.lng) * ratio, speed: (@speed_kmh / @interval).round(1))
       end
     end
 

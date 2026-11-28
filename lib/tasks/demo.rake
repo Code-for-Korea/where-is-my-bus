@@ -4,9 +4,14 @@ namespace :demo do
     Demo::Seed.new.run
   end
 
-  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 한 바퀴 도는 것을 흉내낸다. 예: bin/rails 'demo:drive[1번]'"
-  task :drive, %i[bus interval dwell] => :environment do |_task, args|
-    abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초]'" if args[:bus].blank?
+  desc "하자센터 시연 데이터(정류장·노선·차량)를 만든다. Traccar가 떠 있어야 하며 여러 번 실행해도 안전하다"
+  task seed_haja_center: :environment do
+    Demo::HajaCenterSeed.new.run
+  end
+
+  desc "운전자 앱 대신 버스 한 대가 배정된 노선을 도는 것을 흉내낸다(기본 한 바퀴, 반복 횟수 0이면 계속). 예: bin/rails 'demo:drive[1번]', bin/rails 'demo:drive[1번,2,15,0,15,20]'. 7번째 인자 시작 정류장 이름을 주면 첫 바퀴만 그 정류장부터 종점까지 돌고 2번째 바퀴부터는 전체 노선을 돈다(예: 'demo:drive[1번,5,15,0,5,2,영등포구민회관.영등포경찰서]', 이름에 쉼표가 있으면 쓸 수 없다). 로컬 DB에 없는 운영 차량은 환경변수 DEMO_DEVICE_ID로 deviceId를 준다"
+  task :drive, %i[bus interval dwell laps pass_wait lap_gap start_stop] => :environment do |_task, args|
+    abort "사용법: bin/rails 'demo:drive[버스(번호판 또는 번호),전송간격초,정차초,반복횟수,지나간뒤대기초,바퀴사이대기초[,시작정류장이름]]' (반복횟수 0 = 계속)" if args[:bus].blank?
 
     $stdout.sync = true # 파이프·파일로 보낼 때도 진행 상황이 바로 보이게
 
@@ -15,15 +20,28 @@ namespace :demo do
     interval = Float(args[:interval] || 1.0)
     abort "전송 간격은 1초 이상이어야 합니다 (위치 시각이 실제 시간보다 앞서가면 연속 실행 때 이벤트가 사라집니다)." if interval < 1.0
 
-    bus = Bus.find_by(license_plate: args[:bus]) || Bus.find_by(bus_number: args[:bus])
-    abort "버스 '#{args[:bus]}'를 찾을 수 없습니다 (있는 버스: #{Bus.pluck(:license_plate, :bus_number).map { |p, n| "#{p}(#{n})" }.join(", ")})" unless bus
+    laps = Integer(args[:laps] || 1)
+    abort "반복 횟수는 0 이상이어야 합니다 (0이면 중단할 때까지 계속)." if laps.negative?
+
+    # 운영 서버 차량처럼 로컬 DB에 없는 차량은 DEMO_DEVICE_ID 환경변수로 deviceId를 직접 받는다.
+    # deviceId는 사실상 비밀번호라 인자(셸 기록·ps에 남음)가 아니라 환경변수로만 받는다.
+    device_id = ENV["DEMO_DEVICE_ID"].presence
+    unless device_id
+      bus = Bus.find_by(license_plate: args[:bus]) || Bus.find_by(bus_number: args[:bus])
+      abort "버스 '#{args[:bus]}'를 찾을 수 없습니다 (있는 버스: #{Bus.pluck(:license_plate, :bus_number).map { |p, n| "#{p}(#{n})" }.join(", ")})" unless bus
+      device_id = bus.traccar_unique_id
+    end
 
     Demo::BusSimulator.new(
-      device_id: bus.traccar_unique_id,
+      device_id: device_id,
       rails_url: ENV.fetch("DEMO_RAILS_URL", "http://localhost:3000"),
       osmand_url: ENV.fetch("TRACCAR_OSMAND_URL", "http://localhost:5055"),
       interval: interval,
-      dwell: Float(args[:dwell] || 6)
+      dwell: Float(args[:dwell] || 6),
+      laps: laps,
+      pass_wait: args[:pass_wait] && Float(args[:pass_wait]),
+      lap_gap: Float(args[:lap_gap] || 0),
+      start_stop: args[:start_stop].presence
     ).run
   rescue ArgumentError => e
     abort e.message

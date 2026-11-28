@@ -6,7 +6,7 @@
 
 | 경로 | 내용 |
 |---|---|
-| `/`(루트) | 관리자, 승객용 웹 애플리케이션 (Rails 8.1, Ruby 4.0.9 — `.tool-versions`/`.ruby-version` 고정) |
+| `/`(루트) | 관리자, 승객용 웹 애플리케이션 (Rails 8.1, Ruby 4.0.10 — `.tool-versions`/`.ruby-version` 고정) |
 | `driver_app/` | 버스 운전자용 Flutter 앱. Rails와 별도로 빌드·배포되며 `integrations/traccar/*` API 계약으로 강결합 |
 | `docs/` | 설계, 정책 문서 (아래 "문서 지도") |
 

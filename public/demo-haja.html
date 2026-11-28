@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 정류장 id(40, 41, 42)와 노선 id(6)는 운영 서버 기준이다. 로컬 개발 DB에서는 다를 수 있으니 주소를 맞춰 쓴다. -->
+<title>내 버스는 언제 올까? - 하자센터 앞뒤 3개 정류장 동시 시연</title>
+<style>
+  :root { --w: 390px; --h: 780px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: #111827; color: #fff;
+         font-family: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 22px; text-align: center; }
+  p.sub { margin: 0 0 16px; text-align: center; color: #9ca3af; font-size: 14px; }
+  .row { display: flex; gap: 20px; justify-content: center; align-items: flex-start;
+         overflow-x: auto; padding-bottom: 12px; }
+  .col { flex: 0 0 var(--w); width: var(--w); }
+  .cap { text-align: center; margin-bottom: 8px; }
+  .cap .tag { display: inline-block; font-size: 13px; font-weight: 700; color: #111827;
+              background: #fbbf24; border-radius: 999px; padding: 2px 10px; }
+  .cap .tag.me { background: #60a5fa; }
+  .cap .name { display: block; margin-top: 4px; font-size: 16px; font-weight: 700; }
+  iframe { display: block; width: var(--w); height: var(--h); border: 0; border-radius: 16px; background: #fff; }
+  /* 화면이 3대를 담기엔 좁으면(약 1250px 미만) 세로로 쌓는다. 가로 스크롤을 원하면 이 블록을 지운다. */
+  @media (max-width: 1250px) {
+    .row { flex-direction: column; align-items: center; overflow-x: visible; }
+  }
+</style>
+</head>
+<body>
+  <h1>내 버스는 언제 올까? - 시연 버스 한 대, 정류장 세 곳</h1>
+  <p class="sub">각 화면은 5초마다 갱신됩니다. 버스가 지나가면 정류장마다 다른 상태가 동시에 보입니다.</p>
+  <div class="row">
+    <div class="col">
+      <div class="cap"><span class="tag">직전 정류장</span><span class="name">영등포구민회관.영등포경찰서</span></div>
+      <iframe src="/stops/41/routes/6" title="직전 정류장 영등포구민회관.영등포경찰서" loading="eager"></iframe>
+    </div>
+    <div class="col">
+      <div class="cap"><span class="tag me">내 정류장</span><span class="name">하이서울유스호스텔</span></div>
+      <iframe src="/stops/40/routes/6" title="내 정류장 하이서울유스호스텔" loading="eager"></iframe>
+    </div>
+    <div class="col">
+      <div class="cap"><span class="tag">다음(종점)</span><span class="name">신화요양병원</span></div>
+      <iframe src="/stops/42/routes/6" title="다음 정류장(종점) 신화요양병원" loading="eager"></iframe>
+    </div>
+  </div>
+</body>
+</html>
