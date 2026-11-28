@@ -243,7 +243,7 @@ sequenceDiagram
 
 ## 기술 스택
 
-- **Ruby** 4.0.9 / **Rails** 8.1 (`.tool-versions`로 asdf 고정)
+- **Ruby** 4.0.10 / **Rails** 8.1 (`.tool-versions`로 asdf 고정)
 - **DB**: SQLite (운영도 파일 DB)
 - **프론트**: Hotwire(Turbo/Stimulus) + importmap, **Tailwind CSS 4**
 - **인증**: Rails 8 내장 인증(세션 + `has_secure_password`)
@@ -283,7 +283,7 @@ docker compose exec rails bin/rails "demo:drive[1번]"   # 폰 없이 버스 한
 
 ### Rails를 직접 실행
 
-사전 준비: [asdf](https://asdf-vm.com/)로 Ruby 4.0.9 설치(`.tool-versions` 참고)
+사전 준비: [asdf](https://asdf-vm.com/)로 Ruby 4.0.10 설치(`.tool-versions` 참고)
 
 ```bash
 bundle install

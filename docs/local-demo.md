@@ -9,7 +9,7 @@ Traccar는 두 방식 모두 **도커 컨테이너**로 돈다(호스트에 직�
 
 | | A. `docker compose` | B. `bin/dev` |
 |---|---|---|
-| Rails | 컨테이너 | 내 PC (Ruby 4.0.9 필요) |
+| Rails | 컨테이너 | 내 PC (Ruby 4.0.10 필요) |
 | Traccar | 컨테이너(compose 서비스) | 컨테이너 `where-is-my-bus-traccar` |
 | 준비물 | Docker Desktop만 | Docker Desktop + Ruby 환경 |
 | 데모 시드 | 첫 기동 때 자동 | 직접 `bin/rails demo:seed` |

@@ -542,7 +542,7 @@ DNS의 A 레코드를 먼저 옮기고 배포한다.
 
 ## 로컬에서 확인한 것
 
-- 이미지가 빌드된다(Ruby 4.0.9-slim, 에셋 프리컴파일 포함).
+- 이미지가 빌드된다(Ruby 4.0.10-slim, 에셋 프리컴파일 포함).
 - 빈 스토리지 디렉터리를 마운트하고 `RAILS_ENV=production`으로 `db:prepare`를 실행하면 4개 DB가 만들어지고 `users=0`이며(시드 데이터 없음), 두 번 실행해도 오류가 없다.
 - 이미지에 키 파일·`.env`·SQLite·`settings.local.json`·개발용 credentials·문서·테스트·에이전트 디렉터리가 들어 있지 않다.
 - Traccar accessory와 같은 설정(환경변수, 네트워크 별칭 `rails-app`)으로 도커 네트워크에서 `geofenceEnter` 이벤트가 `Host: rails-app`, `X-Ingest-Token` 헤더와 함께 도착한다. 수신 쪽은 실제 Rails가 아니라 간이 수신기였다.
